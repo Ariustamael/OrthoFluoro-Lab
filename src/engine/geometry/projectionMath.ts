@@ -1,7 +1,15 @@
-import { add, dot, scale, subtract } from "./coordinateSystems";
+import {
+  add,
+  dot,
+  magnitude,
+  normalize,
+  scale,
+  subtract,
+} from "./coordinateSystems";
 import type { DetectorPlane, DetectorPoint, Vec3 } from "./geometryTypes";
 
-const EPSILON = 1e-9;
+const PARALLEL_ANGULAR_TOLERANCE = 1e-9;
+const DEPTH_TOLERANCE = 1e-9;
 
 export function projectPointToDetector(
   source: Vec3,
@@ -9,12 +17,29 @@ export function projectPointToDetector(
   detector: DetectorPlane,
 ): DetectorPoint | null {
   const ray = subtract(point, source);
-  const denominator = dot(ray, detector.normal);
-  if (denominator <= EPSILON) return null;
+  const rayLength = magnitude(ray);
+  const normalLength = magnitude(detector.normal);
+  if (
+    rayLength === 0 ||
+    normalLength === 0 ||
+    !Number.isFinite(rayLength) ||
+    !Number.isFinite(normalLength)
+  ) {
+    return null;
+  }
+
+  const rayDirection = normalize(ray);
+  const normalDirection = normalize(detector.normal);
+  if (
+    Math.abs(dot(rayDirection, normalDirection)) <= PARALLEL_ANGULAR_TOLERANCE
+  ) {
+    return null;
+  }
 
   const rayScale =
-    dot(subtract(detector.center, source), detector.normal) / denominator;
-  if (rayScale <= 0) return null;
+    dot(subtract(detector.center, source), normalDirection) /
+    dot(ray, normalDirection);
+  if (rayScale < 1 - DEPTH_TOLERANCE) return null;
 
   const hit = add(source, scale(ray, rayScale));
   const offset = subtract(hit, detector.center);
@@ -29,7 +54,12 @@ export function magnification(
   sourceDetectorDistance: number,
   sourceObjectDistance: number,
 ): number {
-  if (sourceDetectorDistance <= 0 || sourceObjectDistance <= 0) {
+  if (
+    !Number.isFinite(sourceDetectorDistance) ||
+    !Number.isFinite(sourceObjectDistance) ||
+    sourceDetectorDistance <= 0 ||
+    sourceObjectDistance <= 0
+  ) {
     throw new RangeError("Projection distances must be positive");
   }
   return sourceDetectorDistance / sourceObjectDistance;
