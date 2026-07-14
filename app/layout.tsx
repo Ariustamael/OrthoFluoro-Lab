@@ -6,6 +6,7 @@ export const metadata: Metadata = {
   description:
     "Explore how 3D positioning changes simplified fluoroscopic projections",
   icons: { icon: "/favicon.svg", shortcut: "/favicon.svg" },
+  manifest: "/manifest.webmanifest",
 };
 
 export default function RootLayout({

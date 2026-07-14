@@ -1,4 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
+import { OfflineStatus } from "../common/OfflineStatus";
+import { PwaStatus } from "../common/PwaStatus";
 
 const navigation = [
   ["/", "Home"],
@@ -11,6 +13,8 @@ const navigation = [
 export function AppLayout() {
   return (
     <div className="app-shell">
+      <OfflineStatus />
+      <PwaStatus />
       <a className="skip-link" href="#main-content">
         Skip to content
       </a>

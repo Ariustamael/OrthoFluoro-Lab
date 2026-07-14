@@ -1,0 +1,28 @@
+{
+  "id": "/",
+  "name": "OrthoFluoro Lab",
+  "short_name": "Fluoro Lab",
+  "description": "Explore how 3D positioning changes simplified fluoroscopic projections",
+  "start_url": "/lab",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#030a12",
+  "theme_color": "#07131f",
+  "orientation": "any",
+  "categories": ["education", "medical"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Open geometry lab",
+      "short_name": "Lab",
+      "url": "/lab"
+    }
+  ]
+}
