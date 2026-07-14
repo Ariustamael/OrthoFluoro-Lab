@@ -12,6 +12,10 @@ import {
   releaseHandlePointer,
 } from "../../src/components/scene/CArmRig";
 import {
+  advanceAnatomyRotationValue,
+  ANATOMY_ROTATION_HANDLE_DEFINITIONS,
+} from "../../src/components/scene/TheatreScene";
+import {
   canInitializeWebGL,
   WebGLErrorFallback,
 } from "../../src/components/scene/WebGLErrorFallback";
@@ -204,6 +208,42 @@ describe("direct C-arm handle deltas", () => {
 
     expect(target.setPointerCapture).toHaveBeenCalledWith(7);
     expect(target.releasePointerCapture).toHaveBeenCalledWith(7);
+  });
+});
+
+describe("direct anatomy rotation handles", () => {
+  it("defines one visible rotation ring for every object axis", () => {
+    expect(
+      ANATOMY_ROTATION_HANDLE_DEFINITIONS.map(({ axis, index }) => ({
+        axis,
+        index,
+      })),
+    ).toEqual([
+      { axis: "X", index: 0 },
+      { axis: "Y", index: 1 },
+      { axis: "Z", index: 2 },
+    ]);
+  });
+
+  it("supports ordinary, snapped, and fine object rotation drags", () => {
+    expect(
+      advanceAnatomyRotationValue(0, 0, 10, {
+        altKey: false,
+        shiftKey: false,
+      }).value,
+    ).toBe(4);
+    expect(
+      advanceAnatomyRotationValue(0, 0, 11, {
+        altKey: false,
+        shiftKey: true,
+      }).value,
+    ).toBe(5);
+    expect(
+      advanceAnatomyRotationValue(0, 0, 10, {
+        altKey: true,
+        shiftKey: false,
+      }).value,
+    ).toBeCloseTo(0.4);
   });
 });
 

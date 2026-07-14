@@ -20,6 +20,7 @@ test.afterEach(async ({ page }) => {
 });
 
 test("@desktop learner completes the core geometry journey", async ({
+  context,
   page,
 }) => {
   await expect(page.getByRole("region", { name: "3D theatre" })).toBeVisible();
@@ -33,6 +34,10 @@ test("@desktop learner completes the core geometry journey", async ({
   ).toHaveAttribute("aria-pressed", "true");
 
   const orbit = page.getByRole("spinbutton", { name: "Orbit angle" });
+  const projectionImage = page
+    .getByRole("region", { name: "Simplified anatomical projection" })
+    .locator("img");
+  await expect(projectionImage).toBeVisible();
   await orbit.fill("15");
   await orbit.press("Enter");
   await expect(
@@ -42,9 +47,17 @@ test("@desktop learner completes the core geometry journey", async ({
   const objectRotation = page.getByRole("spinbutton", {
     name: "Object rotation X",
   });
+  const projectionBeforeRotation = await projectionImage.getAttribute("src");
+  await page.getByRole("button", { name: "Move anatomy" }).click();
+  await expect(
+    page.getByRole("button", { name: "Move anatomy" }),
+  ).toHaveAttribute("aria-pressed", "true");
   await objectRotation.fill("20");
   await objectRotation.press("Enter");
   await expect(objectRotation).toHaveValue("20");
+  await expect
+    .poll(() => projectionImage.getAttribute("src"))
+    .not.toBe(projectionBeforeRotation);
 
   await page.getByRole("button", { name: "Take simulated image" }).click();
   await expect(
@@ -53,6 +66,40 @@ test("@desktop learner completes the core geometry journey", async ({
 
   await page.getByRole("button", { name: "Reset geometry" }).click();
   await expect(orbit).toHaveValue("0");
+
+  await context.setOffline(true);
+  await expect(
+    page.getByText("Offline — the current lab remains available"),
+  ).toBeVisible();
+  await orbit.fill("10");
+  await orbit.press("Enter");
+  await expect(
+    page.getByRole("status", { name: "Projection status" }),
+  ).toContainText("Orbit 10.0°");
+  await context.setOffline(false);
+});
+
+test("@desktop declared routes render distinct learning pages", async ({
+  page,
+}) => {
+  const routes = [
+    ["/", "Explore fluoroscopy in three dimensions"],
+    ["/guided", "Guided views"],
+    ["/guided/wrist-true-lateral", "Wrist true lateral"],
+    ["/library", "Case library"],
+    ["/library/wrist-neutral", "Wrist neutral case"],
+    ["/communication", "Communication practice"],
+    ["/saved", "Saved learning"],
+    ["/about", "About OrthoFluoro Lab"],
+    ["/settings", "Settings"],
+  ] as const;
+
+  for (const [path, heading] of routes) {
+    await page.goto(path);
+    await expect(
+      page.getByRole("heading", { level: 1, name: heading }),
+    ).toBeVisible();
+  }
 });
 
 test("@mobile learner can switch between every lab surface", async ({

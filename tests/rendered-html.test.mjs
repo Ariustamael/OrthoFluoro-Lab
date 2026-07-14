@@ -41,11 +41,33 @@ test("keeps the finished shell free of starter preview assets", async () => {
     readFile(new URL("../package.json", import.meta.url), "utf8"),
   ]);
   assert.match(page, /<AppEntry \/>/);
-  assert.match(layout, /title:\s*"OrthoFluoro Lab"/);
+  assert.match(layout, /const title = "OrthoFluoro Lab"/);
+  assert.match(layout, /new URL\("\/og\.png", metadataBase\)\.href/);
   assert.doesNotMatch(layout, /codex-preview|_sites-preview/);
   assert.doesNotMatch(packageJson, /react-loading-skeleton/);
   assert.deepEqual(
     await readdir(new URL("../app/_sites-preview", import.meta.url)),
     [],
   );
+});
+
+test("ships a same-origin offline shell from the deployed asset root", async () => {
+  const [serviceWorker, manifest] = await Promise.all([
+    readFile(
+      new URL("../dist/client/service-worker.js", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL("../dist/client/manifest.webmanifest", import.meta.url),
+      "utf8",
+    ),
+  ]);
+
+  assert.match(serviceWorker, /orthofluoro-shell-v1/);
+  assert.match(serviceWorker, /"\/", "\/lab"/);
+  assert.match(serviceWorker, /request\.mode === "navigate"/);
+  assert.match(serviceWorker, /url\.origin !== self\.location\.origin/);
+  assert.match(serviceWorker, /\^\\\/\(models\|content\)\\\//);
+  assert.doesNotMatch(serviceWorker, /https?:\/\//);
+  assert.equal(JSON.parse(manifest).start_url, "/lab");
 });

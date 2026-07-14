@@ -1,6 +1,5 @@
 import vinext from "vinext";
 import { defineConfig } from "vite";
-import { VitePWA } from "vite-plugin-pwa";
 import hostingConfig from "./.openai/hosting.json";
 import { sites } from "./build/sites-vite-plugin";
 
@@ -51,32 +50,6 @@ export default defineConfig(async () => {
     plugins: [
       vinext(),
       sites(),
-      VitePWA({
-        filename: "service-worker.js",
-        includeAssets: ["favicon.svg", "manifest.webmanifest"],
-        injectRegister: false,
-        manifest: false,
-        registerType: "prompt",
-        workbox: {
-          cleanupOutdatedCaches: true,
-          globPatterns: ["client/**/*.{js,css,html,svg,webmanifest,woff2}"],
-          navigateFallback: "/",
-          runtimeCaching: [
-            {
-              urlPattern: ({ sameOrigin, url }) =>
-                sameOrigin && /^\/(models|content)\//.test(url.pathname),
-              handler: "CacheFirst",
-              options: {
-                cacheName: "orthofluoro-content-v1",
-                expiration: {
-                  maxAgeSeconds: 60 * 60 * 24 * 30,
-                  maxEntries: 48,
-                },
-              },
-            },
-          ],
-        },
-      }),
       cloudflare({
         viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
         config: localBindingConfig,
