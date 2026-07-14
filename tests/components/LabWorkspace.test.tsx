@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CArmControls } from "../../src/components/controls/CArmControls";
 import {
   collimationOverlayFrame,
+  detectorDisplayDimensions,
   detectorRenderDimensions,
   detectorRenderScale,
   effectiveDetectorRenderScale,
@@ -27,6 +28,48 @@ import type {
   ProjectionRenderer,
 } from "../../src/engine/projection/rendererTypes";
 import { useSimulationStore } from "../../src/state/simulationStore";
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve;
+    reject = nextReject;
+  });
+  return { promise, reject, resolve };
+}
+
+function testProjectionOutput(
+  description: string,
+  strategyId: string,
+): ProjectionOutput {
+  return {
+    artifact: {
+      dataUrl: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
+        `<svg xmlns="http://www.w3.org/2000/svg" data-strategy="${strategyId}" />`,
+      )}`,
+      detectorSensor: { height: 400, width: 400 },
+      height: 400,
+      width: 400,
+    },
+    description,
+    strategyId,
+  };
+}
+
+function decodeSvg(output: ProjectionOutput): string {
+  return decodeURIComponent(
+    output.artifact.dataUrl.slice(output.artifact.dataUrl.indexOf(",") + 1),
+  );
+}
+
+function anatomyStrokeWidths(output: ProjectionOutput): number[] {
+  return [
+    ...decodeSvg(output).matchAll(
+      /data-anatomy-layer[^>]*stroke-width="([\d.]+)"/g,
+    ),
+  ].map((match) => Number(match[1]));
+}
 
 vi.mock("@react-three/fiber", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@react-three/fiber")>();
@@ -146,6 +189,10 @@ describe("detector rendering contracts", () => {
       height: 300,
       width: 300,
     });
+    expect(detectorDisplayDimensions()).toEqual({
+      height: 500,
+      width: 500,
+    });
   });
 
   it("shrinks the centred collimation overlay within stable sensor bounds", () => {
@@ -224,14 +271,53 @@ describe("replaceable projection renderer", () => {
     expect(rotated.artifact.dataUrl).not.toBe(reference.artifact.dataUrl);
     expect(translated.artifact.dataUrl).not.toBe(reference.artifact.dataUrl);
     expect(magnified.artifact.dataUrl).not.toBe(reference.artifact.dataUrl);
-    const decodedReference = decodeURIComponent(
-      reference.artifact.dataUrl.slice(
-        reference.artifact.dataUrl.indexOf(",") + 1,
-      ),
-    );
-    expect(decodedReference.match(/<line /g)).toHaveLength(3);
+    const decodedReference = decodeSvg(reference);
+    expect(decodedReference.match(/data-anatomy-layer/g)).toHaveLength(3);
     expect(decodedReference.indexOf("#8a8a8a")).toBeLessThan(
       decodedReference.indexOf("#eeeeee"),
+    );
+  });
+
+  it("preserves circular anatomy silhouettes in canonical AP and lateral views", async () => {
+    const renderer = new SimplifiedProjectionRenderer();
+    const ap = await renderer.render(projectionInput);
+    const lateral = await renderer.render({
+      ...projectionInput,
+      geometry: buildCArmGeometry({
+        ...REFERENCE_C_ARM_POSE,
+        orbitDegrees: 90,
+      }),
+    });
+
+    const apWidths = anatomyStrokeWidths(ap);
+    const lateralWidths = anatomyStrokeWidths(lateral);
+
+    expect(apWidths).toHaveLength(3);
+    expect(lateralWidths).toHaveLength(3);
+    lateralWidths.forEach((width, index) => {
+      expect(width).toBeGreaterThan(1);
+      expect(width).toBeGreaterThan(apWidths[index] * 0.8);
+      expect(width).toBeLessThan(apWidths[index] * 1.2);
+    });
+  });
+
+  it("increases procedural detector detail with backing resolution", async () => {
+    const renderer = new SimplifiedProjectionRenderer();
+    const low = await renderer.render({
+      ...projectionInput,
+      height: 300,
+      width: 300,
+    });
+    const high = await renderer.render({
+      ...projectionInput,
+      height: 500,
+      width: 500,
+    });
+
+    expect(decodeSvg(low).match(/data-detector-detail/g)).toHaveLength(30);
+    expect(decodeSvg(high).match(/data-detector-detail/g)).toHaveLength(50);
+    expect(high.artifact.dataUrl.length).toBeGreaterThan(
+      low.artifact.dataUrl.length,
     );
   });
 
@@ -295,10 +381,152 @@ describe("replaceable projection renderer", () => {
       name: "Test projection strategy",
     });
     expect(projectionImage).toHaveAttribute("src", output.artifact.dataUrl);
-    expect(projectionImage).toHaveAttribute("width", "64");
-    expect(projectionImage).toHaveAttribute("height", "48");
+    expect(projectionImage).toHaveAttribute("width", "500");
+    expect(projectionImage).toHaveAttribute("height", "500");
+    expect(screen.getByTestId("projection-detector-display")).toHaveStyle({
+      aspectRatio: "1 / 1",
+    });
 
     unmount();
     expect(renderer.dispose).toHaveBeenCalledOnce();
+  });
+
+  it("clears a completed artifact while a replacement renderer is pending", async () => {
+    const firstOutput = testProjectionOutput("First projection", "first");
+    const secondOutput = testProjectionOutput("Second projection", "second");
+    const secondRender = deferred<ProjectionOutput>();
+    const firstRenderer: ProjectionRenderer = {
+      dispose: vi.fn(),
+      render: vi.fn(async () => firstOutput),
+    };
+    const secondRenderer: ProjectionRenderer = {
+      dispose: vi.fn(),
+      render: vi.fn(() => secondRender.promise),
+    };
+    const firstFactory = () => firstRenderer;
+    const secondFactory = () => secondRenderer;
+    const view = render(<ProjectionView createRenderer={firstFactory} />);
+
+    expect(
+      await screen.findByRole("img", { name: "First projection" }),
+    ).toBeVisible();
+    view.rerender(<ProjectionView createRenderer={secondFactory} />);
+
+    await waitFor(() => expect(secondRenderer.render).toHaveBeenCalledOnce());
+    expect(
+      screen.queryByRole("img", { name: "First projection" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId("projection-detector-display")).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+    expect(
+      screen.getByRole("region", { name: "Simplified anatomical projection" }),
+    ).not.toHaveAttribute("data-projection-strategy");
+
+    await act(async () => secondRender.resolve(secondOutput));
+    expect(
+      await screen.findByRole("img", { name: "Second projection" }),
+    ).toBeVisible();
+    expect(firstRenderer.dispose).toHaveBeenCalledOnce();
+  });
+
+  it("clears a render error when a retry starts", async () => {
+    const firstRender = deferred<ProjectionOutput>();
+    const retryRender = deferred<ProjectionOutput>();
+    const renderer: ProjectionRenderer = {
+      dispose: vi.fn(),
+      render: vi
+        .fn<ProjectionRenderer["render"]>()
+        .mockImplementationOnce(() => firstRender.promise)
+        .mockImplementationOnce(() => retryRender.promise),
+    };
+    render(<ProjectionView createRenderer={() => renderer} />);
+    await waitFor(() => expect(renderer.render).toHaveBeenCalledOnce());
+
+    await act(async () => firstRender.reject(new Error("temporary failure")));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "temporary failure",
+    );
+
+    act(() => {
+      useSimulationStore.setState({
+        objectPose: { position: [10, 0, 0], rotationDegrees: [0, 0, 0] },
+      });
+    });
+    await waitFor(() => expect(renderer.render).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByTestId("projection-detector-display")).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+
+    await act(async () =>
+      retryRender.resolve(
+        testProjectionOutput("Recovered projection", "retry"),
+      ),
+    );
+    expect(
+      await screen.findByRole("img", { name: "Recovered projection" }),
+    ).toBeVisible();
+  });
+
+  it("ignores an older render that completes after the latest request", async () => {
+    const olderRender = deferred<ProjectionOutput>();
+    const latestRender = deferred<ProjectionOutput>();
+    const renderer: ProjectionRenderer = {
+      dispose: vi.fn(),
+      render: vi
+        .fn<ProjectionRenderer["render"]>()
+        .mockImplementationOnce(() => olderRender.promise)
+        .mockImplementationOnce(() => latestRender.promise),
+    };
+    render(<ProjectionView createRenderer={() => renderer} />);
+    await waitFor(() => expect(renderer.render).toHaveBeenCalledOnce());
+
+    act(() => {
+      useSimulationStore.setState({
+        objectPose: { position: [15, 0, 0], rotationDegrees: [0, 0, 0] },
+      });
+    });
+    await waitFor(() => expect(renderer.render).toHaveBeenCalledTimes(2));
+    await act(async () =>
+      latestRender.resolve(testProjectionOutput("Latest projection", "latest")),
+    );
+    expect(
+      await screen.findByRole("img", { name: "Latest projection" }),
+    ).toBeVisible();
+
+    await act(async () =>
+      olderRender.resolve(testProjectionOutput("Older projection", "older")),
+    );
+    expect(
+      screen.queryByRole("img", { name: "Older projection" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "Latest projection" }),
+    ).toBeVisible();
+  });
+
+  it("does not publish a deferred result after disposal", async () => {
+    const pendingRender = deferred<ProjectionOutput>();
+    const renderer: ProjectionRenderer = {
+      dispose: vi.fn(),
+      render: vi.fn(() => pendingRender.promise),
+    };
+    const view = render(<ProjectionView createRenderer={() => renderer} />);
+    await waitFor(() => expect(renderer.render).toHaveBeenCalledOnce());
+
+    view.unmount();
+    await act(async () =>
+      pendingRender.resolve(
+        testProjectionOutput("Disposed projection", "disposed"),
+      ),
+    );
+
+    expect(renderer.dispose).toHaveBeenCalledOnce();
+    expect(
+      screen.queryByRole("img", { name: "Disposed projection" }),
+    ).not.toBeInTheDocument();
   });
 });

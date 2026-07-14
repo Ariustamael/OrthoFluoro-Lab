@@ -94,33 +94,57 @@ function projectionLine(
   opacity = 1,
 ): string {
   if (start === null || end === null) return "";
-  return `<line x1="${number(start.x)}" y1="${number(start.y)}" x2="${number(end.x)}" y2="${number(end.y)}" stroke="${color}" stroke-width="${number(strokeWidth)}" stroke-linecap="round" opacity="${number(opacity)}" />`;
+  return `<line data-anatomy-layer="" x1="${number(start.x)}" y1="${number(start.y)}" x2="${number(end.x)}" y2="${number(end.y)}" stroke="${color}" stroke-width="${number(strokeWidth)}" stroke-linecap="round" opacity="${number(opacity)}" />`;
 }
 
-function projectedDiameter(
+function offsetPoint(center: Vec3, axis: Vec3, amount: number): Vec3 {
+  return [
+    center[0] + axis[0] * amount,
+    center[1] + axis[1] * amount,
+    center[2] + axis[2] * amount,
+  ];
+}
+
+function projectedCrossSectionDiameter(
   center: Vec3,
-  radiusPoint: Vec3,
+  radius: number,
   input: ProjectionInput,
   transform: ObjectTransform,
   width: number,
   height: number,
 ): number {
-  const projectedCenter = projectedLocalPoint(
-    center,
-    input,
-    transform,
-    width,
-    height,
-  );
-  const projectedRadius = projectedLocalPoint(
-    radiusPoint,
-    input,
-    transform,
-    width,
-    height,
-  );
-  if (projectedCenter === null || projectedRadius === null) return 1;
-  return Math.max(1, distance2d(projectedCenter, projectedRadius) * 2);
+  const radialAxes: readonly Vec3[] = [
+    [1, 0, 0],
+    [0, 1, 0],
+  ];
+  const diameters = radialAxes.flatMap((axis) => {
+    const start = projectedLocalPoint(
+      offsetPoint(center, axis, -radius),
+      input,
+      transform,
+      width,
+      height,
+    );
+    const end = projectedLocalPoint(
+      offsetPoint(center, axis, radius),
+      input,
+      transform,
+      width,
+      height,
+    );
+    return start === null || end === null ? [] : [distance2d(start, end)];
+  });
+  return Math.max(1, ...diameters);
+}
+
+function detectorDetailLines(width: number, height: number): string {
+  // Backing resolution controls deterministic detector sampling density. The
+  // display remains fixed while higher quality performs and emits more work.
+  const sampleCount = Math.max(1, Math.round(Math.min(width, height) / 10));
+  return Array.from({ length: sampleCount }, (_, index) => {
+    const y = ((index + 0.5) / sampleCount) * height;
+    return `<line data-detector-detail="" x1="0" y1="${number(y)}" x2="${number(width)}" y2="${number(y)}" stroke="#ffffff" stroke-width="0.250" opacity="0.025" />`;
+  }).join("");
 }
 
 function createSimplifiedSvg(input: ProjectionInput): {
@@ -137,23 +161,45 @@ function createSimplifiedSvg(input: ProjectionInput): {
   const softTissue = projectionLine(
     point([0, 0, -260]),
     point([0, 0, 260]),
-    projectedDiameter([0, 0, 0], [62, 0, 0], input, transform, width, height),
+    projectedCrossSectionDiameter(
+      [0, 0, 0],
+      62,
+      input,
+      transform,
+      width,
+      height,
+    ),
     "#8a8a8a",
     0.6,
   );
   const primaryBone = projectionLine(
     point([-20, 0, -245]),
     point([-20, 0, 245]),
-    projectedDiameter([-20, 0, 0], [-6, 0, 0], input, transform, width, height),
+    projectedCrossSectionDiameter(
+      [-20, 0, 0],
+      14,
+      input,
+      transform,
+      width,
+      height,
+    ),
     "#eeeeee",
   );
   const secondaryBone = projectionLine(
     point([20, 0, -235]),
     point([20, 0, 235]),
-    projectedDiameter([20, 0, 0], [32, 0, 0], input, transform, width, height),
+    projectedCrossSectionDiameter(
+      [20, 0, 0],
+      12,
+      input,
+      transform,
+      width,
+      height,
+    ),
     "#cfcfcf",
   );
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="${width}" height="${height}" fill="#050505" />${softTissue}${primaryBone}${secondaryBone}</svg>`;
+  const detectorDetail = detectorDetailLines(width, height);
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="${width}" height="${height}" fill="#050505" />${detectorDetail}${softTissue}${primaryBone}${secondaryBone}</svg>`;
   return { height, svg, width };
 }
 

@@ -25,6 +25,7 @@ const DETECTOR_RENDER_SCALE: Readonly<Record<QualityPreset, number>> = {
   high: 1,
 };
 const DETECTOR_RENDER_SIZE = 500;
+const DETECTOR_DISPLAY_SIZE = 500;
 
 export function detectorRenderScale(quality: QualityPreset): number {
   return DETECTOR_RENDER_SCALE[quality];
@@ -46,6 +47,13 @@ export function detectorRenderDimensions(
     DETECTOR_RENDER_SIZE * effectiveDetectorRenderScale(quality, isInteracting),
   );
   return { height: size, width: size };
+}
+
+export function detectorDisplayDimensions(): {
+  readonly width: number;
+  readonly height: number;
+} {
+  return { height: DETECTOR_DISPLAY_SIZE, width: DETECTOR_DISPLAY_SIZE };
 }
 
 export interface CollimationOverlayFrame {
@@ -139,6 +147,12 @@ function DetectorOverlay({
       className="projection-view__overlay"
       preserveAspectRatio="xMidYMid meet"
       role="img"
+      style={{
+        blockSize: "100%",
+        inset: 0,
+        inlineSize: "100%",
+        position: "absolute",
+      }}
       viewBox={`0 0 ${artifactWidth} ${artifactHeight}`}
     >
       <rect
@@ -170,6 +184,11 @@ export interface ProjectionViewProps {
   createRenderer?: () => ProjectionRenderer;
 }
 
+type ProjectionState =
+  | { readonly status: "pending" }
+  | { readonly status: "ready"; readonly output: ProjectionOutput }
+  | { readonly status: "error"; readonly message: string };
+
 export function ProjectionView({
   createRenderer = createSimplifiedProjectionRenderer,
 }: ProjectionViewProps) {
@@ -179,12 +198,13 @@ export function ProjectionView({
   const isInteracting = usePointerInteraction();
   const geometry = useMemo(() => buildCArmGeometry(cArmPose), [cArmPose]);
   const renderDimensions = detectorRenderDimensions(quality, isInteracting);
+  const displayDimensions = detectorDisplayDimensions();
   const rendererRef = useRef<ProjectionRenderer | null>(null);
   const requestIdRef = useRef(0);
   const [renderer, setRenderer] = useState<ProjectionRenderer | null>(null);
-  const [projectionOutput, setProjectionOutput] =
-    useState<ProjectionOutput | null>(null);
-  const [projectionError, setProjectionError] = useState<string | null>(null);
+  const [projectionState, setProjectionState] = useState<ProjectionState>({
+    status: "pending",
+  });
   const projectionInput = useMemo<ProjectionInput>(
     () => ({
       geometry,
@@ -208,6 +228,7 @@ export function ProjectionView({
     rendererRef.current = nextRenderer;
     queueMicrotask(() => {
       if (active && rendererRef.current === nextRenderer) {
+        setProjectionState({ status: "pending" });
         setRenderer(nextRenderer);
       }
     });
@@ -222,39 +243,46 @@ export function ProjectionView({
   useEffect(() => {
     if (renderer === null || rendererRef.current !== renderer) return;
     let active = true;
-    const requestId = requestIdRef.current + 1;
-    requestIdRef.current = requestId;
-    void renderer.render(projectionInput).then(
-      (output) => {
-        if (
-          active &&
-          requestIdRef.current === requestId &&
-          rendererRef.current === renderer
-        ) {
-          setProjectionError(null);
-          setProjectionOutput(output);
-        }
-      },
-      (error: unknown) => {
-        if (
-          active &&
-          requestIdRef.current === requestId &&
-          rendererRef.current === renderer
-        ) {
-          setProjectionError(
-            error instanceof Error
-              ? error.message
-              : "Detector rendering failed",
-          );
-        }
-      },
-    );
+    queueMicrotask(() => {
+      if (!active || rendererRef.current !== renderer) return;
+      const requestId = requestIdRef.current + 1;
+      requestIdRef.current = requestId;
+      setProjectionState({ status: "pending" });
+      void renderer.render(projectionInput).then(
+        (output) => {
+          if (
+            active &&
+            requestIdRef.current === requestId &&
+            rendererRef.current === renderer
+          ) {
+            setProjectionState({ output, status: "ready" });
+          }
+        },
+        (error: unknown) => {
+          if (
+            active &&
+            requestIdRef.current === requestId &&
+            rendererRef.current === renderer
+          ) {
+            setProjectionState({
+              message:
+                error instanceof Error
+                  ? error.message
+                  : "Detector rendering failed",
+              status: "error",
+            });
+          }
+        },
+      );
+    });
     return () => {
       active = false;
     };
   }, [projectionInput, renderer]);
 
   const renderScale = effectiveDetectorRenderScale(quality, isInteracting);
+  const projectionOutput =
+    projectionState.status === "ready" ? projectionState.output : null;
   const description =
     projectionOutput?.description ?? "Preparing detector projection…";
 
@@ -272,12 +300,19 @@ export function ProjectionView({
         <p className="projection-view__education-label">{description}</p>
       </header>
       <div
-        aria-busy={projectionOutput === null && projectionError === null}
+        aria-busy={projectionState.status === "pending"}
         className="projection-view__detector"
+        data-testid="projection-detector-display"
+        style={{
+          aspectRatio: "1 / 1",
+          inlineSize: "100%",
+          maxInlineSize: `${DETECTOR_DISPLAY_SIZE}px`,
+          position: "relative",
+        }}
       >
-        {projectionError !== null ? (
-          <p role="alert">{projectionError}</p>
-        ) : projectionOutput === null ? (
+        {projectionState.status === "error" ? (
+          <p role="alert">{projectionState.message}</p>
+        ) : projectionState.status === "pending" ? (
           <p role="status">Preparing detector projection…</p>
         ) : (
           <>
@@ -286,10 +321,14 @@ export function ProjectionView({
             <img
               alt={projectionOutput.description}
               className="projection-view__surface"
-              height={projectionOutput.artifact.height}
+              height={displayDimensions.height}
               src={projectionOutput.artifact.dataUrl}
-              style={{ objectFit: "contain" }}
-              width={projectionOutput.artifact.width}
+              style={{
+                blockSize: "100%",
+                inlineSize: "100%",
+                objectFit: "contain",
+              }}
+              width={displayDimensions.width}
             />
             <DetectorOverlay
               artifactHeight={projectionOutput.artifact.height}
