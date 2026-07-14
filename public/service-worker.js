@@ -2,12 +2,32 @@ const SHELL_CACHE = "orthofluoro-shell-v1";
 const ASSET_CACHE = "orthofluoro-assets-v1";
 const CONTENT_CACHE = "orthofluoro-content-v1";
 const CURRENT_CACHES = new Set([SHELL_CACHE, ASSET_CACHE, CONTENT_CACHE]);
-const SHELL_URLS = ["/", "/lab", "/manifest.webmanifest", "/favicon.svg"];
+const SHELL_URLS = [
+  "/",
+  "/lab",
+  "/asset-manifest.json",
+  "/manifest.webmanifest",
+  "/favicon.svg",
+];
+
+async function installApplicationShell() {
+  const cache = await caches.open(SHELL_CACHE);
+  await cache.addAll(SHELL_URLS);
+  const manifestResponse = await cache.match("/asset-manifest.json");
+  if (!manifestResponse)
+    throw new Error("The asset manifest could not be cached");
+  const assetUrls = await manifestResponse.json();
+  if (
+    !Array.isArray(assetUrls) ||
+    assetUrls.some((url) => typeof url !== "string")
+  ) {
+    throw new Error("The asset manifest is invalid");
+  }
+  await cache.addAll(assetUrls);
+}
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches.open(SHELL_CACHE).then((cache) => cache.addAll(SHELL_URLS)),
-  );
+  event.waitUntil(installApplicationShell());
 });
 
 self.addEventListener("activate", (event) => {

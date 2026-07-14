@@ -67,12 +67,23 @@ test("@desktop learner completes the core geometry journey", async ({
   await page.getByRole("button", { name: "Reset geometry" }).click();
   await expect(orbit).toHaveValue("0");
 
+  await page.evaluate(async () => {
+    const registration = await navigator.serviceWorker.ready;
+    if (!registration.active) throw new Error("Service worker is not active");
+  });
+  await expect
+    .poll(() =>
+      page.evaluate(() => navigator.serviceWorker.controller !== null),
+    )
+    .toBe(true);
   await context.setOffline(true);
+  await page.reload();
   await expect(
-    page.getByText("Offline — the current lab remains available"),
+    page.getByRole("heading", { level: 1, name: "Projection geometry lab" }),
   ).toBeVisible();
-  await orbit.fill("10");
-  await orbit.press("Enter");
+  const offlineOrbit = page.getByRole("spinbutton", { name: "Orbit angle" });
+  await offlineOrbit.fill("10");
+  await offlineOrbit.press("Enter");
   await expect(
     page.getByRole("status", { name: "Projection status" }),
   ).toContainText("Orbit 10.0°");

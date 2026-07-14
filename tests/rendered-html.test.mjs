@@ -52,7 +52,7 @@ test("keeps the finished shell free of starter preview assets", async () => {
 });
 
 test("ships a same-origin offline shell from the deployed asset root", async () => {
-  const [serviceWorker, manifest] = await Promise.all([
+  const [serviceWorker, manifest, assetManifest] = await Promise.all([
     readFile(
       new URL("../dist/client/service-worker.js", import.meta.url),
       "utf8",
@@ -61,13 +61,24 @@ test("ships a same-origin offline shell from the deployed asset root", async () 
       new URL("../dist/client/manifest.webmanifest", import.meta.url),
       "utf8",
     ),
+    readFile(
+      new URL("../dist/client/asset-manifest.json", import.meta.url),
+      "utf8",
+    ),
   ]);
 
   assert.match(serviceWorker, /orthofluoro-shell-v1/);
-  assert.match(serviceWorker, /"\/", "\/lab"/);
+  assert.match(serviceWorker, /"\/"[\s\S]*"\/lab"/);
   assert.match(serviceWorker, /request\.mode === "navigate"/);
+  assert.match(serviceWorker, /asset-manifest\.json/);
+  assert.match(serviceWorker, /cache\.addAll\(assetUrls\)/);
   assert.match(serviceWorker, /url\.origin !== self\.location\.origin/);
   assert.match(serviceWorker, /\^\\\/\(models\|content\)\\\//);
   assert.doesNotMatch(serviceWorker, /https?:\/\//);
   assert.equal(JSON.parse(manifest).start_url, "/lab");
+  const assetPaths = JSON.parse(assetManifest);
+  assert.ok(assetPaths.length > 5);
+  assert.ok(assetPaths.some((path) => /\/assets\/.*\.js$/.test(path)));
+  assert.ok(assetPaths.some((path) => /\/assets\/.*\.css$/.test(path)));
+  assert.ok(assetPaths.every((path) => path.startsWith("/assets/")));
 });

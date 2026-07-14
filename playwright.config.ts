@@ -7,7 +7,7 @@ export default defineConfig({
   timeout: 30_000,
   expect: { timeout: 7_500 },
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000",
+    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3100",
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
   },
@@ -28,10 +28,4 @@ export default defineConfig({
       },
     },
   ],
-  webServer: {
-    command: "npm.cmd run dev",
-    url: "http://localhost:3000",
-    reuseExistingServer: true,
-    timeout: 120_000,
-  },
 });
