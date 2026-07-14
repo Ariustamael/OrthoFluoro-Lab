@@ -1,42 +1,42 @@
 export type Vec3 = readonly [number, number, number];
 
 export interface CArmPose {
-  translationX: number;
-  translationY: number;
-  translationZ: number;
-  height: number;
-  orbitDegrees: number;
-  obliquityDegrees: number;
-  cranialCaudalDegrees: number;
-  sourceDetectorDistance: number;
-  detectorPatientDistance: number;
-  collimationWidth: number;
-  collimationHeight: number;
+  readonly translationX: number;
+  readonly translationY: number;
+  readonly translationZ: number;
+  readonly height: number;
+  readonly orbitDegrees: number;
+  readonly obliquityDegrees: number;
+  readonly cranialCaudalDegrees: number;
+  readonly sourceDetectorDistance: number;
+  readonly detectorPatientDistance: number;
+  readonly collimationWidth: number;
+  readonly collimationHeight: number;
 }
 
 export interface ObjectPose {
-  position: Vec3;
-  rotationDegrees: Vec3;
+  readonly position: Vec3;
+  readonly rotationDegrees: Vec3;
 }
 
 export interface DetectorPlane {
-  center: Vec3;
-  normal: Vec3;
-  uAxis: Vec3;
-  vAxis: Vec3;
-  width: number;
-  height: number;
+  readonly center: Vec3;
+  readonly normal: Vec3;
+  readonly uAxis: Vec3;
+  readonly vAxis: Vec3;
+  readonly width: number;
+  readonly height: number;
 }
 
 export interface CArmGeometry {
-  source: Vec3;
-  detector: DetectorPlane;
+  readonly source: Vec3;
+  readonly detector: DetectorPlane;
 }
 
 export interface DetectorPoint {
-  u: number;
-  v: number;
-  rayScale: number;
+  readonly u: number;
+  readonly v: number;
+  readonly rayScale: number;
 }
 
 export const REFERENCE_C_ARM_POSE: Readonly<CArmPose> = Object.freeze({

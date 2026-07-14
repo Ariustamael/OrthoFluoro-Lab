@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import {
   add,
   cross,
@@ -8,7 +8,14 @@ import {
   scale,
   subtract,
 } from "../../src/engine/geometry/coordinateSystems";
-import { REFERENCE_C_ARM_POSE } from "../../src/engine/geometry/geometryTypes";
+import {
+  REFERENCE_C_ARM_POSE,
+  type CArmGeometry,
+  type CArmPose,
+  type DetectorPlane,
+  type DetectorPoint,
+  type ObjectPose,
+} from "../../src/engine/geometry/geometryTypes";
 
 describe("reference C-arm pose", () => {
   it("is deterministic and centred", () => {
@@ -25,6 +32,22 @@ describe("reference C-arm pose", () => {
       collimationWidth: 300,
       collimationHeight: 300,
     });
+  });
+});
+
+describe("geometry value-object contracts", () => {
+  it("exposes readonly fields", () => {
+    expectTypeOf<CArmPose>().branded.toEqualTypeOf<Readonly<CArmPose>>();
+    expectTypeOf<ObjectPose>().branded.toEqualTypeOf<Readonly<ObjectPose>>();
+    expectTypeOf<DetectorPlane>().branded.toEqualTypeOf<
+      Readonly<DetectorPlane>
+    >();
+    expectTypeOf<CArmGeometry>().branded.toEqualTypeOf<
+      Readonly<CArmGeometry>
+    >();
+    expectTypeOf<DetectorPoint>().branded.toEqualTypeOf<
+      Readonly<DetectorPoint>
+    >();
   });
 });
 
@@ -48,6 +71,20 @@ describe("coordinate-system vector helpers", () => {
     expect(normalized[2]).toBeCloseTo(0.8);
     expect(() => normalize([0, 0, 0])).toThrow(
       "Cannot normalize a zero-length vector",
+    );
+  });
+
+  it("normalizes extreme finite vectors without overflow or underflow", () => {
+    expect(normalize([1e308, 0, 0])).toEqual([1, 0, 0]);
+    expect(normalize([1e-200, 0, 0])).toEqual([1, 0, 0]);
+  });
+
+  it("rejects vectors with a non-finite magnitude", () => {
+    expect(() => normalize([Number.POSITIVE_INFINITY, 0, 0])).toThrow(
+      "Cannot normalize a vector with non-finite magnitude",
+    );
+    expect(() => normalize([Number.NaN, 0, 0])).toThrow(
+      "Cannot normalize a vector with non-finite magnitude",
     );
   });
 });

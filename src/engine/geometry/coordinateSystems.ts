@@ -22,9 +22,12 @@ export const cross = (a: Vec3, b: Vec3): Vec3 => [
   a[2] * b[0] - a[0] * b[2],
   a[0] * b[1] - a[1] * b[0],
 ];
-export const magnitude = (v: Vec3): number => Math.sqrt(dot(v, v));
+export const magnitude = (v: Vec3): number => Math.hypot(v[0], v[1], v[2]);
 export const normalize = (v: Vec3): Vec3 => {
   const length = magnitude(v);
+  if (!Number.isFinite(length)) {
+    throw new Error("Cannot normalize a vector with non-finite magnitude");
+  }
   if (length === 0) throw new Error("Cannot normalize a zero-length vector");
-  return scale(v, 1 / length);
+  return [v[0] / length, v[1] / length, v[2] / length];
 };
