@@ -5,8 +5,10 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CArmControls } from "../../src/components/controls/CArmControls";
+import { LabWorkspace } from "../../src/components/lab/LabWorkspace";
 import {
   collimationOverlayFrame,
   detectorDisplayDimensions,
@@ -27,6 +29,7 @@ import type {
   ProjectionOutput,
   ProjectionRenderer,
 } from "../../src/engine/projection/rendererTypes";
+import { LabPage } from "../../src/pages/LabPage";
 import { useSimulationStore } from "../../src/state/simulationStore";
 
 function deferred<T>() {
@@ -96,6 +99,121 @@ beforeEach(() => {
     objectPose: { position: [0, 0, 0], rotationDegrees: [0, 0, 0] },
     interactionMode: "inspect",
     quality: "medium",
+  });
+});
+
+function mockMobileViewport() {
+  vi.stubGlobal("matchMedia", (query: string) => ({
+    addEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
+    matches: query === "(max-width: 759px)",
+    media: query,
+    onchange: null,
+    removeEventListener: vi.fn(),
+  }));
+}
+
+describe("responsive laboratory workspace", () => {
+  it("composes the lab page with a single page heading and in-flow disclaimer", () => {
+    render(<LabPage />);
+
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: "Projection geometry lab",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("note", { name: "Educational limitation" }),
+    ).toHaveTextContent("must not be used for diagnosis");
+  });
+
+  it("provides four accessible mobile tabs with the scene selected initially", () => {
+    mockMobileViewport();
+
+    render(<LabWorkspace />);
+
+    expect(
+      screen.getByRole("tablist", { name: "Laboratory views" }),
+    ).toBeVisible();
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs).toHaveLength(4);
+    expect(tabs.map((tab) => tab.textContent)).toEqual([
+      "3D Scene",
+      "Fluoroscopy",
+      "Controls",
+      "Information",
+    ]);
+    expect(screen.getByRole("tab", { name: "3D Scene" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+  });
+
+  it("mounts only the selected major surface on small screens", async () => {
+    mockMobileViewport();
+    const user = userEvent.setup();
+
+    render(<LabWorkspace />);
+
+    expect(
+      screen.getByRole("region", { name: "3D theatre" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", {
+        name: "Simplified anatomical projection",
+      }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Fluoroscopy" }));
+
+    expect(screen.getByRole("tab", { name: "Fluoroscopy" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(
+      screen.getByRole("region", { name: "Simplified anatomical projection" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "3D theatre" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Controls" }));
+
+    expect(
+      screen.getByRole("heading", { name: "C-arm controls" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", {
+        name: "Simplified anatomical projection",
+      }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Information" }));
+
+    expect(
+      screen.getByRole("region", { name: "Information" }),
+    ).toHaveTextContent("must not be used for diagnosis");
+    expect(
+      screen.queryByRole("region", {
+        name: "Simplified anatomical projection",
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("moves between mobile tabs with arrow keys", async () => {
+    mockMobileViewport();
+    const user = userEvent.setup();
+    render(<LabWorkspace />);
+
+    screen.getByRole("tab", { name: "3D Scene" }).focus();
+    await user.keyboard("{ArrowRight}");
+
+    expect(screen.getByRole("tab", { name: "Fluoroscopy" })).toHaveFocus();
+    expect(screen.getByRole("tab", { name: "Fluoroscopy" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 });
 

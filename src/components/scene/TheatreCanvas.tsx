@@ -97,7 +97,7 @@ function useWebGLContextLoss(
   }, [canvasRef, enabled, onContextLost, rendererKey]);
 }
 
-export function TheatreCanvas() {
+function TheatreViewport() {
   const quality = useSimulationStore((state) => state.quality);
   const renderConfig = qualityToRenderConfig(quality);
   const [graphicsKey, setGraphicsKey] = useState(0);
@@ -148,33 +148,43 @@ export function TheatreCanvas() {
   );
 
   return (
+    <section aria-label="3D theatre" className="theatre-canvas">
+      {graphicsStatus === "checking" ? (
+        <p role="status">Starting 3D view…</p>
+      ) : graphicsStatus === "error" ? (
+        <WebGLErrorFallback onReset={resetGraphics} />
+      ) : (
+        <WebGLErrorBoundary key={rendererKey} onReset={resetGraphics}>
+          <Canvas
+            camera={CAMERA}
+            className="theatre-canvas__surface"
+            dpr={renderConfig.dpr}
+            fallback={<WebGLErrorFallback onReset={resetGraphics} />}
+            gl={
+              renderConfig.antialias ? ANTIALIASED_GL_OPTIONS : BASIC_GL_OPTIONS
+            }
+            ref={canvasRef}
+            shadows={renderConfig.shadows}
+          >
+            <TheatreScene />
+          </Canvas>
+        </WebGLErrorBoundary>
+      )}
+    </section>
+  );
+}
+
+export type TheatreSurface = "both" | "theatre" | "projection";
+
+interface TheatreCanvasProps {
+  surface?: TheatreSurface;
+}
+
+export function TheatreCanvas({ surface = "both" }: TheatreCanvasProps) {
+  return (
     <>
-      <section aria-label="3D theatre" className="theatre-canvas">
-        {graphicsStatus === "checking" ? (
-          <p role="status">Starting 3D view…</p>
-        ) : graphicsStatus === "error" ? (
-          <WebGLErrorFallback onReset={resetGraphics} />
-        ) : (
-          <WebGLErrorBoundary key={rendererKey} onReset={resetGraphics}>
-            <Canvas
-              camera={CAMERA}
-              className="theatre-canvas__surface"
-              dpr={renderConfig.dpr}
-              fallback={<WebGLErrorFallback onReset={resetGraphics} />}
-              gl={
-                renderConfig.antialias
-                  ? ANTIALIASED_GL_OPTIONS
-                  : BASIC_GL_OPTIONS
-              }
-              ref={canvasRef}
-              shadows={renderConfig.shadows}
-            >
-              <TheatreScene />
-            </Canvas>
-          </WebGLErrorBoundary>
-        )}
-      </section>
-      <ProjectionView />
+      {surface === "projection" ? null : <TheatreViewport />}
+      {surface === "theatre" ? null : <ProjectionView />}
     </>
   );
 }
