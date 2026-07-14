@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile, readdir } from "node:fs/promises";
+import { access, readFile, readdir } from "node:fs/promises";
 import test from "node:test";
 
 async function render(path = "/") {
@@ -81,4 +81,7 @@ test("ships a same-origin offline shell from the deployed asset root", async () 
   assert.ok(assetPaths.some((path) => /\/assets\/.*\.js$/.test(path)));
   assert.ok(assetPaths.some((path) => /\/assets\/.*\.css$/.test(path)));
   assert.ok(assetPaths.every((path) => path.startsWith("/assets/")));
+  await assert.rejects(
+    access(new URL("../dist/server/favicon.svg", import.meta.url)),
+  );
 });

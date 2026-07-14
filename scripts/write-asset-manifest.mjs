@@ -1,9 +1,11 @@
-import { readdir, writeFile } from "node:fs/promises";
+import { readdir, rm, writeFile } from "node:fs/promises";
 import { join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const projectRoot = fileURLToPath(new URL("../", import.meta.url));
 const clientRoot = resolve(projectRoot, "dist/client");
+const serverRoot = resolve(projectRoot, "dist/server");
+const publicRoot = resolve(projectRoot, "public");
 
 async function listFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -25,3 +27,8 @@ await writeFile(
   `${JSON.stringify(assets, null, 2)}\n`,
   "utf8",
 );
+
+for (const publicFile of await listFiles(publicRoot)) {
+  const relativePath = relative(publicRoot, publicFile);
+  await rm(join(serverRoot, relativePath), { force: true });
+}
