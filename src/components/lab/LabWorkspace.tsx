@@ -6,11 +6,13 @@ import { TheatreCanvas } from "../scene/TheatreCanvas";
 import {
   labPanelId,
   labTabId,
+  LAB_TABS,
   MobileLabTabs,
   type LabSurface,
 } from "./MobileLabTabs";
 
 const MOBILE_MEDIA_QUERY = "(max-width: 759px)";
+type ViewportMode = "desktop" | "mobile" | "unresolved";
 
 function subscribeToMobileViewport(onChange: () => void): () => void {
   if (
@@ -24,19 +26,17 @@ function subscribeToMobileViewport(onChange: () => void): () => void {
   return () => mediaQuery.removeEventListener("change", onChange);
 }
 
-function isMobileViewport(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia(MOBILE_MEDIA_QUERY).matches
-  );
+function viewportMode(): ViewportMode {
+  if (typeof window === "undefined") return "unresolved";
+  if (typeof window.matchMedia !== "function") return "desktop";
+  return window.matchMedia(MOBILE_MEDIA_QUERY).matches ? "mobile" : "desktop";
 }
 
-function useIsMobileViewport(): boolean {
+function useViewportMode(): ViewportMode {
   return useSyncExternalStore(
     subscribeToMobileViewport,
-    isMobileViewport,
-    () => false,
+    viewportMode,
+    () => "unresolved",
   );
 }
 
@@ -61,8 +61,36 @@ function MobileSurface({ activeSurface }: { activeSurface: LabSurface }) {
   return <InformationPanel />;
 }
 
+function MobilePanelShells({
+  activeSurface,
+  viewport,
+}: {
+  activeSurface: LabSurface;
+  viewport: ViewportMode;
+}) {
+  return (
+    <div className="lab-workspace__mobile-panels">
+      {LAB_TABS.map((tab) => {
+        const isActive = viewport === "mobile" && tab.value === activeSurface;
+        return (
+          <div
+            aria-labelledby={labTabId(tab.value)}
+            className="lab-workspace__mobile-panel"
+            hidden={!isActive}
+            id={labPanelId(tab.value)}
+            key={tab.value}
+            role="tabpanel"
+          >
+            {isActive ? <MobileSurface activeSurface={tab.value} /> : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export function LabWorkspace() {
-  const isMobile = useIsMobileViewport();
+  const viewport = useViewportMode();
   const [activeSurface, setActiveSurface] = useState<LabSurface>("scene");
 
   return (
@@ -71,16 +99,16 @@ export function LabWorkspace() {
         activeSurface={activeSurface}
         onSurfaceChange={setActiveSurface}
       />
-      {isMobile ? (
+      <MobilePanelShells activeSurface={activeSurface} viewport={viewport} />
+      {viewport === "unresolved" ? (
         <div
-          aria-labelledby={labTabId(activeSurface)}
-          className="lab-workspace__mobile-panel"
-          id={labPanelId(activeSurface)}
-          role="tabpanel"
+          aria-label="Preparing laboratory workspace"
+          className="lab-workspace__hydration-shell"
+          role="status"
         >
-          <MobileSurface activeSurface={activeSurface} />
+          Preparing laboratory workspace…
         </div>
-      ) : (
+      ) : viewport === "desktop" ? (
         <>
           <div className="lab-workspace__viewports">
             <TheatreCanvas />
@@ -90,7 +118,7 @@ export function LabWorkspace() {
           </div>
           <InformationPanel />
         </>
-      )}
+      ) : null}
       <aside
         aria-label="Educational limitation"
         className="lab-workspace__disclaimer"

@@ -6,7 +6,8 @@ import {
   waitFor,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { renderToString } from "react-dom/server";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CArmControls } from "../../src/components/controls/CArmControls";
 import { LabWorkspace } from "../../src/components/lab/LabWorkspace";
 import {
@@ -102,18 +103,48 @@ beforeEach(() => {
   });
 });
 
-function mockMobileViewport() {
-  vi.stubGlobal("matchMedia", (query: string) => ({
-    addEventListener: vi.fn(),
+function mockViewport(initiallyMobile: boolean) {
+  let matches = initiallyMobile;
+  const listeners = new Set<() => void>();
+  const query = "(max-width: 759px)";
+  const mediaQuery = {
+    addEventListener: (_event: string, listener: () => void) =>
+      listeners.add(listener),
     dispatchEvent: vi.fn(),
-    matches: query === "(max-width: 759px)",
+    get matches() {
+      return matches;
+    },
     media: query,
     onchange: null,
-    removeEventListener: vi.fn(),
-  }));
+    removeEventListener: (_event: string, listener: () => void) =>
+      listeners.delete(listener),
+  };
+  vi.stubGlobal("matchMedia", () => mediaQuery);
+  return {
+    setMobile(nextMatches: boolean) {
+      matches = nextMatches;
+      listeners.forEach((listener) => listener());
+    },
+  };
 }
 
+afterEach(() => vi.unstubAllGlobals());
+
 describe("responsive laboratory workspace", () => {
+  it("server-renders a lightweight hydration shell with stable empty panels", () => {
+    const markup = renderToString(<LabWorkspace />);
+
+    expect(markup).toContain("Preparing laboratory workspace");
+    expect(markup).not.toContain('aria-label="3D theatre"');
+    expect(markup).not.toContain(
+      'aria-labelledby="simplified-projection-heading"',
+    );
+    ["scene", "fluoroscopy", "controls", "information"].forEach((surface) => {
+      expect(markup).toContain(`id="lab-panel-${surface}"`);
+      expect(markup).toContain(`aria-labelledby="lab-tab-${surface}"`);
+    });
+  });
+
   it("composes the lab page with a single page heading and in-flow disclaimer", () => {
     render(<LabPage />);
 
@@ -129,13 +160,13 @@ describe("responsive laboratory workspace", () => {
   });
 
   it("provides four accessible mobile tabs with the scene selected initially", () => {
-    mockMobileViewport();
+    mockViewport(true);
 
     render(<LabWorkspace />);
 
     expect(
       screen.getByRole("tablist", { name: "Laboratory views" }),
-    ).toBeVisible();
+    ).toHaveAttribute("aria-orientation", "horizontal");
     const tabs = screen.getAllByRole("tab");
     expect(tabs).toHaveLength(4);
     expect(tabs.map((tab) => tab.textContent)).toEqual([
@@ -151,7 +182,7 @@ describe("responsive laboratory workspace", () => {
   });
 
   it("mounts only the selected major surface on small screens", async () => {
-    mockMobileViewport();
+    mockViewport(true);
     const user = userEvent.setup();
 
     render(<LabWorkspace />);
@@ -201,13 +232,57 @@ describe("responsive laboratory workspace", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("changes viewport composition without retaining unselected mobile surfaces", () => {
+    const viewport = mockViewport(false);
+    render(<LabWorkspace />);
+
+    expect(
+      screen.getByRole("region", { name: "3D theatre" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Simplified anatomical projection" }),
+    ).toBeInTheDocument();
+
+    act(() => viewport.setMobile(true));
+
+    expect(
+      screen.getByRole("region", { name: "3D theatre" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", {
+        name: "Simplified anatomical projection",
+      }),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByRole("tabpanel", { hidden: true })).toHaveLength(4);
+    expect(document.getElementById("lab-panel-scene")).not.toHaveAttribute(
+      "hidden",
+    );
+    expect(document.getElementById("lab-panel-fluoroscopy")).toHaveAttribute(
+      "hidden",
+    );
+
+    act(() => viewport.setMobile(false));
+
+    expect(
+      screen.getByRole("region", { name: "Simplified anatomical projection" }),
+    ).toBeInTheDocument();
+  });
+
   it("moves between mobile tabs with arrow keys", async () => {
-    mockMobileViewport();
+    mockViewport(true);
     const user = userEvent.setup();
     render(<LabWorkspace />);
 
     screen.getByRole("tab", { name: "3D Scene" }).focus();
     await user.keyboard("{ArrowRight}");
+
+    expect(screen.getByRole("tab", { name: "Fluoroscopy" })).toHaveFocus();
+    expect(screen.getByRole("tab", { name: "Fluoroscopy" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+
+    await user.keyboard("{ArrowDown}");
 
     expect(screen.getByRole("tab", { name: "Fluoroscopy" })).toHaveFocus();
     expect(screen.getByRole("tab", { name: "Fluoroscopy" })).toHaveAttribute(

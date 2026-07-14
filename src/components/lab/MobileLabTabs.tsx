@@ -4,7 +4,7 @@ import type { KeyboardEvent } from "react";
 
 export type LabSurface = "scene" | "fluoroscopy" | "controls" | "information";
 
-const LAB_TABS: readonly { label: string; value: LabSurface }[] = [
+export const LAB_TABS: readonly { label: string; value: LabSurface }[] = [
   { label: "3D Scene", value: "scene" },
   { label: "Fluoroscopy", value: "fluoroscopy" },
   { label: "Controls", value: "controls" },
@@ -33,9 +33,9 @@ export function MobileLabTabs({
     index: number,
   ) => {
     let nextIndex: number | null = null;
-    if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+    if (event.key === "ArrowRight") {
       nextIndex = (index + 1) % LAB_TABS.length;
-    } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+    } else if (event.key === "ArrowLeft") {
       nextIndex = (index - 1 + LAB_TABS.length) % LAB_TABS.length;
     } else if (event.key === "Home") {
       nextIndex = 0;
@@ -50,6 +50,7 @@ export function MobileLabTabs({
   return (
     <div
       aria-label="Laboratory views"
+      aria-orientation="horizontal"
       className="mobile-lab-tabs"
       role="tablist"
     >
