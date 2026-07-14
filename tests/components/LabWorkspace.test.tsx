@@ -278,9 +278,16 @@ describe("replaceable projection renderer", () => {
     );
   });
 
-  it("preserves circular anatomy silhouettes in canonical AP and lateral views", async () => {
+  it("preserves circular anatomy silhouettes in canonical AP, oblique, and lateral views", async () => {
     const renderer = new SimplifiedProjectionRenderer();
     const ap = await renderer.render(projectionInput);
+    const oblique = await renderer.render({
+      ...projectionInput,
+      geometry: buildCArmGeometry({
+        ...REFERENCE_C_ARM_POSE,
+        orbitDegrees: 45,
+      }),
+    });
     const lateral = await renderer.render({
       ...projectionInput,
       geometry: buildCArmGeometry({
@@ -290,14 +297,19 @@ describe("replaceable projection renderer", () => {
     });
 
     const apWidths = anatomyStrokeWidths(ap);
+    const obliqueWidths = anatomyStrokeWidths(oblique);
     const lateralWidths = anatomyStrokeWidths(lateral);
 
     expect(apWidths).toHaveLength(3);
+    expect(obliqueWidths).toHaveLength(3);
     expect(lateralWidths).toHaveLength(3);
-    lateralWidths.forEach((width, index) => {
-      expect(width).toBeGreaterThan(1);
-      expect(width).toBeGreaterThan(apWidths[index] * 0.8);
-      expect(width).toBeLessThan(apWidths[index] * 1.2);
+    expect(obliqueWidths[0]).toBeCloseTo(apWidths[0], 1);
+    [obliqueWidths, lateralWidths].forEach((canonicalWidths) => {
+      canonicalWidths.forEach((width, index) => {
+        expect(width).toBeGreaterThan(1);
+        expect(width).toBeGreaterThan(apWidths[index] * 0.8);
+        expect(width).toBeLessThan(apWidths[index] * 1.2);
+      });
     });
   });
 

@@ -85,6 +85,7 @@ const distance2d = (a: PixelPoint, b: PixelPoint): number =>
   Math.hypot(a.x - b.x, a.y - b.y);
 
 const number = (value: number): string => value.toFixed(3);
+const CROSS_SECTION_SAMPLE_COUNT = 72;
 
 function projectionLine(
   start: PixelPoint | null,
@@ -97,14 +98,6 @@ function projectionLine(
   return `<line data-anatomy-layer="" x1="${number(start.x)}" y1="${number(start.y)}" x2="${number(end.x)}" y2="${number(end.y)}" stroke="${color}" stroke-width="${number(strokeWidth)}" stroke-linecap="round" opacity="${number(opacity)}" />`;
 }
 
-function offsetPoint(center: Vec3, axis: Vec3, amount: number): Vec3 {
-  return [
-    center[0] + axis[0] * amount,
-    center[1] + axis[1] * amount,
-    center[2] + axis[2] * amount,
-  ];
-}
-
 function projectedCrossSectionDiameter(
   center: Vec3,
   radius: number,
@@ -113,28 +106,33 @@ function projectedCrossSectionDiameter(
   width: number,
   height: number,
 ): number {
-  const radialAxes: readonly Vec3[] = [
-    [1, 0, 0],
-    [0, 1, 0],
-  ];
-  const diameters = radialAxes.flatMap((axis) => {
-    const start = projectedLocalPoint(
-      offsetPoint(center, axis, -radius),
-      input,
-      transform,
-      width,
-      height,
-    );
-    const end = projectedLocalPoint(
-      offsetPoint(center, axis, radius),
-      input,
-      transform,
-      width,
-      height,
-    );
-    return start === null || end === null ? [] : [distance2d(start, end)];
-  });
-  return Math.max(1, ...diameters);
+  const projectedBoundary = Array.from(
+    { length: CROSS_SECTION_SAMPLE_COUNT },
+    (_, index): PixelPoint | null => {
+      const angle = (index / CROSS_SECTION_SAMPLE_COUNT) * Math.PI * 2;
+      return projectedLocalPoint(
+        [
+          center[0] + Math.cos(angle) * radius,
+          center[1] + Math.sin(angle) * radius,
+          center[2],
+        ],
+        input,
+        transform,
+        width,
+        height,
+      );
+    },
+  ).filter((point): point is PixelPoint => point !== null);
+  let diameter = 1;
+  for (let start = 0; start < projectedBoundary.length; start += 1) {
+    for (let end = start + 1; end < projectedBoundary.length; end += 1) {
+      diameter = Math.max(
+        diameter,
+        distance2d(projectedBoundary[start], projectedBoundary[end]),
+      );
+    }
+  }
+  return diameter;
 }
 
 function detectorDetailLines(width: number, height: number): string {
