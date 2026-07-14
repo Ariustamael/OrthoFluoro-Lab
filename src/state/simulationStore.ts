@@ -36,10 +36,13 @@ const REFERENCE_OBJECT_POSE: Readonly<ObjectPose> = Object.freeze({
 });
 
 function snapInDirection(value: number, delta: number, snap?: number): number {
-  if (snap === undefined || snap <= 0 || delta === 0) return value;
-  return delta > 0
-    ? Math.ceil(value / snap) * snap
-    : Math.floor(value / snap) * snap;
+  if (snap === undefined || snap <= 0 || delta === 0) return value + delta;
+  const snapPoint =
+    delta > 0
+      ? Math.ceil(value / snap) * snap
+      : Math.floor(value / snap) * snap;
+  const isAtSnapPoint = Math.abs(snapPoint - value) < 1e-9;
+  return isAtSnapPoint ? snapPoint + Math.sign(delta) * snap : snapPoint;
 }
 
 export const useSimulationStore = create<SimulationState>((set) => ({
@@ -57,11 +60,10 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   },
   nudgeCArmParameter: (key, delta, snap) => {
     set((state) => {
-      const nudged = state.cArmPose[key] + delta;
       return {
         cArmPose: clampCArmPose({
           ...state.cArmPose,
-          [key]: snapInDirection(nudged, delta, snap),
+          [key]: snapInDirection(state.cArmPose[key], delta, snap),
         }),
       };
     });

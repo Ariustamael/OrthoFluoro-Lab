@@ -1,6 +1,6 @@
 "use client";
 
-import type { KeyboardEvent } from "react";
+import { useState, type KeyboardEvent } from "react";
 import {
   AP_C_ARM_POSE,
   LATERAL_C_ARM_POSE,
@@ -144,6 +144,73 @@ function directionForKey(key: string): -1 | 1 | null {
   return null;
 }
 
+interface ExactValueInputProps {
+  control: ControlDefinition;
+  id: string;
+  onCommit: (value: number) => void;
+  onNudge: (delta: number, snap?: number) => void;
+  unitId: string;
+  value: number;
+}
+
+function ExactValueInput({
+  control,
+  id,
+  onCommit,
+  onNudge,
+  unitId,
+  value,
+}: ExactValueInputProps) {
+  const [draft, setDraft] = useState<string | null>(null);
+
+  const commitDraft = () => {
+    if (draft === null || draft.trim() === "") {
+      setDraft(null);
+      return;
+    }
+
+    const parsedValue = Number(draft);
+    if (!Number.isFinite(parsedValue)) {
+      setDraft(null);
+      return;
+    }
+
+    const nextValue = clampToControlRange(parsedValue, control);
+    setDraft(null);
+    onCommit(nextValue);
+  };
+
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      commitDraft();
+      return;
+    }
+
+    const direction = directionForKey(event.key);
+    if (direction === null) return;
+    event.preventDefault();
+    commitDraft();
+    const delta = control.step * direction * (event.altKey ? 0.1 : 1);
+    onNudge(delta, event.shiftKey ? control.snap : undefined);
+  };
+
+  return (
+    <input
+      aria-describedby={unitId}
+      id={id}
+      max={control.max}
+      min={control.min}
+      onBlur={commitDraft}
+      onChange={(event) => setDraft(event.currentTarget.value)}
+      onKeyDown={handleKeyDown}
+      step={control.step}
+      type="number"
+      value={draft ?? value}
+    />
+  );
+}
+
 export function CArmControls() {
   const cArmPose = useSimulationStore((state) => state.cArmPose);
   const setCArmPose = useSimulationStore((state) => state.setCArmPose);
@@ -210,23 +277,16 @@ export function CArmControls() {
                 {control.exactLabel}
               </label>
               <span className="c-arm-control__exact">
-                <input
-                  aria-describedby={unitId}
+                <ExactValueInput
+                  control={control}
                   id={exactId}
-                  max={control.max}
-                  min={control.min}
-                  onChange={(event) => {
-                    const nextValue = event.currentTarget.valueAsNumber;
-                    if (Number.isFinite(nextValue)) {
-                      setCArmParameter(
-                        control.key,
-                        clampToControlRange(nextValue, control),
-                      );
-                    }
-                  }}
-                  onKeyDown={(event) => handleKeyDown(event, control)}
-                  step={control.step}
-                  type="number"
+                  onCommit={(nextValue) =>
+                    setCArmParameter(control.key, nextValue)
+                  }
+                  onNudge={(delta, snap) =>
+                    nudgeCArmParameter(control.key, delta, snap)
+                  }
+                  unitId={unitId}
                   value={value}
                 />
                 <span id={unitId}>{control.unit}</span>

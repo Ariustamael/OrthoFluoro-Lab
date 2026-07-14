@@ -41,6 +41,25 @@ describe("simulation store", () => {
     expect(useSimulationStore.getState().cArmPose.orbitDegrees).toBe(10);
   });
 
+  it("snaps fractional values to the adjacent point without skipping it", () => {
+    useSimulationStore.getState().setCArmParameter("orbitDegrees", 14.9);
+    useSimulationStore.getState().nudgeCArmParameter("orbitDegrees", 1, 5);
+    expect(useSimulationStore.getState().cArmPose.orbitDegrees).toBe(15);
+
+    useSimulationStore.getState().setCArmParameter("orbitDegrees", 10.1);
+    useSimulationStore.getState().nudgeCArmParameter("orbitDegrees", -1, 5);
+    expect(useSimulationStore.getState().cArmPose.orbitDegrees).toBe(10);
+  });
+
+  it("preserves ordinary and fine unsnapped nudges", () => {
+    useSimulationStore.getState().setCArmParameter("orbitDegrees", 10);
+    useSimulationStore.getState().nudgeCArmParameter("orbitDegrees", 1);
+    expect(useSimulationStore.getState().cArmPose.orbitDegrees).toBe(11);
+
+    useSimulationStore.getState().nudgeCArmParameter("orbitDegrees", 0.1);
+    expect(useSimulationStore.getState().cArmPose.orbitDegrees).toBe(11.1);
+  });
+
   it("updates object rotation and resets the complete geometry", () => {
     useSimulationStore.getState().setObjectRotation([10, 20, 30]);
     useSimulationStore.getState().setCArmParameter("orbitDegrees", 25);
@@ -79,11 +98,70 @@ describe("CArmControls", () => {
 
     await user.clear(exactInput);
     await user.type(exactInput, "15");
+    await user.keyboard("{Enter}");
     expect(useSimulationStore.getState().cArmPose.orbitDegrees).toBe(15);
 
     fireEvent.change(exactInput, { target: { value: "250" } });
+    fireEvent.blur(exactInput);
     expect(exactInput).toHaveValue(180);
     expect(useSimulationStore.getState().cArmPose.orbitDegrees).toBe(180);
+  });
+
+  it("keeps a multi-digit SID draft until committing it on blur", async () => {
+    const user = userEvent.setup();
+    render(<CArmControls />);
+    const exactInput = screen.getByRole("spinbutton", {
+      name: "Source-to-detector distance",
+    });
+
+    await user.clear(exactInput);
+    await user.type(exactInput, "1200");
+    expect(exactInput).toHaveValue(1200);
+    expect(useSimulationStore.getState().cArmPose.sourceDetectorDistance).toBe(
+      1000,
+    );
+
+    await user.tab();
+    expect(useSimulationStore.getState().cArmPose.sourceDetectorDistance).toBe(
+      1200,
+    );
+  });
+
+  it("commits a multi-digit detector-patient distance with Enter", async () => {
+    const user = userEvent.setup();
+    render(<CArmControls />);
+    const exactInput = screen.getByRole("spinbutton", {
+      name: "Detector-to-patient distance",
+    });
+
+    await user.clear(exactInput);
+    await user.type(exactInput, "550");
+    expect(exactInput).toHaveValue(550);
+    expect(useSimulationStore.getState().cArmPose.detectorPatientDistance).toBe(
+      400,
+    );
+
+    await user.keyboard("{Enter}");
+    expect(useSimulationStore.getState().cArmPose.detectorPatientDistance).toBe(
+      550,
+    );
+  });
+
+  it("restores the canonical value when an empty draft loses focus", async () => {
+    const user = userEvent.setup();
+    render(<CArmControls />);
+    const exactInput = screen.getByRole("spinbutton", {
+      name: "Source-to-detector distance",
+    });
+
+    await user.clear(exactInput);
+    expect(exactInput).toHaveValue(null);
+    await user.tab();
+
+    expect(exactInput).toHaveValue(1000);
+    expect(useSimulationStore.getState().cArmPose.sourceDetectorDistance).toBe(
+      1000,
+    );
   });
 
   it("supports one-degree keyboard nudges and directional five-degree snapping", () => {
@@ -96,8 +174,44 @@ describe("CArmControls", () => {
     expect(exactInput).toHaveValue(1);
 
     fireEvent.change(exactInput, { target: { value: "10" } });
+    fireEvent.keyDown(exactInput, { key: "Enter" });
     fireEvent.keyDown(exactInput, { key: "ArrowRight", shiftKey: true });
     expect(exactInput).toHaveValue(15);
+
+    fireEvent.keyDown(exactInput, { altKey: true, key: "ArrowRight" });
+    expect(exactInput).toHaveValue(15.1);
+  });
+
+  it("snaps from the valid draft currently shown in the exact input", async () => {
+    const user = userEvent.setup();
+    render(<CArmControls />);
+    const exactInput = screen.getByRole("spinbutton", {
+      name: "Orbit angle",
+    });
+
+    await user.clear(exactInput);
+    await user.type(exactInput, "14.9");
+    await user.keyboard("{Shift>}{ArrowRight}{/Shift}");
+
+    expect(exactInput).toHaveValue(15);
+    expect(useSimulationStore.getState().cArmPose.orbitDegrees).toBe(15);
+  });
+
+  it("applies fine movement from the valid uncommitted draft", async () => {
+    const user = userEvent.setup();
+    render(<CArmControls />);
+    const exactInput = screen.getByRole("spinbutton", {
+      name: "Orbit angle",
+    });
+
+    await user.clear(exactInput);
+    await user.type(exactInput, "10.1");
+    await user.keyboard("{Alt>}{ArrowRight}{/Alt}");
+
+    expect(exactInput).toHaveValue(10.2);
+    expect(useSimulationStore.getState().cArmPose.orbitDegrees).toBeCloseTo(
+      10.2,
+    );
   });
 
   it("applies corrected AP and lateral reference presets", async () => {
@@ -136,15 +250,16 @@ describe("CArmControls", () => {
   it("resets orbit and source-to-detector distance", async () => {
     const user = userEvent.setup();
     render(<CArmControls />);
-    fireEvent.change(
-      screen.getByRole("spinbutton", {
-        name: "Source-to-detector distance",
-      }),
-      { target: { value: "1200" } },
-    );
-    fireEvent.change(screen.getByRole("spinbutton", { name: "Orbit angle" }), {
+    const sidInput = screen.getByRole("spinbutton", {
+      name: "Source-to-detector distance",
+    });
+    fireEvent.change(sidInput, { target: { value: "1200" } });
+    fireEvent.blur(sidInput);
+    const orbitInput = screen.getByRole("spinbutton", { name: "Orbit angle" });
+    fireEvent.change(orbitInput, {
       target: { value: "45" },
     });
+    fireEvent.blur(orbitInput);
 
     await user.click(screen.getByRole("button", { name: "Reset geometry" }));
 
