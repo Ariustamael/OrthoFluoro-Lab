@@ -9,6 +9,7 @@ import {
   type RefObject,
 } from "react";
 import { WebGLRenderer } from "three";
+import { ProjectionView } from "../projection/ProjectionView";
 import {
   useSimulationStore,
   type QualityPreset,
@@ -147,28 +148,33 @@ export function TheatreCanvas() {
   );
 
   return (
-    <section aria-label="3D theatre" className="theatre-canvas">
-      {graphicsStatus === "checking" ? (
-        <p role="status">Starting 3D view…</p>
-      ) : graphicsStatus === "error" ? (
-        <WebGLErrorFallback onReset={resetGraphics} />
-      ) : (
-        <WebGLErrorBoundary key={rendererKey} onReset={resetGraphics}>
-          <Canvas
-            camera={CAMERA}
-            className="theatre-canvas__surface"
-            dpr={renderConfig.dpr}
-            fallback={<WebGLErrorFallback onReset={resetGraphics} />}
-            gl={
-              renderConfig.antialias ? ANTIALIASED_GL_OPTIONS : BASIC_GL_OPTIONS
-            }
-            ref={canvasRef}
-            shadows={renderConfig.shadows}
-          >
-            <TheatreScene />
-          </Canvas>
-        </WebGLErrorBoundary>
-      )}
-    </section>
+    <>
+      <section aria-label="3D theatre" className="theatre-canvas">
+        {graphicsStatus === "checking" ? (
+          <p role="status">Starting 3D view…</p>
+        ) : graphicsStatus === "error" ? (
+          <WebGLErrorFallback onReset={resetGraphics} />
+        ) : (
+          <WebGLErrorBoundary key={rendererKey} onReset={resetGraphics}>
+            <Canvas
+              camera={CAMERA}
+              className="theatre-canvas__surface"
+              dpr={renderConfig.dpr}
+              fallback={<WebGLErrorFallback onReset={resetGraphics} />}
+              gl={
+                renderConfig.antialias
+                  ? ANTIALIASED_GL_OPTIONS
+                  : BASIC_GL_OPTIONS
+              }
+              ref={canvasRef}
+              shadows={renderConfig.shadows}
+            >
+              <TheatreScene />
+            </Canvas>
+          </WebGLErrorBoundary>
+        )}
+      </section>
+      <ProjectionView />
+    </>
   );
 }
