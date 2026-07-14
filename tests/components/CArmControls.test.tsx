@@ -273,6 +273,36 @@ describe("CArmControls", () => {
     ).toHaveValue(REFERENCE_C_ARM_POSE.sourceDetectorDistance);
   });
 
+  it("rotates the procedural object independently and resets it", async () => {
+    const user = userEvent.setup();
+    render(<CArmControls />);
+    const rotation = screen.getByRole("spinbutton", {
+      name: "Object rotation X",
+    });
+
+    await user.clear(rotation);
+    await user.type(rotation, "20");
+    expect(useSimulationStore.getState().objectPose.rotationDegrees).toEqual([
+      20, 0, 0,
+    ]);
+
+    await user.click(screen.getByRole("button", { name: "Reset geometry" }));
+    expect(rotation).toHaveValue(0);
+  });
+
+  it("labels a simulated image capture without claiming a clinical image", async () => {
+    const user = userEvent.setup();
+    render(<CArmControls />);
+
+    await user.click(
+      screen.getByRole("button", { name: "Take simulated image" }),
+    );
+
+    expect(
+      screen.getByRole("status", { name: "Image capture status" }),
+    ).toHaveTextContent("Synthetic image captured");
+  });
+
   it("provides labelled range and exact inputs with visible units", () => {
     render(<CArmControls />);
 

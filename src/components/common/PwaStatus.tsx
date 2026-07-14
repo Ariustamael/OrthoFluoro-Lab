@@ -8,7 +8,7 @@ export function PwaStatus() {
   const waitingWorker = useRef<ServiceWorker | null>(null);
 
   useEffect(() => {
-    if (!("serviceWorker" in navigator)) return;
+    if (!import.meta.env.PROD || !("serviceWorker" in navigator)) return;
     let active = true;
     const announceInstalledWorker = (
       registration: ServiceWorkerRegistration,

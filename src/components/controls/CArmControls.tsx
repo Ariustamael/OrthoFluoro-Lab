@@ -11,6 +11,7 @@ import { useSimulationStore } from "../../state/simulationStore";
 import { InteractionMode } from "./InteractionMode";
 
 type CArmParameter = keyof CArmPose;
+const OBJECT_ROTATION_AXES = ["X", "Y", "Z"] as const;
 
 interface ControlDefinition {
   key: CArmParameter;
@@ -213,6 +214,7 @@ function ExactValueInput({
 
 export function CArmControls() {
   const cArmPose = useSimulationStore((state) => state.cArmPose);
+  const objectPose = useSimulationStore((state) => state.objectPose);
   const setCArmPose = useSimulationStore((state) => state.setCArmPose);
   const setCArmParameter = useSimulationStore(
     (state) => state.setCArmParameter,
@@ -221,6 +223,10 @@ export function CArmControls() {
     (state) => state.nudgeCArmParameter,
   );
   const resetGeometry = useSimulationStore((state) => state.resetGeometry);
+  const setObjectRotation = useSimulationStore(
+    (state) => state.setObjectRotation,
+  );
+  const [captureMessage, setCaptureMessage] = useState("");
 
   const handleKeyDown = (
     event: KeyboardEvent<HTMLInputElement>,
@@ -296,6 +302,40 @@ export function CArmControls() {
         })}
       </div>
 
+      <fieldset className="object-rotation-controls">
+        <legend>Object rotation</legend>
+        <p>Rotate the procedural teaching object independently of the C-arm.</p>
+        <div className="object-rotation-controls__fields">
+          {OBJECT_ROTATION_AXES.map((axis, index) => (
+            <label key={axis}>
+              <span>{axis} axis</span>
+              <span className="c-arm-control__exact">
+                <input
+                  aria-label={`Object rotation ${axis}`}
+                  max={180}
+                  min={-180}
+                  onChange={(event) => {
+                    const nextValue = event.currentTarget.valueAsNumber;
+                    if (!Number.isFinite(nextValue)) return;
+                    const rotation = [...objectPose.rotationDegrees] as [
+                      number,
+                      number,
+                      number,
+                    ];
+                    rotation[index] = Math.min(180, Math.max(-180, nextValue));
+                    setObjectRotation(rotation);
+                  }}
+                  step={1}
+                  type="number"
+                  value={objectPose.rotationDegrees[index]}
+                />
+                <span aria-hidden="true">°</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
       <div aria-label="Reference views" className="c-arm-controls__presets">
         <button onClick={() => setCArmPose(AP_C_ARM_POSE)} type="button">
           AP view
@@ -305,9 +345,26 @@ export function CArmControls() {
         </button>
       </div>
 
-      <button onClick={resetGeometry} type="button">
-        Reset geometry
-      </button>
+      <div className="c-arm-controls__actions">
+        <button
+          onClick={() => setCaptureMessage("Synthetic image captured")}
+          type="button"
+        >
+          Take simulated image
+        </button>
+        <button
+          onClick={() => {
+            resetGeometry();
+            setCaptureMessage("");
+          }}
+          type="button"
+        >
+          Reset geometry
+        </button>
+      </div>
+      <p aria-label="Image capture status" role="status">
+        {captureMessage}
+      </p>
     </section>
   );
 }
