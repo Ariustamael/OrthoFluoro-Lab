@@ -2,9 +2,11 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import {
+  C_ARM_HANDLE_DEFINITIONS,
   calculateHandleValue,
   captureHandlePointer,
   createRigTransform,
+  handlesForInteractionMode,
   releaseHandlePointer,
 } from "../../src/components/scene/CArmRig";
 import {
@@ -15,6 +17,73 @@ import { buildCArmGeometry } from "../../src/engine/geometry/cArmTransforms";
 import { REFERENCE_C_ARM_POSE } from "../../src/engine/geometry/geometryTypes";
 
 describe("direct C-arm handle deltas", () => {
+  it("defines every required manipulation handle with a live-readout scale", () => {
+    expect(
+      C_ARM_HANDLE_DEFINITIONS.map(
+        ({ label, parameter, unit, unitsPerPixel }) => ({
+          label,
+          parameter,
+          unit,
+          unitsPerPixel,
+        }),
+      ),
+    ).toEqual([
+      {
+        label: "Orbit",
+        parameter: "orbitDegrees",
+        unit: "°",
+        unitsPerPixel: 0.5,
+      },
+      {
+        label: "Obliquity",
+        parameter: "obliquityDegrees",
+        unit: "°",
+        unitsPerPixel: 0.5,
+      },
+      {
+        label: "Cranial/caudal tilt",
+        parameter: "cranialCaudalDegrees",
+        unit: "°",
+        unitsPerPixel: 0.5,
+      },
+      {
+        label: "Height",
+        parameter: "height",
+        unit: "mm",
+        unitsPerPixel: 2,
+      },
+      {
+        label: "Horizontal translation",
+        parameter: "translationX",
+        unit: "mm",
+        unitsPerPixel: 2,
+      },
+      {
+        label: "Source-detector distance",
+        parameter: "sourceDetectorDistance",
+        unit: "mm",
+        unitsPerPixel: 2,
+      },
+    ]);
+  });
+
+  it("shows direct handles only in Move C-arm mode", () => {
+    expect(handlesForInteractionMode("inspect")).toEqual([]);
+    expect(handlesForInteractionMode("move-anatomy")).toEqual([]);
+    expect(
+      handlesForInteractionMode("move-carm").map(
+        (definition) => definition.parameter,
+      ),
+    ).toEqual([
+      "orbitDegrees",
+      "obliquityDegrees",
+      "cranialCaudalDegrees",
+      "height",
+      "translationX",
+      "sourceDetectorDistance",
+    ]);
+  });
+
   it("converts pointer movement into handle units", () => {
     expect(
       calculateHandleValue(10, 12, 0.5, {

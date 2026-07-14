@@ -6,7 +6,10 @@ import { useCallback, useMemo, useRef } from "react";
 import { Matrix4, Quaternion, Vector3 } from "three";
 import { buildCArmGeometry } from "../../engine/geometry/cArmTransforms";
 import type { CArmGeometry, Vec3 } from "../../engine/geometry/geometryTypes";
-import { useSimulationStore } from "../../state/simulationStore";
+import {
+  useSimulationStore,
+  type InteractionMode,
+} from "../../state/simulationStore";
 
 interface PointerModifiers {
   altKey: boolean;
@@ -28,11 +31,16 @@ export function calculateHandleValue(
 }
 
 type HandleParameter =
-  "orbitDegrees" | "cranialCaudalDegrees" | "height" | "translationX";
+  | "orbitDegrees"
+  | "obliquityDegrees"
+  | "cranialCaudalDegrees"
+  | "height"
+  | "translationX"
+  | "sourceDetectorDistance";
 
 interface HandleDefinition {
   axis: "horizontal" | "vertical";
-  kind: "orbit" | "tilt" | "height" | "translation";
+  kind: "orbit" | "obliquity" | "tilt" | "height" | "translation" | "distance";
   label: string;
   parameter: HandleParameter;
   position: Vec3;
@@ -40,13 +48,22 @@ interface HandleDefinition {
   unitsPerPixel: number;
 }
 
-const HANDLE_DEFINITIONS: readonly HandleDefinition[] = [
+export const C_ARM_HANDLE_DEFINITIONS: readonly HandleDefinition[] = [
   {
     axis: "horizontal",
     kind: "orbit",
     label: "Orbit",
     parameter: "orbitDegrees",
     position: [-650, 0, 0],
+    unit: "°",
+    unitsPerPixel: 0.5,
+  },
+  {
+    axis: "horizontal",
+    kind: "obliquity",
+    label: "Obliquity",
+    parameter: "obliquityDegrees",
+    position: [650, 0, 0],
     unit: "°",
     unitsPerPixel: 0.5,
   },
@@ -77,7 +94,22 @@ const HANDLE_DEFINITIONS: readonly HandleDefinition[] = [
     unit: "mm",
     unitsPerPixel: 2,
   },
+  {
+    axis: "vertical",
+    kind: "distance",
+    label: "Source-detector distance",
+    parameter: "sourceDetectorDistance",
+    position: [0, -650, 150],
+    unit: "mm",
+    unitsPerPixel: 2,
+  },
 ];
+
+export function handlesForInteractionMode(
+  mode: InteractionMode,
+): readonly HandleDefinition[] {
+  return mode === "move-carm" ? C_ARM_HANDLE_DEFINITIONS : [];
+}
 
 interface DragState {
   captureTarget: PointerCaptureTarget;
@@ -169,7 +201,7 @@ interface HandleMeshProps {
 }
 
 function HandleMesh({ kind }: HandleMeshProps) {
-  if (kind === "orbit") {
+  if (kind === "orbit" || kind === "obliquity") {
     return <torusGeometry args={[70, 12, 12, 36]} />;
   }
   if (kind === "tilt") {
@@ -177,6 +209,9 @@ function HandleMesh({ kind }: HandleMeshProps) {
   }
   if (kind === "height") {
     return <coneGeometry args={[38, 100, 16]} />;
+  }
+  if (kind === "distance") {
+    return <cylinderGeometry args={[30, 30, 120, 16]} />;
   }
   return <boxGeometry args={[130, 28, 28]} />;
 }
@@ -239,6 +274,7 @@ export function CArmRig() {
   const interactionMode = useSimulationStore((state) => state.interactionMode);
   const geometry = useMemo(() => buildCArmGeometry(cArmPose), [cArmPose]);
   const transform = useMemo(() => createRigTransform(geometry), [geometry]);
+  const handleDefinitions = handlesForInteractionMode(interactionMode);
   const halfDistance = transform.sourceDetectorDistance / 2;
   const beamRadius = Math.hypot(
     geometry.detector.width / 2,
@@ -307,15 +343,13 @@ export function CArmRig() {
         />
       </mesh>
 
-      {interactionMode === "move-carm"
-        ? HANDLE_DEFINITIONS.map((definition) => (
-            <ManipulationHandle
-              definition={definition}
-              key={definition.parameter}
-              value={cArmPose[definition.parameter]}
-            />
-          ))
-        : null}
+      {handleDefinitions.map((definition) => (
+        <ManipulationHandle
+          definition={definition}
+          key={definition.parameter}
+          value={cArmPose[definition.parameter]}
+        />
+      ))}
     </group>
   );
 }
