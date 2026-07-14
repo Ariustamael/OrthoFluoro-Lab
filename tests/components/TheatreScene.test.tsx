@@ -3,7 +3,9 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import {
   C_ARM_HANDLE_DEFINITIONS,
+  advanceHandleDragValue,
   calculateHandleValue,
+  calculateIncrementalHandleValue,
   captureHandlePointer,
   createRigTransform,
   handlesForInteractionMode,
@@ -20,9 +22,18 @@ describe("direct C-arm handle deltas", () => {
   it("defines every required manipulation handle with a live-readout scale", () => {
     expect(
       C_ARM_HANDLE_DEFINITIONS.map(
-        ({ label, parameter, unit, unitsPerPixel }) => ({
+        ({
           label,
           parameter,
+          snapDescription,
+          snapIncrement,
+          unit,
+          unitsPerPixel,
+        }) => ({
+          label,
+          parameter,
+          snapDescription,
+          snapIncrement,
           unit,
           unitsPerPixel,
         }),
@@ -31,36 +42,48 @@ describe("direct C-arm handle deltas", () => {
       {
         label: "Orbit",
         parameter: "orbitDegrees",
+        snapDescription: "Shift snaps to 5° increments",
+        snapIncrement: 5,
         unit: "°",
         unitsPerPixel: 0.5,
       },
       {
         label: "Obliquity",
         parameter: "obliquityDegrees",
+        snapDescription: "Shift snaps to 5° increments",
+        snapIncrement: 5,
         unit: "°",
         unitsPerPixel: 0.5,
       },
       {
         label: "Cranial/caudal tilt",
         parameter: "cranialCaudalDegrees",
+        snapDescription: "Shift snaps to 5° increments",
+        snapIncrement: 5,
         unit: "°",
         unitsPerPixel: 0.5,
       },
       {
         label: "Height",
         parameter: "height",
+        snapDescription: "Shift snaps to 10 mm increments",
+        snapIncrement: 10,
         unit: "mm",
         unitsPerPixel: 2,
       },
       {
         label: "Horizontal translation",
         parameter: "translationX",
+        snapDescription: "Shift snaps to 10 mm increments",
+        snapIncrement: 10,
         unit: "mm",
         unitsPerPixel: 2,
       },
       {
         label: "Source-detector distance",
         parameter: "sourceDetectorDistance",
+        snapDescription: "Shift snaps to 10 mm increments",
+        snapIncrement: 10,
         unit: "mm",
         unitsPerPixel: 2,
       },
@@ -95,11 +118,69 @@ describe("direct C-arm handle deltas", () => {
 
   it("snaps angular handles to five degrees while Shift is held", () => {
     expect(
-      calculateHandleValue(10, 7, 0.5, {
-        altKey: false,
-        shiftKey: true,
-      }),
+      calculateHandleValue(
+        10,
+        7,
+        0.5,
+        {
+          altKey: false,
+          shiftKey: true,
+        },
+        5,
+      ),
     ).toBe(15);
+  });
+
+  it("snaps linear handles to ten millimetres", () => {
+    expect(
+      calculateHandleValue(100, 3, 2, { altKey: false, shiftKey: true }, 10),
+    ).toBe(110);
+  });
+
+  it("does not rescale accumulated movement when Alt changes mid-drag", () => {
+    const ordinary = calculateIncrementalHandleValue(
+      10,
+      0,
+      10,
+      0.5,
+      { altKey: false, shiftKey: false },
+      5,
+    );
+    const fine = calculateIncrementalHandleValue(
+      ordinary,
+      10,
+      20,
+      0.5,
+      { altKey: true, shiftKey: false },
+      5,
+    );
+
+    expect(ordinary).toBe(15);
+    expect(fine).toBe(15.5);
+  });
+
+  it("accumulates small Shift-drag events before snapping", () => {
+    let rawValue = 0;
+    let value = 0;
+    for (
+      let pointerCoordinate = 1;
+      pointerCoordinate <= 5;
+      pointerCoordinate += 1
+    ) {
+      const next = advanceHandleDragValue(
+        rawValue,
+        pointerCoordinate - 1,
+        pointerCoordinate,
+        0.5,
+        { altKey: false, shiftKey: true },
+        5,
+      );
+      rawValue = next.rawValue;
+      value = next.value;
+    }
+
+    expect(rawValue).toBe(2.5);
+    expect(value).toBe(5);
   });
 
   it("scales movement to one tenth while Alt is held", () => {

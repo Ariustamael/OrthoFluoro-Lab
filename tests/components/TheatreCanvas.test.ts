@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   qualityToRenderConfig,
+  rendererPreparationState,
   theatreRendererKey,
 } from "../../src/components/scene/TheatreCanvas";
 
@@ -30,5 +31,16 @@ describe("theatre render quality", () => {
     expect(theatreRendererKey(0, "medium")).not.toBe(
       theatreRendererKey(1, "medium"),
     );
+  });
+
+  it("mounts Canvas only after the desired renderer key is prepared", () => {
+    expect(rendererPreparationState("0-medium", null, null)).toBe("checking");
+    expect(rendererPreparationState("0-medium", "0-medium", null)).toBe(
+      "ready",
+    );
+    expect(rendererPreparationState("0-high", "0-medium", null)).toBe(
+      "checking",
+    );
+    expect(rendererPreparationState("0-high", null, "0-high")).toBe("error");
   });
 });

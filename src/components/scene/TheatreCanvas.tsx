@@ -58,6 +58,16 @@ export function theatreRendererKey(
 
 type GraphicsStatus = "checking" | "ready" | "error";
 
+export function rendererPreparationState(
+  desiredRendererKey: string,
+  preparedRendererKey: string | null,
+  failedRendererKey: string | null,
+): GraphicsStatus {
+  if (preparedRendererKey === desiredRendererKey) return "ready";
+  if (failedRendererKey === desiredRendererKey) return "error";
+  return "checking";
+}
+
 function createRendererProbe(antialias: boolean): WebGLRenderer {
   return new WebGLRenderer({
     ...(antialias ? ANTIALIASED_GL_OPTIONS : BASIC_GL_OPTIONS),
@@ -90,32 +100,45 @@ export function TheatreCanvas() {
   const quality = useSimulationStore((state) => state.quality);
   const renderConfig = qualityToRenderConfig(quality);
   const [graphicsKey, setGraphicsKey] = useState(0);
-  const [graphicsStatus, setGraphicsStatus] =
-    useState<GraphicsStatus>("checking");
   const rendererKey = theatreRendererKey(graphicsKey, quality);
+  const [preparedRendererKey, setPreparedRendererKey] = useState<string | null>(
+    null,
+  );
+  const [failedRendererKey, setFailedRendererKey] = useState<string | null>(
+    null,
+  );
+  const graphicsStatus = rendererPreparationState(
+    rendererKey,
+    preparedRendererKey,
+    failedRendererKey,
+  );
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const resetGraphics = useCallback(() => {
-    setGraphicsStatus("checking");
     setGraphicsKey((currentKey) => currentKey + 1);
   }, []);
   const handleContextLost = useCallback(() => {
-    setGraphicsStatus("error");
-  }, []);
+    setPreparedRendererKey(null);
+    setFailedRendererKey(rendererKey);
+  }, [rendererKey, setFailedRendererKey, setPreparedRendererKey]);
 
   useEffect(() => {
     let active = true;
     queueMicrotask(() => {
       if (!active) return;
-      setGraphicsStatus(
+      if (
         canInitializeWebGL(() => createRendererProbe(renderConfig.antialias))
-          ? "ready"
-          : "error",
-      );
+      ) {
+        setFailedRendererKey(null);
+        setPreparedRendererKey(rendererKey);
+      } else {
+        setPreparedRendererKey(null);
+        setFailedRendererKey(rendererKey);
+      }
     });
     return () => {
       active = false;
     };
-  }, [graphicsKey, renderConfig.antialias]);
+  }, [renderConfig.antialias, rendererKey]);
   useWebGLContextLoss(
     canvasRef,
     graphicsStatus === "ready",

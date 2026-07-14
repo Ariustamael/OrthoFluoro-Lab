@@ -16,18 +16,72 @@ interface PointerModifiers {
   shiftKey: boolean;
 }
 
-const SHIFT_SNAP_INCREMENT = 5;
-
 export function calculateHandleValue(
   startValue: number,
   deltaPixels: number,
   unitsPerPixel: number,
   modifiers: PointerModifiers,
+  snapIncrement?: number,
 ): number {
   const fineScale = modifiers.altKey ? 0.1 : 1;
   const nextValue = startValue + deltaPixels * unitsPerPixel * fineScale;
-  if (!modifiers.shiftKey) return nextValue;
-  return Math.round(nextValue / SHIFT_SNAP_INCREMENT) * SHIFT_SNAP_INCREMENT;
+  if (
+    !modifiers.shiftKey ||
+    snapIncrement === undefined ||
+    snapIncrement <= 0
+  ) {
+    return nextValue;
+  }
+  return Math.round(nextValue / snapIncrement) * snapIncrement;
+}
+
+export function calculateIncrementalHandleValue(
+  currentValue: number,
+  previousPointerCoordinate: number,
+  pointerCoordinate: number,
+  unitsPerPixel: number,
+  modifiers: PointerModifiers,
+  snapIncrement: number,
+): number {
+  return advanceHandleDragValue(
+    currentValue,
+    previousPointerCoordinate,
+    pointerCoordinate,
+    unitsPerPixel,
+    modifiers,
+    snapIncrement,
+  ).value;
+}
+
+interface HandleDragValue {
+  rawValue: number;
+  value: number;
+}
+
+export function advanceHandleDragValue(
+  rawValue: number,
+  previousPointerCoordinate: number,
+  pointerCoordinate: number,
+  unitsPerPixel: number,
+  modifiers: PointerModifiers,
+  snapIncrement: number,
+): HandleDragValue {
+  const nextRawValue = calculateHandleValue(
+    rawValue,
+    pointerCoordinate - previousPointerCoordinate,
+    unitsPerPixel,
+    { ...modifiers, shiftKey: false },
+  );
+  return {
+    rawValue: nextRawValue,
+    value: calculateHandleValue(
+      nextRawValue,
+      0,
+      unitsPerPixel,
+      modifiers,
+      snapIncrement,
+    ),
+  };
 }
 
 type HandleParameter =
@@ -44,6 +98,8 @@ interface HandleDefinition {
   label: string;
   parameter: HandleParameter;
   position: Vec3;
+  snapDescription: string;
+  snapIncrement: number;
   unit: "°" | "mm";
   unitsPerPixel: number;
 }
@@ -55,6 +111,8 @@ export const C_ARM_HANDLE_DEFINITIONS: readonly HandleDefinition[] = [
     label: "Orbit",
     parameter: "orbitDegrees",
     position: [-650, 0, 0],
+    snapDescription: "Shift snaps to 5° increments",
+    snapIncrement: 5,
     unit: "°",
     unitsPerPixel: 0.5,
   },
@@ -64,6 +122,8 @@ export const C_ARM_HANDLE_DEFINITIONS: readonly HandleDefinition[] = [
     label: "Obliquity",
     parameter: "obliquityDegrees",
     position: [650, 0, 0],
+    snapDescription: "Shift snaps to 5° increments",
+    snapIncrement: 5,
     unit: "°",
     unitsPerPixel: 0.5,
   },
@@ -73,6 +133,8 @@ export const C_ARM_HANDLE_DEFINITIONS: readonly HandleDefinition[] = [
     label: "Cranial/caudal tilt",
     parameter: "cranialCaudalDegrees",
     position: [0, 0, 650],
+    snapDescription: "Shift snaps to 5° increments",
+    snapIncrement: 5,
     unit: "°",
     unitsPerPixel: 0.5,
   },
@@ -82,6 +144,8 @@ export const C_ARM_HANDLE_DEFINITIONS: readonly HandleDefinition[] = [
     label: "Height",
     parameter: "height",
     position: [150, 0, -650],
+    snapDescription: "Shift snaps to 10 mm increments",
+    snapIncrement: 10,
     unit: "mm",
     unitsPerPixel: 2,
   },
@@ -91,6 +155,8 @@ export const C_ARM_HANDLE_DEFINITIONS: readonly HandleDefinition[] = [
     label: "Horizontal translation",
     parameter: "translationX",
     position: [-150, 0, -650],
+    snapDescription: "Shift snaps to 10 mm increments",
+    snapIncrement: 10,
     unit: "mm",
     unitsPerPixel: 2,
   },
@@ -100,6 +166,8 @@ export const C_ARM_HANDLE_DEFINITIONS: readonly HandleDefinition[] = [
     label: "Source-detector distance",
     parameter: "sourceDetectorDistance",
     position: [0, -650, 150],
+    snapDescription: "Shift snaps to 10 mm increments",
+    snapIncrement: 10,
     unit: "mm",
     unitsPerPixel: 2,
   },
@@ -113,10 +181,9 @@ export function handlesForInteractionMode(
 
 interface DragState {
   captureTarget: PointerCaptureTarget;
+  lastPointerCoordinate: number;
   pointerId: number;
-  startClientX: number;
-  startClientY: number;
-  startValue: number;
+  rawValue: number;
 }
 
 interface PointerCaptureTarget {
@@ -154,13 +221,13 @@ function useHandleDrag(definition: HandleDefinition, value: number) {
       captureHandlePointer(captureTarget, event.pointerId);
       dragRef.current = {
         captureTarget,
+        lastPointerCoordinate:
+          definition.axis === "horizontal" ? event.clientX : -event.clientY,
         pointerId: event.pointerId,
-        startClientX: event.clientX,
-        startClientY: event.clientY,
-        startValue: value,
+        rawValue: value,
       };
     },
-    [value],
+    [definition.axis, value],
   );
 
   const onPointerMove = useCallback(
@@ -168,19 +235,19 @@ function useHandleDrag(definition: HandleDefinition, value: number) {
       const drag = dragRef.current;
       if (drag === null || drag.pointerId !== event.pointerId) return;
       event.stopPropagation();
-      const deltaPixels =
-        definition.axis === "horizontal"
-          ? event.clientX - drag.startClientX
-          : drag.startClientY - event.clientY;
-      setCArmParameter(
-        definition.parameter,
-        calculateHandleValue(
-          drag.startValue,
-          deltaPixels,
-          definition.unitsPerPixel,
-          event,
-        ),
+      const pointerCoordinate =
+        definition.axis === "horizontal" ? event.clientX : -event.clientY;
+      const next = advanceHandleDragValue(
+        drag.rawValue,
+        drag.lastPointerCoordinate,
+        pointerCoordinate,
+        definition.unitsPerPixel,
+        event,
+        definition.snapIncrement,
       );
+      drag.rawValue = next.rawValue;
+      drag.lastPointerCoordinate = pointerCoordinate;
+      setCArmParameter(definition.parameter, next.value);
     },
     [definition, setCArmParameter],
   );
@@ -239,7 +306,10 @@ function ManipulationHandle({ definition, value }: ManipulationHandleProps) {
         <meshStandardMaterial color="#43d9ff" emissive="#087b99" />
       </mesh>
       <Html center pointerEvents="none" position={[0, 90, 0]}>
-        <span className="c-arm-handle__readout">
+        <span
+          className="c-arm-handle__readout"
+          title={definition.snapDescription}
+        >
           {definition.label}: {value.toFixed(1)} {definition.unit}
         </span>
       </Html>
