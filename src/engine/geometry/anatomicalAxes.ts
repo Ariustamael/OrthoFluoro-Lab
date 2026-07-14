@@ -31,8 +31,14 @@ export const ANATOMICAL_LANDMARKS: Readonly<{
   posterior: [0, -50, 0],
 });
 
-/** AP: source below the table, beam +Y, detector +U/+V aligned to +X/+Z. */
-export const AP_C_ARM_POSE: Readonly<CArmPose> = REFERENCE_C_ARM_POSE;
+/** PA: neutral source at posterior -Y, beam toward anterior +Y. */
+export const PA_C_ARM_POSE: Readonly<CArmPose> = REFERENCE_C_ARM_POSE;
+
+/** AP: source at anterior +Y, beam toward posterior -Y. */
+export const AP_C_ARM_POSE: Readonly<CArmPose> = Object.freeze({
+  ...REFERENCE_C_ARM_POSE,
+  orbitDegrees: 180,
+});
 
 /** Lateral: +90° orbit turns the beam toward -X and detector +U toward +Y. */
 export const LATERAL_C_ARM_POSE: Readonly<CArmPose> = Object.freeze({

@@ -3,6 +3,7 @@ import {
   ANATOMICAL_LANDMARKS,
   AP_C_ARM_POSE,
   LATERAL_C_ARM_POSE,
+  PA_C_ARM_POSE,
 } from "../../src/engine/geometry/anatomicalAxes";
 import {
   buildCArmGeometry,
@@ -86,15 +87,15 @@ describe("reference C-arm pose", () => {
   it("applies positive obliquity about world +Y to the detector basis", () => {
     const geometry = buildCArmGeometry({
       ...REFERENCE_C_ARM_POSE,
-      obliquityDegrees: 90,
+      obliquityDegrees: 45,
     });
 
     expect(geometry.source).toEqual([0, -600, 0]);
     expect(geometry.detector.center).toEqual([0, 400, 0]);
-    expect(geometry.detector.uAxis[0]).toBeCloseTo(0, 8);
-    expect(geometry.detector.uAxis[2]).toBeCloseTo(-1, 8);
-    expect(geometry.detector.vAxis[0]).toBeCloseTo(1, 8);
-    expect(geometry.detector.vAxis[2]).toBeCloseTo(0, 8);
+    expect(geometry.detector.uAxis[0]).toBeCloseTo(1 / Math.sqrt(2), 8);
+    expect(geometry.detector.uAxis[2]).toBeCloseTo(-1 / Math.sqrt(2), 8);
+    expect(geometry.detector.vAxis[0]).toBeCloseTo(1 / Math.sqrt(2), 8);
+    expect(geometry.detector.vAxis[2]).toBeCloseTo(1 / Math.sqrt(2), 8);
   });
 
   it("applies positive cranial tilt about world +X", () => {
@@ -167,6 +168,50 @@ describe("reference C-arm pose", () => {
     });
   });
 
+  it.each(
+    (Object.keys(REFERENCE_C_ARM_POSE) as (keyof CArmPose)[]).flatMap((field) =>
+      [Number.NaN, Number.POSITIVE_INFINITY].map(
+        (value) => [field, value] as const,
+      ),
+    ),
+  )("rejects non-finite %s values", (field, value) => {
+    expect(() =>
+      clampCArmPose({ ...REFERENCE_C_ARM_POSE, [field]: value }),
+    ).toThrow(`C-arm pose field "${field}" must be finite`);
+  });
+
+  it.each(["collimationWidth", "collimationHeight"] as const)(
+    "rejects non-positive %s values",
+    (field) => {
+      expect(() =>
+        clampCArmPose({ ...REFERENCE_C_ARM_POSE, [field]: 0 }),
+      ).toThrow(`C-arm pose field "${field}" must be positive`);
+    },
+  );
+
+  it("rejects a non-finite pose before building geometry", () => {
+    expect(() =>
+      buildCArmGeometry({
+        ...REFERENCE_C_ARM_POSE,
+        translationX: Number.NaN,
+      }),
+    ).toThrow('C-arm pose field "translationX" must be finite');
+  });
+
+  it("clamps finite degenerate distances before building geometry", () => {
+    const geometry = buildCArmGeometry({
+      ...REFERENCE_C_ARM_POSE,
+      sourceDetectorDistance: 0,
+      detectorPatientDistance: 0,
+    });
+
+    expect(magnitude(subtract(geometry.detector.center, geometry.source))).toBe(
+      700,
+    );
+    expect(geometry.detector.center).toEqual([0, 100, 0]);
+    expect(geometry.source).toEqual([0, -600, 0]);
+  });
+
   it("round-trips detector coordinates through world space", () => {
     const geometry = buildCArmGeometry({
       ...REFERENCE_C_ARM_POSE,
@@ -214,7 +259,25 @@ describe("reference C-arm pose", () => {
 });
 
 describe("anatomical reference views", () => {
-  it("orders patient-left and headward landmarks positively in AP", () => {
+  it("names the neutral posterior-to-anterior view as PA", () => {
+    const geometry = buildCArmGeometry(PA_C_ARM_POSE);
+    const left = projectPointToDetector(
+      geometry.source,
+      ANATOMICAL_LANDMARKS.patientLeft,
+      geometry.detector,
+    );
+    const right = projectPointToDetector(
+      geometry.source,
+      ANATOMICAL_LANDMARKS.patientRight,
+      geometry.detector,
+    );
+
+    expect(geometry.source).toEqual([0, -600, 0]);
+    expect(geometry.detector.center).toEqual([0, 400, 0]);
+    expect(left!.u).toBeGreaterThan(right!.u);
+  });
+
+  it("places the AP source anteriorly and reverses left-right detector ordering", () => {
     const geometry = buildCArmGeometry(AP_C_ARM_POSE);
     const left = projectPointToDetector(
       geometry.source,
@@ -237,7 +300,9 @@ describe("anatomical reference views", () => {
       geometry.detector,
     );
 
-    expect(left!.u).toBeGreaterThan(right!.u);
+    expect(geometry.source[1]).toBeCloseTo(600, 8);
+    expect(geometry.detector.center[1]).toBeCloseTo(-400, 8);
+    expect(left!.u).toBeLessThan(right!.u);
     expect(head!.v).toBeGreaterThan(feet!.v);
   });
 

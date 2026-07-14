@@ -15,7 +15,39 @@ export const C_ARM_POSE_BOUNDS = Object.freeze({
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, value));
 
+const POSE_FIELDS: readonly (keyof CArmPose)[] = [
+  "translationX",
+  "translationY",
+  "translationZ",
+  "height",
+  "orbitDegrees",
+  "obliquityDegrees",
+  "cranialCaudalDegrees",
+  "sourceDetectorDistance",
+  "detectorPatientDistance",
+  "collimationWidth",
+  "collimationHeight",
+];
+
+function assertFinitePose(pose: CArmPose): void {
+  for (const field of POSE_FIELDS) {
+    if (!Number.isFinite(pose[field])) {
+      throw new RangeError(`C-arm pose field "${field}" must be finite`);
+    }
+  }
+}
+
+function assertPositiveDetectorDimensions(pose: CArmPose): void {
+  for (const field of ["collimationWidth", "collimationHeight"] as const) {
+    if (pose[field] <= 0) {
+      throw new RangeError(`C-arm pose field "${field}" must be positive`);
+    }
+  }
+}
+
 export function clampCArmPose(pose: CArmPose): CArmPose {
+  assertFinitePose(pose);
+  assertPositiveDetectorDimensions(pose);
   return {
     ...pose,
     orbitDegrees: clamp(
@@ -46,7 +78,8 @@ export function clampCArmPose(pose: CArmPose): CArmPose {
   };
 }
 
-export function buildCArmGeometry(pose: CArmPose): CArmGeometry {
+export function buildCArmGeometry(inputPose: CArmPose): CArmGeometry {
+  const pose = clampCArmPose(inputPose);
   // Three's intrinsic ZYX order gives the documented deterministic sequence:
   // orbit about +Z, obliquity about the rotated +Y, then cranial/caudal about
   // the twice-rotated +X. The same quaternion rotates every frame component.
