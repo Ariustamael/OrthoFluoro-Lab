@@ -1,15 +1,7 @@
-import type { Metadata } from "next";
-import { SkeletonPreview } from "./_sites-preview/SkeletonPreview";
+"use client";
 
-export const metadata: Metadata = {
-  title: "Your site is taking shape",
-  description:
-    "Codex is building the first version. It’ll appear here automatically when it’s ready.",
-  other: {
-    "codex-preview": "development",
-  },
-};
+import { AppEntry } from "../src/app/AppEntry";
 
-export default function Home() {
-  return <SkeletonPreview />;
+export default function HomePageEntry() {
+  return <AppEntry />;
 }

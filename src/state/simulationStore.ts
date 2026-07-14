@@ -27,6 +27,7 @@ export interface SimulationState {
   ) => void;
   setObjectRotation: (rotationDegrees: Vec3) => void;
   setInteractionMode: (mode: InteractionMode) => void;
+  setQuality: (quality: QualityPreset) => void;
   resetGeometry: () => void;
 }
 
@@ -78,6 +79,9 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   },
   setInteractionMode: (interactionMode) => {
     set({ interactionMode });
+  },
+  setQuality: (quality) => {
+    set({ quality });
   },
   resetGeometry: () => {
     set({
