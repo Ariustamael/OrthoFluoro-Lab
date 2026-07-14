@@ -15,6 +15,7 @@ export interface SimulationState {
   objectPose: ObjectPose;
   interactionMode: InteractionMode;
   quality: QualityPreset;
+  setCArmPose: (pose: CArmPose) => void;
   setCArmParameter: <K extends keyof CArmPose>(
     key: K,
     value: CArmPose[K],
@@ -46,6 +47,9 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   objectPose: { ...REFERENCE_OBJECT_POSE },
   interactionMode: "inspect",
   quality: "medium",
+  setCArmPose: (pose) => {
+    set({ cArmPose: clampCArmPose({ ...pose }) });
+  },
   setCArmParameter: (key, value) => {
     set((state) => ({
       cArmPose: clampCArmPose({ ...state.cArmPose, [key]: value }),

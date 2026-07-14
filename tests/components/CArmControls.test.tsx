@@ -117,6 +117,22 @@ describe("CArmControls", () => {
     );
   });
 
+  it("preserves the positioned anatomy when applying C-arm view presets", async () => {
+    const user = userEvent.setup();
+    const positionedObject = {
+      position: [25, -10, 40] as const,
+      rotationDegrees: [10, 20, 30] as const,
+    };
+    useSimulationStore.setState({ objectPose: positionedObject });
+    render(<CArmControls />);
+
+    await user.click(screen.getByRole("button", { name: "AP view" }));
+    expect(useSimulationStore.getState().objectPose).toEqual(positionedObject);
+
+    await user.click(screen.getByRole("button", { name: "Lateral view" }));
+    expect(useSimulationStore.getState().objectPose).toEqual(positionedObject);
+  });
+
   it("resets orbit and source-to-detector distance", async () => {
     const user = userEvent.setup();
     render(<CArmControls />);

@@ -146,6 +146,7 @@ function directionForKey(key: string): -1 | 1 | null {
 
 export function CArmControls() {
   const cArmPose = useSimulationStore((state) => state.cArmPose);
+  const setCArmPose = useSimulationStore((state) => state.setCArmPose);
   const setCArmParameter = useSimulationStore(
     (state) => state.setCArmParameter,
   );
@@ -153,11 +154,6 @@ export function CArmControls() {
     (state) => state.nudgeCArmParameter,
   );
   const resetGeometry = useSimulationStore((state) => state.resetGeometry);
-
-  const applyPreset = (orbitDegrees: number) => {
-    resetGeometry();
-    setCArmParameter("orbitDegrees", orbitDegrees);
-  };
 
   const handleKeyDown = (
     event: KeyboardEvent<HTMLInputElement>,
@@ -241,16 +237,10 @@ export function CArmControls() {
       </div>
 
       <div aria-label="Reference views" className="c-arm-controls__presets">
-        <button
-          onClick={() => applyPreset(AP_C_ARM_POSE.orbitDegrees)}
-          type="button"
-        >
+        <button onClick={() => setCArmPose(AP_C_ARM_POSE)} type="button">
           AP view
         </button>
-        <button
-          onClick={() => applyPreset(LATERAL_C_ARM_POSE.orbitDegrees)}
-          type="button"
-        >
+        <button onClick={() => setCArmPose(LATERAL_C_ARM_POSE)} type="button">
           Lateral view
         </button>
       </div>
