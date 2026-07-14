@@ -1,15 +1,8 @@
 "use client";
 
-import { Canvas, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MathUtils, PerspectiveCamera, type Camera } from "three";
 import { buildCArmGeometry } from "../../engine/geometry/cArmTransforms";
 import { magnitude, subtract } from "../../engine/geometry/coordinateSystems";
-import type {
-  CArmGeometry,
-  ObjectPose,
-  Vec3,
-} from "../../engine/geometry/geometryTypes";
 import { magnification } from "../../engine/geometry/projectionMath";
 import {
   createSimplifiedProjectionRenderer,
@@ -17,8 +10,8 @@ import {
 } from "../../engine/projection/SimplifiedProjectionRenderer";
 import type {
   DetectorSensorSize,
-  ProjectionAppearance,
   ProjectionInput,
+  ProjectionOutput,
   ProjectionRenderer,
 } from "../../engine/projection/rendererTypes";
 import {
@@ -31,6 +24,7 @@ const DETECTOR_RENDER_SCALE: Readonly<Record<QualityPreset, number>> = {
   medium: 0.8,
   high: 1,
 };
+const DETECTOR_RENDER_SIZE = 500;
 
 export function detectorRenderScale(quality: QualityPreset): number {
   return DETECTOR_RENDER_SCALE[quality];
@@ -44,43 +38,14 @@ export function effectiveDetectorRenderScale(
   return isInteracting ? Math.min(selectedScale, 0.6) : selectedScale;
 }
 
-export interface DetectorCameraFrame {
-  readonly far: number;
-  readonly near: number;
-  readonly position: Vec3;
-  readonly target: Vec3;
-  readonly up: Vec3;
-  readonly verticalFieldOfViewDegrees: number;
-}
-
-export function detectorCameraFrame(
-  geometry: CArmGeometry,
-  viewportAspect: number,
-  detectorSensor: DetectorSensorSize = SIMPLIFIED_DETECTOR_SENSOR,
-): DetectorCameraFrame {
-  const sourceDetectorDistance = magnitude(
-    subtract(geometry.detector.center, geometry.source),
+export function detectorRenderDimensions(
+  quality: QualityPreset,
+  isInteracting: boolean,
+): { readonly width: number; readonly height: number } {
+  const size = Math.round(
+    DETECTOR_RENDER_SIZE * effectiveDetectorRenderScale(quality, isInteracting),
   );
-  const fallbackAspect = detectorSensor.width / detectorSensor.height;
-  const aspect =
-    Number.isFinite(viewportAspect) && viewportAspect > 0
-      ? viewportAspect
-      : fallbackAspect;
-  const verticalSpan = Math.max(
-    detectorSensor.height,
-    detectorSensor.width / aspect,
-  );
-
-  return {
-    far: sourceDetectorDistance * 2,
-    near: Math.max(0.1, sourceDetectorDistance / 10_000),
-    position: geometry.source,
-    target: geometry.detector.center,
-    up: geometry.detector.vAxis,
-    verticalFieldOfViewDegrees: MathUtils.radToDeg(
-      2 * Math.atan(verticalSpan / (2 * sourceDetectorDistance)),
-    ),
-  };
+  return { height: size, width: size };
 }
 
 export interface CollimationOverlayFrame {
@@ -108,17 +73,6 @@ export function collimationOverlayFrame(
     xFraction: (1 - widthFraction) / 2,
     yFraction: (1 - heightFraction) / 2,
   };
-}
-
-function applyCameraFrame(camera: Camera, frame: DetectorCameraFrame): void {
-  if (!(camera instanceof PerspectiveCamera)) return;
-  camera.position.set(...frame.position);
-  camera.up.set(...frame.up);
-  camera.near = frame.near;
-  camera.far = frame.far;
-  camera.fov = frame.verticalFieldOfViewDegrees;
-  camera.lookAt(...frame.target);
-  camera.updateProjectionMatrix();
 }
 
 function usePointerInteraction(): boolean {
@@ -156,103 +110,17 @@ function usePointerInteraction(): boolean {
   return isInteracting;
 }
 
-interface DetectorAlignedCameraProps {
-  geometry: CArmGeometry;
-  detectorSensor: DetectorSensorSize;
-}
-
-function DetectorAlignedCamera({
-  geometry,
-  detectorSensor,
-}: DetectorAlignedCameraProps) {
-  const camera = useThree((state) => state.camera);
-  const viewportAspect = useThree(
-    (state) => state.size.width / state.size.height,
-  );
-  const frame = useMemo(
-    () => detectorCameraFrame(geometry, viewportAspect, detectorSensor),
-    [detectorSensor, geometry, viewportAspect],
-  );
-
-  useEffect(() => {
-    applyCameraFrame(camera, frame);
-  }, [camera, frame]);
-
-  return null;
-}
-
-interface ProjectionPlaceholderProps {
-  appearance: ProjectionAppearance;
-  objectPose: ObjectPose;
-}
-
-const CYLINDER_ROTATION = [Math.PI / 2, 0, 0] as const;
-
-function ProjectionPlaceholder({
-  appearance,
-  objectPose,
-}: ProjectionPlaceholderProps) {
-  const rotation = useMemo(
-    () =>
-      objectPose.rotationDegrees.map((degrees) =>
-        MathUtils.degToRad(degrees),
-      ) as [number, number, number],
-    [objectPose.rotationDegrees],
-  );
-
-  return (
-    <group position={objectPose.position} rotation={rotation}>
-      <mesh rotation={CYLINDER_ROTATION}>
-        <cylinderGeometry args={[62, 48, 520, 32]} />
-        <meshBasicMaterial
-          color={appearance.softTissueColor}
-          depthWrite={false}
-          opacity={appearance.softTissueOpacity}
-          transparent
-        />
-      </mesh>
-      <mesh position={[-20, 0, 0]} rotation={CYLINDER_ROTATION}>
-        <cylinderGeometry args={[14, 11, 490, 24]} />
-        <meshBasicMaterial color={appearance.primaryBoneColor} />
-      </mesh>
-      <mesh position={[20, 0, 0]} rotation={CYLINDER_ROTATION}>
-        <cylinderGeometry args={[12, 15, 470, 24]} />
-        <meshBasicMaterial color={appearance.secondaryBoneColor} />
-      </mesh>
-    </group>
-  );
-}
-
-interface DetectorProjectionSceneProps {
-  appearance: ProjectionAppearance;
-  geometry: CArmGeometry;
-  objectPose: ObjectPose;
-}
-
-function DetectorProjectionScene({
-  appearance,
-  geometry,
-  objectPose,
-}: DetectorProjectionSceneProps) {
-  return (
-    <>
-      <color args={[appearance.backgroundColor]} attach="background" />
-      <DetectorAlignedCamera
-        detectorSensor={appearance.detectorSensor}
-        geometry={geometry}
-      />
-      <ProjectionPlaceholder appearance={appearance} objectPose={objectPose} />
-    </>
-  );
-}
-
 interface DetectorOverlayProps {
+  artifactHeight: number;
+  artifactWidth: number;
   collimationHeight: number;
   collimationWidth: number;
   detectorSensor: DetectorSensorSize;
 }
 
 function DetectorOverlay({
+  artifactHeight,
+  artifactWidth,
   collimationHeight,
   collimationWidth,
   detectorSensor,
@@ -262,25 +130,38 @@ function DetectorOverlay({
     collimationHeight,
     detectorSensor,
   );
+  const markerSize = Math.min(artifactWidth, artifactHeight) * 0.04;
+  const centerX = artifactWidth / 2;
+  const centerY = artifactHeight / 2;
   return (
     <svg
       aria-label="Detector centre and collimation"
       className="projection-view__overlay"
       preserveAspectRatio="xMidYMid meet"
       role="img"
-      viewBox="0 0 100 100"
+      viewBox={`0 0 ${artifactWidth} ${artifactHeight}`}
     >
       <rect
         fill="none"
-        height={frame.heightFraction * 100}
+        height={frame.heightFraction * artifactHeight}
         stroke="currentColor"
-        strokeWidth="0.8"
-        width={frame.widthFraction * 100}
-        x={frame.xFraction * 100}
-        y={frame.yFraction * 100}
+        strokeWidth={Math.max(1, artifactWidth * 0.008)}
+        width={frame.widthFraction * artifactWidth}
+        x={frame.xFraction * artifactWidth}
+        y={frame.yFraction * artifactHeight}
       />
-      <path d="M 46 50 H 54 M 50 46 V 54" fill="none" stroke="currentColor" />
-      <circle cx="50" cy="50" fill="none" r="1.5" stroke="currentColor" />
+      <path
+        d={`M ${centerX - markerSize} ${centerY} H ${centerX + markerSize} M ${centerX} ${centerY - markerSize} V ${centerY + markerSize}`}
+        fill="none"
+        stroke="currentColor"
+      />
+      <circle
+        cx={centerX}
+        cy={centerY}
+        fill="none"
+        r={markerSize * 0.35}
+        stroke="currentColor"
+      />
     </svg>
   );
 }
@@ -297,21 +178,22 @@ export function ProjectionView({
   const quality = useSimulationStore((state) => state.quality);
   const isInteracting = usePointerInteraction();
   const geometry = useMemo(() => buildCArmGeometry(cArmPose), [cArmPose]);
+  const renderDimensions = detectorRenderDimensions(quality, isInteracting);
   const rendererRef = useRef<ProjectionRenderer | null>(null);
+  const requestIdRef = useRef(0);
   const [renderer, setRenderer] = useState<ProjectionRenderer | null>(null);
-  const [projectionOutput, setProjectionOutput] = useState<ReturnType<
-    ProjectionRenderer["render"]
-  > | null>(null);
+  const [projectionOutput, setProjectionOutput] =
+    useState<ProjectionOutput | null>(null);
+  const [projectionError, setProjectionError] = useState<string | null>(null);
   const projectionInput = useMemo<ProjectionInput>(
     () => ({
       geometry,
-      height: SIMPLIFIED_DETECTOR_SENSOR.height,
+      height: renderDimensions.height,
       objectPose,
-      width: SIMPLIFIED_DETECTOR_SENSOR.width,
+      width: renderDimensions.width,
     }),
-    [geometry, objectPose],
+    [geometry, objectPose, renderDimensions.height, renderDimensions.width],
   );
-  const renderScale = effectiveDetectorRenderScale(quality, isInteracting);
   const sourceObjectDistance = magnitude(
     subtract(objectPose.position, geometry.source),
   );
@@ -331,6 +213,7 @@ export function ProjectionView({
     });
     return () => {
       active = false;
+      requestIdRef.current += 1;
       if (rendererRef.current === nextRenderer) rendererRef.current = null;
       nextRenderer.dispose();
     };
@@ -339,57 +222,81 @@ export function ProjectionView({
   useEffect(() => {
     if (renderer === null || rendererRef.current !== renderer) return;
     let active = true;
-    const nextOutput = renderer.render(projectionInput);
-    queueMicrotask(() => {
-      if (active && rendererRef.current === renderer) {
-        setProjectionOutput(nextOutput);
-      }
-    });
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+    void renderer.render(projectionInput).then(
+      (output) => {
+        if (
+          active &&
+          requestIdRef.current === requestId &&
+          rendererRef.current === renderer
+        ) {
+          setProjectionError(null);
+          setProjectionOutput(output);
+        }
+      },
+      (error: unknown) => {
+        if (
+          active &&
+          requestIdRef.current === requestId &&
+          rendererRef.current === renderer
+        ) {
+          setProjectionError(
+            error instanceof Error
+              ? error.message
+              : "Detector rendering failed",
+          );
+        }
+      },
+    );
     return () => {
       active = false;
     };
   }, [projectionInput, renderer]);
 
+  const renderScale = effectiveDetectorRenderScale(quality, isInteracting);
+  const description =
+    projectionOutput?.description ?? "Preparing detector projection…";
+
   return (
     <section
       aria-labelledby="simplified-projection-heading"
       className="projection-view"
-      data-projection-strategy={projectionOutput?.textureId}
+      data-projection-strategy={projectionOutput?.strategyId}
       data-render-scale={renderScale}
     >
       <header className="projection-view__header">
         <h2 id="simplified-projection-heading">
           Simplified anatomical projection
         </h2>
-        <p className="projection-view__education-label">
-          {projectionOutput?.description ?? "Preparing detector projection…"}
-        </p>
+        <p className="projection-view__education-label">{description}</p>
       </header>
-      <div className="projection-view__detector">
-        {projectionOutput === null ? (
+      <div
+        aria-busy={projectionOutput === null && projectionError === null}
+        className="projection-view__detector"
+      >
+        {projectionError !== null ? (
+          <p role="alert">{projectionError}</p>
+        ) : projectionOutput === null ? (
           <p role="status">Preparing detector projection…</p>
         ) : (
           <>
-            <Canvas
-              camera={{ far: 2000, fov: 20, near: 0.1 }}
+            {/* A strategy-owned data URL cannot use framework image optimization. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              alt={projectionOutput.description}
               className="projection-view__surface"
-              dpr={renderScale}
-              fallback={
-                <p>Detector rendering is unavailable on this device.</p>
-              }
-              frameloop="demand"
-              gl={{ alpha: false, antialias: false }}
-            >
-              <DetectorProjectionScene
-                appearance={projectionOutput.appearance}
-                geometry={geometry}
-                objectPose={objectPose}
-              />
-            </Canvas>
+              height={projectionOutput.artifact.height}
+              src={projectionOutput.artifact.dataUrl}
+              style={{ objectFit: "contain" }}
+              width={projectionOutput.artifact.width}
+            />
             <DetectorOverlay
+              artifactHeight={projectionOutput.artifact.height}
+              artifactWidth={projectionOutput.artifact.width}
               collimationHeight={cArmPose.collimationHeight}
               collimationWidth={cArmPose.collimationWidth}
-              detectorSensor={projectionOutput.appearance.detectorSensor}
+              detectorSensor={projectionOutput.artifact.detectorSensor}
             />
           </>
         )}

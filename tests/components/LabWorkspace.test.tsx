@@ -9,7 +9,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CArmControls } from "../../src/components/controls/CArmControls";
 import {
   collimationOverlayFrame,
-  detectorCameraFrame,
+  detectorRenderDimensions,
   detectorRenderScale,
   effectiveDetectorRenderScale,
   ProjectionView,
@@ -130,41 +130,22 @@ describe("detector rendering contracts", () => {
     expect(detectorRenderScale("high")).toBe(1);
     expect(effectiveDetectorRenderScale("high", true)).toBe(0.6);
     expect(effectiveDetectorRenderScale("high", false)).toBe(1);
-  });
-
-  it("aligns the projection camera with the shared detector geometry", () => {
-    const geometry = buildCArmGeometry({
-      ...REFERENCE_C_ARM_POSE,
-      orbitDegrees: 37,
-      obliquityDegrees: -12,
+    expect(detectorRenderDimensions("low", false)).toEqual({
+      height: 300,
+      width: 300,
     });
-
-    const camera = detectorCameraFrame(geometry, 1.5);
-
-    expect(camera.position).toEqual(geometry.source);
-    expect(camera.target).toEqual(geometry.detector.center);
-    expect(camera.up).toEqual(geometry.detector.vAxis);
-    expect(camera.verticalFieldOfViewDegrees).toBeGreaterThan(0);
-  });
-
-  it("keeps the detector field of view stable when collimation changes", () => {
-    const openGeometry = buildCArmGeometry({
-      ...REFERENCE_C_ARM_POSE,
-      collimationHeight: 300,
-      collimationWidth: 300,
+    expect(detectorRenderDimensions("medium", false)).toEqual({
+      height: 400,
+      width: 400,
     });
-    const narrowGeometry = buildCArmGeometry({
-      ...REFERENCE_C_ARM_POSE,
-      collimationHeight: 100,
-      collimationWidth: 120,
+    expect(detectorRenderDimensions("high", false)).toEqual({
+      height: 500,
+      width: 500,
     });
-
-    expect(
-      detectorCameraFrame(openGeometry, 1.2).verticalFieldOfViewDegrees,
-    ).toBeCloseTo(
-      detectorCameraFrame(narrowGeometry, 1.2).verticalFieldOfViewDegrees,
-      10,
-    );
+    expect(detectorRenderDimensions("high", true)).toEqual({
+      height: 300,
+      width: 300,
+    });
   });
 
   it("shrinks the centred collimation overlay within stable sensor bounds", () => {
@@ -195,41 +176,102 @@ describe("replaceable projection renderer", () => {
     width: 400,
   };
 
-  it("returns simplified scene configuration through the renderer contract", () => {
+  it("returns an awaited renderer-owned image artifact", async () => {
     const renderer: ProjectionRenderer = new SimplifiedProjectionRenderer();
 
-    const output = renderer.render(projectionInput);
+    const pendingOutput = renderer.render(projectionInput);
+
+    expect(pendingOutput).toBeInstanceOf(Promise);
+    const output = await pendingOutput;
 
     expect(output).toMatchObject({
-      appearance: {
-        backgroundColor: "#050505",
+      artifact: {
+        dataUrl: expect.stringMatching(/^data:image\/svg\+xml/),
         detectorSensor: SIMPLIFIED_DETECTOR_SENSOR,
-        primaryBoneColor: "#eeeeee",
-        secondaryBoneColor: "#cfcfcf",
-        softTissueColor: "#8a8a8a",
-        softTissueOpacity: 0.6,
+        height: 400,
+        width: 400,
       },
       description: "Educational geometric visualisation",
-      textureId: "simplified-procedural",
+      strategyId: "simplified-procedural",
     });
+  });
+
+  it("changes the detector artifact with geometry and object pose", async () => {
+    const renderer = new SimplifiedProjectionRenderer();
+    const reference = await renderer.render(projectionInput);
+    const rotated = await renderer.render({
+      ...projectionInput,
+      objectPose: {
+        ...projectionInput.objectPose,
+        rotationDegrees: [0, 30, 0],
+      },
+    });
+    const translated = await renderer.render({
+      ...projectionInput,
+      objectPose: {
+        ...projectionInput.objectPose,
+        position: [35, 0, 20],
+      },
+    });
+    const magnified = await renderer.render({
+      ...projectionInput,
+      geometry: buildCArmGeometry({
+        ...REFERENCE_C_ARM_POSE,
+        detectorPatientDistance: 500,
+      }),
+    });
+
+    expect(rotated.artifact.dataUrl).not.toBe(reference.artifact.dataUrl);
+    expect(translated.artifact.dataUrl).not.toBe(reference.artifact.dataUrl);
+    expect(magnified.artifact.dataUrl).not.toBe(reference.artifact.dataUrl);
+    const decodedReference = decodeURIComponent(
+      reference.artifact.dataUrl.slice(
+        reference.artifact.dataUrl.indexOf(",") + 1,
+      ),
+    );
+    expect(decodedReference.match(/<line /g)).toHaveLength(3);
+    expect(decodedReference.indexOf("#8a8a8a")).toBeLessThan(
+      decodedReference.indexOf("#eeeeee"),
+    );
+  });
+
+  it("keeps the artifact magnification stable when only collimation changes", async () => {
+    const renderer = new SimplifiedProjectionRenderer();
+    const open = await renderer.render({
+      ...projectionInput,
+      geometry: buildCArmGeometry({
+        ...REFERENCE_C_ARM_POSE,
+        collimationHeight: 300,
+        collimationWidth: 300,
+      }),
+    });
+    const narrow = await renderer.render({
+      ...projectionInput,
+      geometry: buildCArmGeometry({
+        ...REFERENCE_C_ARM_POSE,
+        collimationHeight: 80,
+        collimationWidth: 100,
+      }),
+    });
+
+    expect(narrow.artifact.dataUrl).toBe(open.artifact.dataUrl);
   });
 
   it("uses an injected strategy and disposes it when the view unmounts", async () => {
     const output: ProjectionOutput = {
-      appearance: {
-        backgroundColor: "#111111",
+      artifact: {
+        dataUrl:
+          "data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%2F%3E",
         detectorSensor: { height: 420, width: 420 },
-        primaryBoneColor: "#dddddd",
-        secondaryBoneColor: "#bbbbbb",
-        softTissueColor: "#777777",
-        softTissueOpacity: 0.5,
+        height: 48,
+        width: 64,
       },
       description: "Test projection strategy",
-      textureId: "test-strategy",
+      strategyId: "test-strategy",
     };
     const renderer: ProjectionRenderer = {
       dispose: vi.fn(),
-      render: vi.fn(() => output),
+      render: vi.fn(async () => output),
     };
     const createRenderer = vi.fn(() => renderer);
 
@@ -249,6 +291,12 @@ describe("replaceable projection renderer", () => {
     expect(
       await screen.findByText("Test projection strategy"),
     ).toBeInTheDocument();
+    const projectionImage = await screen.findByRole("img", {
+      name: "Test projection strategy",
+    });
+    expect(projectionImage).toHaveAttribute("src", output.artifact.dataUrl);
+    expect(projectionImage).toHaveAttribute("width", "64");
+    expect(projectionImage).toHaveAttribute("height", "48");
 
     unmount();
     expect(renderer.dispose).toHaveBeenCalledOnce();

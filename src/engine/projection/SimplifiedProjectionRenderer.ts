@@ -1,6 +1,12 @@
+import { Euler, MathUtils, Quaternion, Vector3 } from "three";
+import { projectPointToDetector } from "../geometry/projectionMath";
+import type {
+  DetectorPoint,
+  ObjectPose,
+  Vec3,
+} from "../geometry/geometryTypes";
 import type {
   DetectorSensorSize,
-  ProjectionAppearance,
   ProjectionInput,
   ProjectionOutput,
   ProjectionRenderer,
@@ -12,31 +18,163 @@ export const SIMPLIFIED_DETECTOR_SENSOR: Readonly<DetectorSensorSize> =
     width: 400,
   });
 
-const SIMPLIFIED_PROJECTION_APPEARANCE: Readonly<ProjectionAppearance> =
-  Object.freeze({
-    backgroundColor: "#050505",
-    detectorSensor: SIMPLIFIED_DETECTOR_SENSOR,
-    primaryBoneColor: "#eeeeee",
-    secondaryBoneColor: "#cfcfcf",
-    softTissueColor: "#8a8a8a",
-    softTissueOpacity: 0.6,
-  });
+interface PixelPoint {
+  readonly x: number;
+  readonly y: number;
+}
 
-const SIMPLIFIED_PROJECTION_OUTPUT: Readonly<ProjectionOutput> = Object.freeze({
-  appearance: SIMPLIFIED_PROJECTION_APPEARANCE,
-  description: "Educational geometric visualisation",
-  textureId: "simplified-procedural",
-});
+interface ObjectTransform {
+  readonly position: Vector3;
+  readonly rotation: Quaternion;
+}
+
+const toTuple = (vector: Vector3): Vec3 =>
+  [vector.x, vector.y, vector.z] as const;
+
+function buildObjectTransform(objectPose: ObjectPose): ObjectTransform {
+  const [x, y, z] = objectPose.rotationDegrees;
+  return {
+    position: new Vector3(...objectPose.position),
+    rotation: new Quaternion().setFromEuler(
+      new Euler(
+        MathUtils.degToRad(x),
+        MathUtils.degToRad(y),
+        MathUtils.degToRad(z),
+      ),
+    ),
+  };
+}
+
+function localToWorld(local: Vec3, transform: ObjectTransform): Vec3 {
+  return toTuple(
+    new Vector3(...local)
+      .applyQuaternion(transform.rotation)
+      .add(transform.position),
+  );
+}
+
+function detectorPointToPixel(
+  point: DetectorPoint,
+  width: number,
+  height: number,
+): PixelPoint {
+  return {
+    x: width / 2 + (point.u / SIMPLIFIED_DETECTOR_SENSOR.width) * width,
+    y: height / 2 - (point.v / SIMPLIFIED_DETECTOR_SENSOR.height) * height,
+  };
+}
+
+function projectedLocalPoint(
+  local: Vec3,
+  input: ProjectionInput,
+  transform: ObjectTransform,
+  width: number,
+  height: number,
+): PixelPoint | null {
+  const projected = projectPointToDetector(
+    input.geometry.source,
+    localToWorld(local, transform),
+    input.geometry.detector,
+  );
+  return projected === null
+    ? null
+    : detectorPointToPixel(projected, width, height);
+}
+
+const distance2d = (a: PixelPoint, b: PixelPoint): number =>
+  Math.hypot(a.x - b.x, a.y - b.y);
+
+const number = (value: number): string => value.toFixed(3);
+
+function projectionLine(
+  start: PixelPoint | null,
+  end: PixelPoint | null,
+  strokeWidth: number,
+  color: string,
+  opacity = 1,
+): string {
+  if (start === null || end === null) return "";
+  return `<line x1="${number(start.x)}" y1="${number(start.y)}" x2="${number(end.x)}" y2="${number(end.y)}" stroke="${color}" stroke-width="${number(strokeWidth)}" stroke-linecap="round" opacity="${number(opacity)}" />`;
+}
+
+function projectedDiameter(
+  center: Vec3,
+  radiusPoint: Vec3,
+  input: ProjectionInput,
+  transform: ObjectTransform,
+  width: number,
+  height: number,
+): number {
+  const projectedCenter = projectedLocalPoint(
+    center,
+    input,
+    transform,
+    width,
+    height,
+  );
+  const projectedRadius = projectedLocalPoint(
+    radiusPoint,
+    input,
+    transform,
+    width,
+    height,
+  );
+  if (projectedCenter === null || projectedRadius === null) return 1;
+  return Math.max(1, distance2d(projectedCenter, projectedRadius) * 2);
+}
+
+function createSimplifiedSvg(input: ProjectionInput): {
+  svg: string;
+  width: number;
+  height: number;
+} {
+  const width = Math.max(1, Math.round(input.width));
+  const height = Math.max(1, Math.round(input.height));
+  const transform = buildObjectTransform(input.objectPose);
+  const point = (local: Vec3) =>
+    projectedLocalPoint(local, input, transform, width, height);
+
+  const softTissue = projectionLine(
+    point([0, 0, -260]),
+    point([0, 0, 260]),
+    projectedDiameter([0, 0, 0], [62, 0, 0], input, transform, width, height),
+    "#8a8a8a",
+    0.6,
+  );
+  const primaryBone = projectionLine(
+    point([-20, 0, -245]),
+    point([-20, 0, 245]),
+    projectedDiameter([-20, 0, 0], [-6, 0, 0], input, transform, width, height),
+    "#eeeeee",
+  );
+  const secondaryBone = projectionLine(
+    point([20, 0, -235]),
+    point([20, 0, 235]),
+    projectedDiameter([20, 0, 0], [32, 0, 0], input, transform, width, height),
+    "#cfcfcf",
+  );
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="${width}" height="${height}" fill="#050505" />${softTissue}${primaryBone}${secondaryBone}</svg>`;
+  return { height, svg, width };
+}
 
 export class SimplifiedProjectionRenderer implements ProjectionRenderer {
   private disposed = false;
 
-  render(input: ProjectionInput): ProjectionOutput {
+  async render(input: ProjectionInput): Promise<ProjectionOutput> {
     if (this.disposed) {
       throw new Error("Cannot render with a disposed projection renderer");
     }
-    void input;
-    return SIMPLIFIED_PROJECTION_OUTPUT;
+    const { height, svg, width } = createSimplifiedSvg(input);
+    return {
+      artifact: {
+        dataUrl: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
+        detectorSensor: SIMPLIFIED_DETECTOR_SENSOR,
+        height,
+        width,
+      },
+      description: "Educational geometric visualisation",
+      strategyId: "simplified-procedural",
+    };
   }
 
   dispose(): void {

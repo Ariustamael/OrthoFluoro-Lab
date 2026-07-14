@@ -1,16 +1,10 @@
 import type { CArmGeometry, ObjectPose } from "../geometry/geometryTypes";
 
 export interface ProjectionInput {
-  geometry: CArmGeometry;
-  objectPose: ObjectPose;
-  width: number;
-  height: number;
-}
-
-export interface ProjectionOutput {
-  textureId: string;
-  description: string;
-  appearance: ProjectionAppearance;
+  readonly geometry: CArmGeometry;
+  readonly objectPose: ObjectPose;
+  readonly width: number;
+  readonly height: number;
 }
 
 export interface DetectorSensorSize {
@@ -18,16 +12,20 @@ export interface DetectorSensorSize {
   readonly height: number;
 }
 
-export interface ProjectionAppearance {
-  readonly backgroundColor: string;
+export interface ProjectionArtifact {
+  readonly dataUrl: string;
+  readonly width: number;
+  readonly height: number;
   readonly detectorSensor: DetectorSensorSize;
-  readonly softTissueColor: string;
-  readonly softTissueOpacity: number;
-  readonly primaryBoneColor: string;
-  readonly secondaryBoneColor: string;
+}
+
+export interface ProjectionOutput {
+  readonly strategyId: string;
+  readonly description: string;
+  readonly artifact: ProjectionArtifact;
 }
 
 export interface ProjectionRenderer {
-  render(input: ProjectionInput): ProjectionOutput;
+  render(input: ProjectionInput): Promise<ProjectionOutput>;
   dispose(): void;
 }
