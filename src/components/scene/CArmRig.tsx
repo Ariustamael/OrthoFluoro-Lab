@@ -102,6 +102,12 @@ export function advanceHandleDragValue(
 
 export const ACTIVE_FACE_INSET = 0.5;
 
+export const C_ARM_INTEGRATED_MATERIAL = {
+  color: "#3d7fa6",
+  metalness: 0.18,
+  roughness: 0.72,
+} as const;
+
 export interface CArmRigResources {
   readonly activeFaceGeometry: BufferGeometry;
   readonly beamGeometry: BufferGeometry;
@@ -274,11 +280,7 @@ export function CArmRig({
             dispose={null}
             object={resources.integrated.geometry}
           />
-          <meshStandardMaterial
-            color="#17324d"
-            metalness={0.48}
-            roughness={0.42}
-          />
+          <meshStandardMaterial {...C_ARM_INTEGRATED_MATERIAL} />
         </mesh>
 
         <mesh name="Detector active face">

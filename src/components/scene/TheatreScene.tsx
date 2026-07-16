@@ -13,7 +13,8 @@ import {
   releaseHandlePointer,
 } from "./CArmRig";
 
-const BACKGROUND_COLOR = ["#07131f"] as const;
+export const THEATRE_BACKGROUND_COLOR = "#07131f";
+const BACKGROUND_COLOR = [THEATRE_BACKGROUND_COLOR] as const;
 const FLOOR_POSITION = [0, -700, 0] as const;
 const FLOOR_ROTATION = [-Math.PI / 2, 0, 0] as const;
 

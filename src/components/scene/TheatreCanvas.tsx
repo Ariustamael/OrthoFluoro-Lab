@@ -21,12 +21,12 @@ import {
   WebGLErrorFallback,
 } from "./WebGLErrorFallback";
 
-const CAMERA = {
+export const DEFAULT_THEATRE_CAMERA = {
   far: 8000,
   fov: 42,
   near: 1,
-  position: [1450, 950, 1650] as [number, number, number],
-};
+  position: [1450, 280, 1650] as [number, number, number],
+} as const;
 const ANTIALIASED_GL_OPTIONS = { alpha: false, antialias: true } as const;
 const BASIC_GL_OPTIONS = { alpha: false, antialias: false } as const;
 
@@ -156,7 +156,7 @@ function TheatreViewport() {
       ) : (
         <WebGLErrorBoundary key={rendererKey} onReset={resetGraphics}>
           <Canvas
-            camera={CAMERA}
+            camera={DEFAULT_THEATRE_CAMERA}
             className="theatre-canvas__surface"
             dpr={renderConfig.dpr}
             fallback={<WebGLErrorFallback onReset={resetGraphics} />}

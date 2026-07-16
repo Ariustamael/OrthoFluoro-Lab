@@ -2,6 +2,7 @@ import { render, renderHook, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import {
+  Color,
   OrthographicCamera,
   PerspectiveCamera,
   Raycaster,
@@ -26,6 +27,7 @@ import {
   advanceHandleDragValue,
   calculateHandleValue,
   calculateIncrementalHandleValue,
+  C_ARM_INTEGRATED_MATERIAL,
   captureHandlePointer,
   createCArmRigRenderModel,
   createCArmRigResources,
@@ -37,7 +39,9 @@ import {
   advanceAnatomyRotationValue,
   ANATOMY_ROTATION_HANDLE_DEFINITIONS,
   orbitControlsEnabled,
+  THEATRE_BACKGROUND_COLOR,
 } from "../../src/components/scene/TheatreScene";
+import { DEFAULT_THEATRE_CAMERA } from "../../src/components/scene/TheatreCanvas";
 import {
   canInitializeWebGL,
   WebGLErrorFallback,
@@ -46,6 +50,36 @@ import { C_ARM_RIG_PRESETS } from "../../src/engine/geometry/cArmRigPresets";
 import { deriveCArmRigGeometry } from "../../src/engine/geometry/cArmRigGeometry";
 import { buildCArmGeometry } from "../../src/engine/geometry/cArmTransforms";
 import { REFERENCE_C_ARM_POSE } from "../../src/engine/geometry/geometryTypes";
+
+function colorLightness(color: string): number {
+  return new Color(color).getHSL({ h: 0, l: 0, s: 0 }).l;
+}
+
+describe("default theatre visual contracts", () => {
+  it("uses a shallow side-oblique camera that exposes the source below the table", () => {
+    expect(DEFAULT_THEATRE_CAMERA.position).toEqual([
+      1450,
+      expect.any(Number),
+      1650,
+    ]);
+    expect(DEFAULT_THEATRE_CAMERA.position[1]).toBeGreaterThanOrEqual(250);
+    expect(DEFAULT_THEATRE_CAMERA.position[1]).toBeLessThanOrEqual(320);
+    expect(DEFAULT_THEATRE_CAMERA).toMatchObject({
+      far: 8000,
+      fov: 42,
+      near: 1,
+    });
+  });
+
+  it("keeps the integrated rig visibly lighter and less metallic than the scene", () => {
+    expect(
+      colorLightness(C_ARM_INTEGRATED_MATERIAL.color) -
+        colorLightness(THEATRE_BACKGROUND_COLOR),
+    ).toBeGreaterThanOrEqual(0.18);
+    expect(C_ARM_INTEGRATED_MATERIAL.metalness).toBeLessThanOrEqual(0.25);
+    expect(C_ARM_INTEGRATED_MATERIAL.roughness).toBeGreaterThanOrEqual(0.65);
+  });
+});
 
 describe("generic scene handle deltas", () => {
   it("converts pointer movement into handle units", () => {
