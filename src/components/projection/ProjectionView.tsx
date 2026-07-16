@@ -1,15 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { C_ARM_RIG_PRESETS } from "../../engine/geometry/cArmRigPresets";
 import { buildCArmGeometry } from "../../engine/geometry/cArmTransforms";
 import { magnitude, subtract } from "../../engine/geometry/coordinateSystems";
 import { magnification } from "../../engine/geometry/projectionMath";
-import {
-  createSimplifiedProjectionRenderer,
-  SIMPLIFIED_DETECTOR_SENSOR,
-} from "../../engine/projection/SimplifiedProjectionRenderer";
+import { createSimplifiedProjectionRenderer } from "../../engine/projection/SimplifiedProjectionRenderer";
 import type {
-  DetectorSensorSize,
   ProjectionInput,
   ProjectionOutput,
   ProjectionRenderer,
@@ -56,33 +53,6 @@ export function detectorDisplayDimensions(): {
   return { height: DETECTOR_DISPLAY_SIZE, width: DETECTOR_DISPLAY_SIZE };
 }
 
-export interface CollimationOverlayFrame {
-  readonly heightFraction: number;
-  readonly widthFraction: number;
-  readonly xFraction: number;
-  readonly yFraction: number;
-}
-
-const clampFraction = (value: number): number =>
-  Math.min(1, Math.max(0, value));
-
-export function collimationOverlayFrame(
-  collimationWidth: number,
-  collimationHeight: number,
-  detectorSensor: DetectorSensorSize = SIMPLIFIED_DETECTOR_SENSOR,
-): CollimationOverlayFrame {
-  const widthFraction = clampFraction(collimationWidth / detectorSensor.width);
-  const heightFraction = clampFraction(
-    collimationHeight / detectorSensor.height,
-  );
-  return {
-    heightFraction,
-    widthFraction,
-    xFraction: (1 - widthFraction) / 2,
-    yFraction: (1 - heightFraction) / 2,
-  };
-}
-
 function usePointerInteraction(): boolean {
   const pointerIds = useRef(new Set<number>());
   const [isInteracting, setIsInteracting] = useState(false);
@@ -121,29 +91,20 @@ function usePointerInteraction(): boolean {
 interface DetectorOverlayProps {
   artifactHeight: number;
   artifactWidth: number;
-  collimationHeight: number;
-  collimationWidth: number;
-  detectorSensor: DetectorSensorSize;
 }
 
 function DetectorOverlay({
   artifactHeight,
   artifactWidth,
-  collimationHeight,
-  collimationWidth,
-  detectorSensor,
 }: DetectorOverlayProps) {
-  const frame = collimationOverlayFrame(
-    collimationWidth,
-    collimationHeight,
-    detectorSensor,
-  );
   const markerSize = Math.min(artifactWidth, artifactHeight) * 0.04;
+  const borderWidth = Math.max(1, artifactWidth * 0.008);
+  const borderInset = borderWidth / 2;
   const centerX = artifactWidth / 2;
   const centerY = artifactHeight / 2;
   return (
     <svg
-      aria-label="Detector centre and collimation"
+      aria-label="Detector border and central crosshair"
       className="projection-view__overlay"
       preserveAspectRatio="xMidYMid meet"
       role="img"
@@ -156,24 +117,19 @@ function DetectorOverlay({
       viewBox={`0 0 ${artifactWidth} ${artifactHeight}`}
     >
       <rect
+        data-detector-border=""
         fill="none"
-        height={frame.heightFraction * artifactHeight}
+        height={artifactHeight - borderWidth}
         stroke="currentColor"
-        strokeWidth={Math.max(1, artifactWidth * 0.008)}
-        width={frame.widthFraction * artifactWidth}
-        x={frame.xFraction * artifactWidth}
-        y={frame.yFraction * artifactHeight}
+        strokeWidth={borderWidth}
+        width={artifactWidth - borderWidth}
+        x={borderInset}
+        y={borderInset}
       />
       <path
+        data-detector-crosshair=""
         d={`M ${centerX - markerSize} ${centerY} H ${centerX + markerSize} M ${centerX} ${centerY - markerSize} V ${centerY + markerSize}`}
         fill="none"
-        stroke="currentColor"
-      />
-      <circle
-        cx={centerX}
-        cy={centerY}
-        fill="none"
-        r={markerSize * 0.35}
         stroke="currentColor"
       />
     </svg>
@@ -193,10 +149,15 @@ export function ProjectionView({
   createRenderer = createSimplifiedProjectionRenderer,
 }: ProjectionViewProps) {
   const cArmPose = useSimulationStore((state) => state.cArmPose);
+  const cArmMode = useSimulationStore((state) => state.cArmMode);
   const objectPose = useSimulationStore((state) => state.objectPose);
   const quality = useSimulationStore((state) => state.quality);
   const isInteracting = usePointerInteraction();
-  const geometry = useMemo(() => buildCArmGeometry(cArmPose), [cArmPose]);
+  const preset = C_ARM_RIG_PRESETS[cArmMode];
+  const geometry = useMemo(
+    () => buildCArmGeometry(cArmPose, preset),
+    [cArmPose, preset],
+  );
   const renderDimensions = detectorRenderDimensions(quality, isInteracting);
   const displayDimensions = detectorDisplayDimensions();
   const rendererRef = useRef<ProjectionRenderer | null>(null);
@@ -218,7 +179,7 @@ export function ProjectionView({
     subtract(objectPose.position, geometry.source),
   );
   const projectionMagnification = magnification(
-    cArmPose.sourceDetectorDistance,
+    geometry.sourceDetectorDistance,
     sourceObjectDistance,
   );
 
@@ -288,15 +249,13 @@ export function ProjectionView({
 
   return (
     <section
-      aria-labelledby="simplified-projection-heading"
+      aria-labelledby="simulated-xray-heading"
       className="projection-view"
       data-projection-strategy={projectionOutput?.strategyId}
       data-render-scale={renderScale}
     >
       <header className="projection-view__header">
-        <h2 id="simplified-projection-heading">
-          Simplified anatomical projection
-        </h2>
+        <h2 id="simulated-xray-heading">Simulated X-ray view</h2>
         <p className="projection-view__education-label">{description}</p>
       </header>
       <div
@@ -333,9 +292,6 @@ export function ProjectionView({
             <DetectorOverlay
               artifactHeight={projectionOutput.artifact.height}
               artifactWidth={projectionOutput.artifact.width}
-              collimationHeight={cArmPose.collimationHeight}
-              collimationWidth={cArmPose.collimationWidth}
-              detectorSensor={projectionOutput.artifact.detectorSensor}
             />
           </>
         )}

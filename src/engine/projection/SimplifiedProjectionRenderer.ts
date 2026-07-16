@@ -6,17 +6,10 @@ import type {
   Vec3,
 } from "../geometry/geometryTypes";
 import type {
-  DetectorSensorSize,
   ProjectionInput,
   ProjectionOutput,
   ProjectionRenderer,
 } from "./rendererTypes";
-
-export const SIMPLIFIED_DETECTOR_SENSOR: Readonly<DetectorSensorSize> =
-  Object.freeze({
-    height: 400,
-    width: 400,
-  });
 
 interface PixelPoint {
   readonly x: number;
@@ -55,12 +48,14 @@ function localToWorld(local: Vec3, transform: ObjectTransform): Vec3 {
 
 function detectorPointToPixel(
   point: DetectorPoint,
-  width: number,
-  height: number,
+  detectorWidth: number,
+  detectorHeight: number,
+  pixelWidth: number,
+  pixelHeight: number,
 ): PixelPoint {
   return {
-    x: width / 2 + (point.u / SIMPLIFIED_DETECTOR_SENSOR.width) * width,
-    y: height / 2 - (point.v / SIMPLIFIED_DETECTOR_SENSOR.height) * height,
+    x: pixelWidth / 2 + (point.u / detectorWidth) * pixelWidth,
+    y: pixelHeight / 2 - (point.v / detectorHeight) * pixelHeight,
   };
 }
 
@@ -78,7 +73,13 @@ function projectedLocalPoint(
   );
   return projected === null
     ? null
-    : detectorPointToPixel(projected, width, height);
+    : detectorPointToPixel(
+        projected,
+        input.geometry.detector.width,
+        input.geometry.detector.height,
+        width,
+        height,
+      );
 }
 
 const distance2d = (a: PixelPoint, b: PixelPoint): number =>
@@ -212,7 +213,10 @@ export class SimplifiedProjectionRenderer implements ProjectionRenderer {
     return {
       artifact: {
         dataUrl: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`,
-        detectorSensor: SIMPLIFIED_DETECTOR_SENSOR,
+        detectorSensor: {
+          height: input.geometry.detector.height,
+          width: input.geometry.detector.width,
+        },
         height,
         width,
       },

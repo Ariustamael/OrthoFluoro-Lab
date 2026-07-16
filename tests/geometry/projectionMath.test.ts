@@ -105,7 +105,7 @@ describe("magnification", () => {
   });
 });
 
-describe("collimation", () => {
+describe("full detector field", () => {
   it.each([
     [150, 0],
     [-150, 0],
@@ -117,7 +117,7 @@ describe("collimation", () => {
     expect(isInsideCollimation({ u, v, rayScale: 1 }, detector)).toBe(true);
   });
 
-  it("rejects detector points beyond the configured field", () => {
+  it("rejects detector points beyond the active detector bounds", () => {
     expect(isInsideCollimation({ u: 151, v: 0, rayScale: 1 }, detector)).toBe(
       false,
     );

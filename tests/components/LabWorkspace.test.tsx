@@ -11,7 +11,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CArmControls } from "../../src/components/controls/CArmControls";
 import { LabWorkspace } from "../../src/components/lab/LabWorkspace";
 import {
-  collimationOverlayFrame,
   detectorDisplayDimensions,
   detectorRenderDimensions,
   detectorRenderScale,
@@ -19,12 +18,10 @@ import {
   ProjectionView,
 } from "../../src/components/projection/ProjectionView";
 import { TheatreCanvas } from "../../src/components/scene/TheatreCanvas";
+import { C_ARM_RIG_PRESETS } from "../../src/engine/geometry/cArmRigPresets";
 import { buildCArmGeometry } from "../../src/engine/geometry/cArmTransforms";
 import { REFERENCE_C_ARM_POSE } from "../../src/engine/geometry/geometryTypes";
-import {
-  SIMPLIFIED_DETECTOR_SENSOR,
-  SimplifiedProjectionRenderer,
-} from "../../src/engine/projection/SimplifiedProjectionRenderer";
+import { SimplifiedProjectionRenderer } from "../../src/engine/projection/SimplifiedProjectionRenderer";
 import type {
   ProjectionInput,
   ProjectionOutput,
@@ -72,6 +69,12 @@ function anatomyStrokeWidths(output: ProjectionOutput): number[] {
     ...decodeSvg(output).matchAll(
       /data-anatomy-layer[^>]*stroke-width="([\d.]+)"/g,
     ),
+  ].map((match) => Number(match[1]));
+}
+
+function anatomyStartXs(output: ProjectionOutput): number[] {
+  return [
+    ...decodeSvg(output).matchAll(/data-anatomy-layer[^>]*x1="([\d.-]+)"/g),
   ].map((match) => Number(match[1]));
 }
 
@@ -138,9 +141,7 @@ describe("responsive laboratory workspace", () => {
 
     expect(markup).toContain("Preparing laboratory workspace");
     expect(markup).not.toContain('aria-label="3D theatre"');
-    expect(markup).not.toContain(
-      'aria-labelledby="simplified-projection-heading"',
-    );
+    expect(markup).not.toContain('aria-labelledby="simulated-xray-heading"');
     ["scene", "fluoroscopy", "controls", "information"].forEach((surface) => {
       expect(markup).toContain(`id="lab-panel-${surface}"`);
       expect(markup).toContain(`aria-labelledby="lab-tab-${surface}"`);
@@ -194,7 +195,7 @@ describe("responsive laboratory workspace", () => {
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("region", {
-        name: "Simplified anatomical projection",
+        name: "Simulated X-ray view",
       }),
     ).not.toBeInTheDocument();
 
@@ -205,7 +206,7 @@ describe("responsive laboratory workspace", () => {
       "true",
     );
     expect(
-      screen.getByRole("region", { name: "Simplified anatomical projection" }),
+      screen.getByRole("region", { name: "Simulated X-ray view" }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("region", { name: "3D theatre" }),
@@ -218,7 +219,7 @@ describe("responsive laboratory workspace", () => {
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("region", {
-        name: "Simplified anatomical projection",
+        name: "Simulated X-ray view",
       }),
     ).not.toBeInTheDocument();
 
@@ -229,7 +230,7 @@ describe("responsive laboratory workspace", () => {
     ).toHaveTextContent("must not be used for diagnosis");
     expect(
       screen.queryByRole("region", {
-        name: "Simplified anatomical projection",
+        name: "Simulated X-ray view",
       }),
     ).not.toBeInTheDocument();
   });
@@ -242,7 +243,7 @@ describe("responsive laboratory workspace", () => {
       screen.getByRole("region", { name: "3D theatre" }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("region", { name: "Simplified anatomical projection" }),
+      screen.getByRole("region", { name: "Simulated X-ray view" }),
     ).toBeInTheDocument();
 
     act(() => viewport.setMobile(true));
@@ -252,7 +253,7 @@ describe("responsive laboratory workspace", () => {
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("region", {
-        name: "Simplified anatomical projection",
+        name: "Simulated X-ray view",
       }),
     ).not.toBeInTheDocument();
     expect(screen.getAllByRole("tabpanel", { hidden: true })).toHaveLength(4);
@@ -266,7 +267,7 @@ describe("responsive laboratory workspace", () => {
     act(() => viewport.setMobile(false));
 
     expect(
-      screen.getByRole("region", { name: "Simplified anatomical projection" }),
+      screen.getByRole("region", { name: "Simulated X-ray view" }),
     ).toBeInTheDocument();
   });
 
@@ -308,12 +309,12 @@ describe("linked theatre and simplified projection", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByRole("region", {
-        name: "Simplified anatomical projection",
+        name: "Simulated X-ray view",
       }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("heading", {
-        name: "Simplified anatomical projection",
+        name: "Simulated X-ray view",
       }),
     ).toBeInTheDocument();
     expect(
@@ -321,22 +322,31 @@ describe("linked theatre and simplified projection", () => {
     ).toBeVisible();
     expect(
       await screen.findByRole("img", {
-        name: "Detector centre and collimation",
+        name: "Detector border and central crosshair",
       }),
     ).toHaveAttribute("preserveAspectRatio", "xMidYMid meet");
   });
 
-  it("shows the same live orbit value in controls and projection status", () => {
+  it("sends the same live orbit value from controls to the projection", async () => {
+    const user = userEvent.setup();
+    const output = testProjectionOutput("Linked projection", "linked");
+    const renderer: ProjectionRenderer = {
+      dispose: vi.fn(),
+      render: vi.fn(async () => output),
+    };
     render(
       <>
         <CArmControls />
-        <TheatreCanvas />
+        <ProjectionView createRenderer={() => renderer} />
       </>,
     );
 
-    act(() => {
-      useSimulationStore.getState().setCArmParameter("orbitDegrees", 15);
-    });
+    await waitFor(() => expect(renderer.render).toHaveBeenCalledOnce());
+
+    const orbitInput = screen.getByRole("spinbutton", { name: "Orbit angle" });
+    await user.clear(orbitInput);
+    await user.type(orbitInput, "15");
+    await user.keyboard("{Enter}");
 
     expect(screen.getByRole("spinbutton", { name: "Orbit angle" })).toHaveValue(
       15,
@@ -344,13 +354,25 @@ describe("linked theatre and simplified projection", () => {
     expect(
       screen.getByRole("status", { name: "Projection status" }),
     ).toHaveTextContent("Orbit 15.0°");
+    await waitFor(() => {
+      expect(renderer.render).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          geometry: buildCArmGeometry(
+            { ...REFERENCE_C_ARM_POSE, orbitDegrees: 15 },
+            C_ARM_RIG_PRESETS.isocentric,
+          ),
+          height: 400,
+          width: 400,
+        }),
+      );
+    });
   });
 
   it("temporarily lowers high detector quality during pointer interaction", () => {
     useSimulationStore.setState({ quality: "high" });
     render(<TheatreCanvas />);
     const projection = screen.getByRole("region", {
-      name: "Simplified anatomical projection",
+      name: "Simulated X-ray view",
     });
 
     expect(projection).toHaveAttribute("data-render-scale", "1");
@@ -390,23 +412,23 @@ describe("detector rendering contracts", () => {
     });
   });
 
-  it("shrinks the centred collimation overlay within stable sensor bounds", () => {
-    expect(
-      collimationOverlayFrame(300, 200, SIMPLIFIED_DETECTOR_SENSOR),
-    ).toEqual({
-      heightFraction: 0.5,
-      widthFraction: 0.75,
-      xFraction: 0.125,
-      yFraction: 0.25,
+  it("renders only the full detector border and central crosshair", async () => {
+    render(<ProjectionView />);
+
+    const overlay = await screen.findByRole("img", {
+      name: "Detector border and central crosshair",
     });
-    expect(
-      collimationOverlayFrame(100, 80, SIMPLIFIED_DETECTOR_SENSOR),
-    ).toEqual({
-      heightFraction: 0.2,
-      widthFraction: 0.25,
-      xFraction: 0.375,
-      yFraction: 0.4,
-    });
+    const border = overlay.querySelector("rect");
+    const crosshair = overlay.querySelector("path");
+
+    expect(border).toHaveAttribute("data-detector-border");
+    const borderInset = Number(border?.getAttribute("x"));
+    expect(borderInset * 2 + Number(border?.getAttribute("width"))).toBe(400);
+    expect(borderInset * 2 + Number(border?.getAttribute("height"))).toBe(400);
+    expect(crosshair).toHaveAttribute("data-detector-crosshair");
+    expect(overlay.querySelectorAll("rect")).toHaveLength(1);
+    expect(overlay.querySelectorAll("path")).toHaveLength(1);
+    expect(overlay.querySelector("circle")).toBeNull();
   });
 });
 
@@ -429,13 +451,48 @@ describe("replaceable projection renderer", () => {
     expect(output).toMatchObject({
       artifact: {
         dataUrl: expect.stringMatching(/^data:image\/svg\+xml/),
-        detectorSensor: SIMPLIFIED_DETECTOR_SENSOR,
+        detectorSensor: { height: 220, width: 220 },
         height: 400,
         width: 400,
       },
       description: "Educational geometric visualisation",
       strategyId: "simplified-procedural",
     });
+  });
+
+  it("maps detector millimetres from geometry independently of pixel resolution", async () => {
+    const renderer = new SimplifiedProjectionRenderer();
+    const widerGeometry = {
+      ...projectionInput.geometry,
+      detector: {
+        ...projectionInput.geometry.detector,
+        height: 440,
+        width: 440,
+      },
+    };
+
+    const reference = await renderer.render(projectionInput);
+    const wider = await renderer.render({
+      ...projectionInput,
+      geometry: widerGeometry,
+    });
+
+    expect(reference.artifact).toMatchObject({
+      detectorSensor: { height: 220, width: 220 },
+      height: 400,
+      width: 400,
+    });
+    expect(wider.artifact).toMatchObject({
+      detectorSensor: { height: 440, width: 440 },
+      height: 400,
+      width: 400,
+    });
+    const referenceX = anatomyStartXs(reference)[1];
+    const widerX = anatomyStartXs(wider)[1];
+    expect(Math.abs(referenceX - 200)).toBeCloseTo(
+      Math.abs(widerX - 200) * 2,
+      2,
+    );
   });
 
   it("changes the detector artifact with geometry and object pose", async () => {
@@ -459,7 +516,7 @@ describe("replaceable projection renderer", () => {
       ...projectionInput,
       geometry: buildCArmGeometry({
         ...REFERENCE_C_ARM_POSE,
-        detectorPatientDistance: 500,
+        translationY: 100,
       }),
     });
 
@@ -528,28 +585,6 @@ describe("replaceable projection renderer", () => {
     );
   });
 
-  it("keeps the artifact magnification stable when only collimation changes", async () => {
-    const renderer = new SimplifiedProjectionRenderer();
-    const open = await renderer.render({
-      ...projectionInput,
-      geometry: buildCArmGeometry({
-        ...REFERENCE_C_ARM_POSE,
-        collimationHeight: 300,
-        collimationWidth: 300,
-      }),
-    });
-    const narrow = await renderer.render({
-      ...projectionInput,
-      geometry: buildCArmGeometry({
-        ...REFERENCE_C_ARM_POSE,
-        collimationHeight: 80,
-        collimationWidth: 100,
-      }),
-    });
-
-    expect(narrow.artifact.dataUrl).toBe(open.artifact.dataUrl);
-  });
-
   it("uses an injected strategy and disposes it when the view unmounts", async () => {
     const output: ProjectionOutput = {
       artifact: {
@@ -576,10 +611,18 @@ describe("replaceable projection renderer", () => {
     await waitFor(() => {
       expect(renderer.render).toHaveBeenCalledWith(
         expect.objectContaining({
-          geometry: buildCArmGeometry(REFERENCE_C_ARM_POSE),
+          geometry: buildCArmGeometry(
+            REFERENCE_C_ARM_POSE,
+            C_ARM_RIG_PRESETS.isocentric,
+          ),
           objectPose: { position: [0, 0, 0], rotationDegrees: [0, 0, 0] },
         }),
       );
+    });
+    const initialInput = vi.mocked(renderer.render).mock.calls[0][0];
+    expect(initialInput.geometry).toMatchObject({
+      sourceDetectorDistance: 1000,
+      detector: { height: 220, width: 220 },
     });
     expect(
       await screen.findByText("Test projection strategy"),
@@ -596,6 +639,65 @@ describe("replaceable projection renderer", () => {
 
     unmount();
     expect(renderer.dispose).toHaveBeenCalledOnce();
+  });
+
+  it("changes preset geometry with mode while preserving the six-DoF pose", async () => {
+    const user = userEvent.setup();
+    const output = testProjectionOutput("Preset projection", "preset");
+    const renderer: ProjectionRenderer = {
+      dispose: vi.fn(),
+      render: vi.fn(async () => output),
+    };
+    const positionedPose = {
+      ...REFERENCE_C_ARM_POSE,
+      orbitDegrees: 30,
+      translationX: 25,
+    };
+    useSimulationStore.setState({ cArmPose: positionedPose });
+
+    render(
+      <>
+        <CArmControls />
+        <ProjectionView createRenderer={() => renderer} />
+      </>,
+    );
+    await waitFor(() => expect(renderer.render).toHaveBeenCalledOnce());
+
+    await user.click(screen.getByRole("button", { name: "Non-isocentric" }));
+
+    expect(useSimulationStore.getState().cArmPose).toEqual(positionedPose);
+    await waitFor(() => {
+      expect(renderer.render).toHaveBeenLastCalledWith({
+        geometry: buildCArmGeometry(
+          positionedPose,
+          C_ARM_RIG_PRESETS["non-isocentric"],
+        ),
+        height: 400,
+        objectPose: { position: [0, 0, 0], rotationDegrees: [0, 0, 0] },
+        width: 400,
+      });
+    });
+    expect(renderer.render).toHaveBeenNthCalledWith(1, {
+      geometry: buildCArmGeometry(positionedPose, C_ARM_RIG_PRESETS.isocentric),
+      height: 400,
+      objectPose: { position: [0, 0, 0], rotationDegrees: [0, 0, 0] },
+      width: 400,
+    });
+  });
+
+  it("does not rerender projection geometry when beam visibility changes", async () => {
+    const output = testProjectionOutput("Beam-independent projection", "beam");
+    const renderer: ProjectionRenderer = {
+      dispose: vi.fn(),
+      render: vi.fn(async () => output),
+    };
+    render(<ProjectionView createRenderer={() => renderer} />);
+    await waitFor(() => expect(renderer.render).toHaveBeenCalledOnce());
+
+    await act(async () => useSimulationStore.getState().setShowBeam(false));
+
+    expect(useSimulationStore.getState().showBeam).toBe(false);
+    expect(renderer.render).toHaveBeenCalledOnce();
   });
 
   it("clears a completed artifact while a replacement renderer is pending", async () => {
@@ -628,7 +730,7 @@ describe("replaceable projection renderer", () => {
       "true",
     );
     expect(
-      screen.getByRole("region", { name: "Simplified anatomical projection" }),
+      screen.getByRole("region", { name: "Simulated X-ray view" }),
     ).not.toHaveAttribute("data-projection-strategy");
 
     await act(async () => secondRender.resolve(secondOutput));
