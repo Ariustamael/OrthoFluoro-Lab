@@ -5,6 +5,7 @@ import {
   AP_C_ARM_POSE,
   LATERAL_C_ARM_POSE,
 } from "../../engine/geometry/anatomicalAxes";
+import { C_ARM_RIG_PRESETS } from "../../engine/geometry/cArmRigPresets";
 import { C_ARM_POSE_BOUNDS } from "../../engine/geometry/cArmTransforms";
 import type { CArmPose } from "../../engine/geometry/geometryTypes";
 import { useSimulationStore } from "../../state/simulationStore";
@@ -27,58 +28,36 @@ interface ControlDefinition {
 const CONTROLS: readonly ControlDefinition[] = [
   {
     key: "translationX",
-    label: "Horizontal translation",
-    exactLabel: "Horizontal translation value",
-    min: -500,
-    max: 500,
+    label: "Lateral translation",
+    exactLabel: "Lateral translation value",
+    ...C_ARM_POSE_BOUNDS.translationX,
     step: 1,
-    snap: 5,
+    snap: 10,
     unit: "mm",
   },
   {
     key: "translationY",
-    label: "Vertical translation offset",
-    exactLabel: "Vertical translation offset value",
-    min: -500,
-    max: 500,
+    label: "Vertical translation",
+    exactLabel: "Vertical translation value",
+    ...C_ARM_POSE_BOUNDS.translationY,
     step: 1,
-    snap: 5,
+    snap: 10,
     unit: "mm",
   },
   {
     key: "translationZ",
     label: "Longitudinal translation",
     exactLabel: "Longitudinal translation value",
-    min: -500,
-    max: 500,
+    ...C_ARM_POSE_BOUNDS.translationZ,
     step: 1,
-    snap: 5,
+    snap: 10,
     unit: "mm",
   },
   {
-    key: "height",
-    label: "Height",
-    exactLabel: "Height value",
-    min: -500,
-    max: 500,
-    step: 1,
-    snap: 5,
-    unit: "mm",
-  },
-  {
-    key: "orbitDegrees",
-    label: "Orbit",
-    exactLabel: "Orbit angle",
-    ...C_ARM_POSE_BOUNDS.orbitDegrees,
-    step: 1,
-    snap: 5,
-    unit: "°",
-  },
-  {
-    key: "obliquityDegrees",
-    label: "Obliquity",
-    exactLabel: "Obliquity angle",
-    ...C_ARM_POSE_BOUNDS.obliquityDegrees,
+    key: "swivelDegrees",
+    label: "Swivel",
+    exactLabel: "Swivel angle",
+    ...C_ARM_POSE_BOUNDS.swivelDegrees,
     step: 1,
     snap: 5,
     unit: "°",
@@ -93,42 +72,13 @@ const CONTROLS: readonly ControlDefinition[] = [
     unit: "°",
   },
   {
-    key: "sourceDetectorDistance",
-    label: "Source-detector distance",
-    exactLabel: "Source-to-detector distance",
-    ...C_ARM_POSE_BOUNDS.sourceDetectorDistance,
+    key: "orbitDegrees",
+    label: "Orbit",
+    exactLabel: "Orbit angle",
+    ...C_ARM_POSE_BOUNDS.orbitDegrees,
     step: 1,
     snap: 5,
-    unit: "mm",
-  },
-  {
-    key: "detectorPatientDistance",
-    label: "Detector-patient distance",
-    exactLabel: "Detector-to-patient distance",
-    ...C_ARM_POSE_BOUNDS.detectorPatientDistance,
-    step: 1,
-    snap: 5,
-    unit: "mm",
-  },
-  {
-    key: "collimationWidth",
-    label: "Collimation width",
-    exactLabel: "Collimation width value",
-    min: 1,
-    max: 600,
-    step: 1,
-    snap: 5,
-    unit: "mm",
-  },
-  {
-    key: "collimationHeight",
-    label: "Collimation height",
-    exactLabel: "Collimation height value",
-    min: 1,
-    max: 600,
-    step: 1,
-    snap: 5,
-    unit: "mm",
+    unit: "°",
   },
 ];
 
@@ -214,6 +164,8 @@ function ExactValueInput({
 
 export function CArmControls() {
   const cArmPose = useSimulationStore((state) => state.cArmPose);
+  const cArmMode = useSimulationStore((state) => state.cArmMode);
+  const showBeam = useSimulationStore((state) => state.showBeam);
   const objectPose = useSimulationStore((state) => state.objectPose);
   const setCArmPose = useSimulationStore((state) => state.setCArmPose);
   const setCArmParameter = useSimulationStore(
@@ -222,11 +174,14 @@ export function CArmControls() {
   const nudgeCArmParameter = useSimulationStore(
     (state) => state.nudgeCArmParameter,
   );
+  const setCArmMode = useSimulationStore((state) => state.setCArmMode);
+  const setShowBeam = useSimulationStore((state) => state.setShowBeam);
   const resetGeometry = useSimulationStore((state) => state.resetGeometry);
   const setObjectRotation = useSimulationStore(
     (state) => state.setObjectRotation,
   );
   const [captureMessage, setCaptureMessage] = useState("");
+  const preset = C_ARM_RIG_PRESETS[cArmMode];
 
   const handleKeyDown = (
     event: KeyboardEvent<HTMLInputElement>,
@@ -250,6 +205,46 @@ export function CArmControls() {
     >
       <h2 id="c-arm-controls-heading">C-arm controls</h2>
       <InteractionMode />
+
+      <fieldset className="c-arm-controls__rig-motion">
+        <legend>Rig motion</legend>
+        <button
+          aria-pressed={cArmMode === "isocentric"}
+          onClick={() => setCArmMode("isocentric")}
+          type="button"
+        >
+          Isocentric
+        </button>
+        <button
+          aria-pressed={cArmMode === "non-isocentric"}
+          onClick={() => setCArmMode("non-isocentric")}
+          type="button"
+        >
+          Non-isocentric
+        </button>
+      </fieldset>
+
+      <label className="c-arm-controls__beam-toggle">
+        <input
+          checked={showBeam}
+          onChange={(event) => setShowBeam(event.currentTarget.checked)}
+          type="checkbox"
+        />
+        Show X-ray beam
+      </label>
+
+      <dl className="c-arm-controls__geometry-summary">
+        <div>
+          <dt>SID</dt>
+          <dd>{preset.sourceDetectorDistance} mm</dd>
+        </div>
+        <div>
+          <dt>Detector</dt>
+          <dd>
+            {preset.detectorWidth} × {preset.detectorHeight} mm
+          </dd>
+        </div>
+      </dl>
 
       <div className="c-arm-controls__parameters">
         {CONTROLS.map((control) => {

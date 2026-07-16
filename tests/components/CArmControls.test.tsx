@@ -14,6 +14,8 @@ beforeEach(() => {
   useSimulationStore.setState({
     cArmPose: { ...REFERENCE_C_ARM_POSE },
     objectPose: { position: [0, 0, 0], rotationDegrees: [0, 0, 0] },
+    cArmMode: "isocentric",
+    showBeam: true,
     interactionMode: "inspect",
     quality: "medium",
   });
@@ -22,13 +24,13 @@ beforeEach(() => {
 describe("simulation store", () => {
   it("clamps every C-arm update through the geometry bounds", () => {
     useSimulationStore.getState().setCArmParameter("orbitDegrees", 220);
-    useSimulationStore
-      .getState()
-      .setCArmParameter("sourceDetectorDistance", 500);
+    useSimulationStore.getState().setCArmParameter("translationX", -900);
+    useSimulationStore.getState().setCArmParameter("swivelDegrees", 80);
 
     expect(useSimulationStore.getState().cArmPose).toMatchObject({
       orbitDegrees: 180,
-      sourceDetectorDistance: 700,
+      translationX: -500,
+      swivelDegrees: 45,
     });
   });
 
@@ -60,9 +62,11 @@ describe("simulation store", () => {
     expect(useSimulationStore.getState().cArmPose.orbitDegrees).toBe(11.1);
   });
 
-  it("updates object rotation and resets the complete geometry", () => {
+  it("updates rig display state and resets the complete geometry", () => {
     useSimulationStore.getState().setObjectRotation([10, 20, 30]);
     useSimulationStore.getState().setCArmParameter("orbitDegrees", 25);
+    useSimulationStore.getState().setCArmMode("non-isocentric");
+    useSimulationStore.getState().setShowBeam(false);
     useSimulationStore.getState().resetGeometry();
 
     expect(useSimulationStore.getState().cArmPose).toEqual(
@@ -71,6 +75,10 @@ describe("simulation store", () => {
     expect(useSimulationStore.getState().objectPose).toEqual({
       position: [0, 0, 0],
       rotationDegrees: [0, 0, 0],
+    });
+    expect(useSimulationStore.getState()).toMatchObject({
+      cArmMode: "isocentric",
+      showBeam: true,
     });
   });
 });
@@ -107,61 +115,75 @@ describe("CArmControls", () => {
     expect(useSimulationStore.getState().cArmPose.orbitDegrees).toBe(180);
   });
 
-  it("keeps a multi-digit SID draft until committing it on blur", async () => {
-    const user = userEvent.setup();
+  it("renders exactly the six rigid-body controls and no legacy controls", () => {
     render(<CArmControls />);
-    const exactInput = screen.getByRole("spinbutton", {
-      name: "Source-to-detector distance",
+
+    const sliders = screen.getAllByRole("slider");
+    expect(sliders).toHaveLength(6);
+    [
+      "Lateral translation",
+      "Vertical translation",
+      "Longitudinal translation",
+      "Swivel",
+      "Cranial/caudal tilt",
+      "Orbit",
+    ].forEach((name) => {
+      expect(screen.getByRole("slider", { name })).toBeVisible();
     });
-
-    await user.clear(exactInput);
-    await user.type(exactInput, "1200");
-    expect(exactInput).toHaveValue(1200);
-    expect(useSimulationStore.getState().cArmPose.sourceDetectorDistance).toBe(
-      1000,
-    );
-
-    await user.tab();
-    expect(useSimulationStore.getState().cArmPose.sourceDetectorDistance).toBe(
-      1200,
-    );
+    [
+      "Lateral translation value",
+      "Vertical translation value",
+      "Longitudinal translation value",
+      "Swivel angle",
+      "Cranial/caudal angle",
+      "Orbit angle",
+    ].forEach((name) => {
+      expect(screen.getByRole("spinbutton", { name })).toBeVisible();
+    });
+    expect(screen.queryByLabelText("Height")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Obliquity")).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Source-detector distance"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Detector-patient distance"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Collimation width")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Collimation height")).not.toBeInTheDocument();
   });
 
-  it("commits a multi-digit detector-patient distance with Enter", async () => {
-    const user = userEvent.setup();
+  it("shows fixed construction dimensions as read-only text", () => {
     render(<CArmControls />);
-    const exactInput = screen.getByRole("spinbutton", {
-      name: "Detector-to-patient distance",
-    });
 
-    await user.clear(exactInput);
-    await user.type(exactInput, "550");
-    expect(exactInput).toHaveValue(550);
-    expect(useSimulationStore.getState().cArmPose.detectorPatientDistance).toBe(
-      400,
-    );
-
-    await user.keyboard("{Enter}");
-    expect(useSimulationStore.getState().cArmPose.detectorPatientDistance).toBe(
-      550,
-    );
+    expect(screen.getByText("SID")).toBeVisible();
+    expect(screen.getByText("1000 mm")).toBeVisible();
+    expect(screen.getByText("Detector")).toBeVisible();
+    expect(screen.getByText("220 × 220 mm")).toBeVisible();
+    expect(
+      screen.queryByRole("spinbutton", { name: /source.*detector/i }),
+    ).not.toBeInTheDocument();
   });
 
-  it("restores the canonical value when an empty draft loses focus", async () => {
+  it("updates rig motion and beam visibility controls", async () => {
     const user = userEvent.setup();
+    useSimulationStore.getState().setCArmParameter("orbitDegrees", 12);
     render(<CArmControls />);
-    const exactInput = screen.getByRole("spinbutton", {
-      name: "Source-to-detector distance",
+
+    const nonIsocentric = screen.getByRole("button", {
+      name: "Non-isocentric",
     });
+    expect(
+      screen.getByRole("button", { name: "Isocentric" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await user.click(nonIsocentric);
+    expect(useSimulationStore.getState().cArmMode).toBe("non-isocentric");
+    expect(useSimulationStore.getState().cArmPose.orbitDegrees).toBe(12);
+    expect(nonIsocentric).toHaveAttribute("aria-pressed", "true");
 
-    await user.clear(exactInput);
-    expect(exactInput).toHaveValue(null);
-    await user.tab();
-
-    expect(exactInput).toHaveValue(1000);
-    expect(useSimulationStore.getState().cArmPose.sourceDetectorDistance).toBe(
-      1000,
-    );
+    const beam = screen.getByRole("checkbox", { name: "Show X-ray beam" });
+    expect(beam).toBeChecked();
+    await user.click(beam);
+    expect(useSimulationStore.getState().showBeam).toBe(false);
   });
 
   it("supports one-degree keyboard nudges and directional five-degree snapping", () => {
@@ -180,6 +202,20 @@ describe("CArmControls", () => {
 
     fireEvent.keyDown(exactInput, { altKey: true, key: "ArrowRight" });
     expect(exactInput).toHaveValue(15.1);
+  });
+
+  it("uses ten-millimetre Shift snapping and Alt fine translation", () => {
+    render(<CArmControls />);
+    const exactInput = screen.getByRole("spinbutton", {
+      name: "Lateral translation value",
+    });
+
+    fireEvent.change(exactInput, { target: { value: "14.9" } });
+    fireEvent.keyDown(exactInput, { key: "ArrowRight", shiftKey: true });
+    expect(exactInput).toHaveValue(20);
+
+    fireEvent.keyDown(exactInput, { altKey: true, key: "ArrowRight" });
+    expect(exactInput).toHaveValue(20.1);
   });
 
   it("snaps from the valid draft currently shown in the exact input", async () => {
@@ -247,30 +283,37 @@ describe("CArmControls", () => {
     expect(useSimulationStore.getState().objectPose).toEqual(positionedObject);
   });
 
-  it("resets orbit and source-to-detector distance", async () => {
+  it("resets the six-DoF pose, rig mode, and beam visibility", async () => {
     const user = userEvent.setup();
     render(<CArmControls />);
-    const sidInput = screen.getByRole("spinbutton", {
-      name: "Source-to-detector distance",
-    });
-    fireEvent.change(sidInput, { target: { value: "1200" } });
-    fireEvent.blur(sidInput);
     const orbitInput = screen.getByRole("spinbutton", { name: "Orbit angle" });
     fireEvent.change(orbitInput, {
       target: { value: "45" },
     });
     fireEvent.blur(orbitInput);
+    await user.click(
+      screen.getByRole("button", { name: "Non-isocentric" }),
+    );
+    await user.click(
+      screen.getByRole("checkbox", { name: "Show X-ray beam" }),
+    );
 
     await user.click(screen.getByRole("button", { name: "Reset geometry" }));
 
     expect(screen.getByRole("spinbutton", { name: "Orbit angle" })).toHaveValue(
       0,
     );
+    expect(useSimulationStore.getState()).toMatchObject({
+      cArmPose: REFERENCE_C_ARM_POSE,
+      cArmMode: "isocentric",
+      showBeam: true,
+    });
     expect(
-      screen.getByRole("spinbutton", {
-        name: "Source-to-detector distance",
-      }),
-    ).toHaveValue(REFERENCE_C_ARM_POSE.sourceDetectorDistance);
+      screen.getByRole("button", { name: "Isocentric" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByRole("checkbox", { name: "Show X-ray beam" }),
+    ).toBeChecked();
   });
 
   it("rotates the procedural object independently and resets it", async () => {

@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { clampCArmPose } from "../engine/geometry/cArmTransforms";
 import {
   REFERENCE_C_ARM_POSE,
+  type CArmKinematicMode,
   type CArmPose,
   type ObjectPose,
   type Vec3,
@@ -12,6 +13,8 @@ export type QualityPreset = "low" | "medium" | "high";
 
 export interface SimulationState {
   cArmPose: CArmPose;
+  cArmMode: CArmKinematicMode;
+  showBeam: boolean;
   objectPose: ObjectPose;
   interactionMode: InteractionMode;
   quality: QualityPreset;
@@ -25,6 +28,8 @@ export interface SimulationState {
     delta: number,
     snap?: number,
   ) => void;
+  setCArmMode: (mode: CArmKinematicMode) => void;
+  setShowBeam: (show: boolean) => void;
   setObjectRotation: (rotationDegrees: Vec3) => void;
   setInteractionMode: (mode: InteractionMode) => void;
   setQuality: (quality: QualityPreset) => void;
@@ -48,6 +53,8 @@ function snapInDirection(value: number, delta: number, snap?: number): number {
 
 export const useSimulationStore = create<SimulationState>((set) => ({
   cArmPose: { ...REFERENCE_C_ARM_POSE },
+  cArmMode: "isocentric",
+  showBeam: true,
   objectPose: { ...REFERENCE_OBJECT_POSE },
   interactionMode: "inspect",
   quality: "medium",
@@ -69,6 +76,12 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       };
     });
   },
+  setCArmMode: (cArmMode) => {
+    set({ cArmMode });
+  },
+  setShowBeam: (showBeam) => {
+    set({ showBeam });
+  },
   setObjectRotation: (rotationDegrees) => {
     set((state) => ({
       objectPose: {
@@ -86,6 +99,8 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   resetGeometry: () => {
     set({
       cArmPose: { ...REFERENCE_C_ARM_POSE },
+      cArmMode: "isocentric",
+      showBeam: true,
       objectPose: {
         position: [...REFERENCE_OBJECT_POSE.position] as Vec3,
         rotationDegrees: [...REFERENCE_OBJECT_POSE.rotationDegrees] as Vec3,

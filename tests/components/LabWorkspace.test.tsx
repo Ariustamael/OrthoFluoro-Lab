@@ -97,6 +97,8 @@ vi.mock(
 beforeEach(() => {
   useSimulationStore.setState({
     cArmPose: { ...REFERENCE_C_ARM_POSE },
+    cArmMode: "isocentric",
+    showBeam: true,
     objectPose: { position: [0, 0, 0], rotationDegrees: [0, 0, 0] },
     interactionMode: "inspect",
     quality: "medium",
