@@ -14,6 +14,11 @@ import {
 } from "./CArmRig";
 
 export const THEATRE_BACKGROUND_COLOR = "#07131f";
+export const DEFAULT_THEATRE_TARGET = [0, -200, 0] satisfies [
+  number,
+  number,
+  number,
+];
 const BACKGROUND_COLOR = [THEATRE_BACKGROUND_COLOR] as const;
 const FLOOR_POSITION = [0, -700, 0] as const;
 const FLOOR_ROTATION = [-Math.PI / 2, 0, 0] as const;
@@ -235,7 +240,7 @@ export function TheatreScene() {
         enableDamping
         maxDistance={3600}
         minDistance={650}
-        target={[0, -80, 0]}
+        target={DEFAULT_THEATRE_TARGET}
       />
     </>
   );

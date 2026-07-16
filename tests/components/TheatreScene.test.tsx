@@ -38,6 +38,7 @@ import {
 import {
   advanceAnatomyRotationValue,
   ANATOMY_ROTATION_HANDLE_DEFINITIONS,
+  DEFAULT_THEATRE_TARGET,
   orbitControlsEnabled,
   THEATRE_BACKGROUND_COLOR,
 } from "../../src/components/scene/TheatreScene";
@@ -69,6 +70,13 @@ describe("default theatre visual contracts", () => {
       fov: 42,
       near: 1,
     });
+  });
+
+  it("centres the full source-to-detector rig on a lower default target", () => {
+    expect(DEFAULT_THEATRE_TARGET).toEqual([0, expect.any(Number), 0]);
+    expect(DEFAULT_THEATRE_TARGET[1]).toBeGreaterThanOrEqual(-220);
+    expect(DEFAULT_THEATRE_TARGET[1]).toBeLessThanOrEqual(-180);
+    expect(DEFAULT_THEATRE_CAMERA.position).toEqual([1450, 280, 1650]);
   });
 
   it("keeps the integrated rig visibly lighter and less metallic than the scene", () => {
