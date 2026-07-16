@@ -82,6 +82,21 @@ const CONTROLS: readonly ControlDefinition[] = [
   },
 ];
 
+const CONTROL_GROUPS = [
+  {
+    controls: CONTROLS.slice(0, 3),
+    legend: "Translation handle",
+  },
+  {
+    controls: CONTROLS.slice(3, 4),
+    legend: "Swivel ring",
+  },
+  {
+    controls: CONTROLS.slice(4),
+    legend: "Floating orbit and tilt handle",
+  },
+] as const;
+
 function clampToControlRange(
   value: number,
   control: ControlDefinition,
@@ -247,54 +262,64 @@ export function CArmControls() {
       </dl>
 
       <div className="c-arm-controls__parameters">
-        {CONTROLS.map((control) => {
-          const rangeId = `${control.key}-range`;
-          const exactId = `${control.key}-exact`;
-          const unitId = `${control.key}-unit`;
-          const value = cArmPose[control.key];
+        {CONTROL_GROUPS.map(({ controls, legend }) => (
+          <fieldset className="c-arm-controls__parameter-group" key={legend}>
+            <legend>{legend}</legend>
+            <div className="c-arm-controls__parameter-fields">
+              {controls.map((control) => {
+                const rangeId = `${control.key}-range`;
+                const exactId = `${control.key}-exact`;
+                const unitId = `${control.key}-unit`;
+                const value = cArmPose[control.key];
 
-          return (
-            <div className="c-arm-control" key={control.key}>
-              <label htmlFor={rangeId}>{control.label}</label>
-              <input
-                id={rangeId}
-                max={control.max}
-                min={control.min}
-                onChange={(event) =>
-                  setCArmParameter(
-                    control.key,
-                    clampToControlRange(
-                      event.currentTarget.valueAsNumber,
-                      control,
-                    ),
-                  )
-                }
-                onKeyDown={(event) => handleKeyDown(event, control)}
-                step={control.step}
-                type="range"
-                value={value}
-              />
-              <label className="c-arm-control__exact-label" htmlFor={exactId}>
-                {control.exactLabel}
-              </label>
-              <span className="c-arm-control__exact">
-                <ExactValueInput
-                  control={control}
-                  id={exactId}
-                  onCommit={(nextValue) =>
-                    setCArmParameter(control.key, nextValue)
-                  }
-                  onNudge={(delta, snap) =>
-                    nudgeCArmParameter(control.key, delta, snap)
-                  }
-                  unitId={unitId}
-                  value={value}
-                />
-                <span id={unitId}>{control.unit}</span>
-              </span>
+                return (
+                  <div className="c-arm-control" key={control.key}>
+                    <label htmlFor={rangeId}>{control.label}</label>
+                    <input
+                      id={rangeId}
+                      max={control.max}
+                      min={control.min}
+                      onChange={(event) =>
+                        setCArmParameter(
+                          control.key,
+                          clampToControlRange(
+                            event.currentTarget.valueAsNumber,
+                            control,
+                          ),
+                        )
+                      }
+                      onKeyDown={(event) => handleKeyDown(event, control)}
+                      step={control.step}
+                      type="range"
+                      value={value}
+                    />
+                    <label
+                      className="c-arm-control__exact-label"
+                      htmlFor={exactId}
+                    >
+                      {control.exactLabel}
+                    </label>
+                    <span className="c-arm-control__exact">
+                      <ExactValueInput
+                        control={control}
+                        id={exactId}
+                        onCommit={(nextValue) =>
+                          setCArmParameter(control.key, nextValue)
+                        }
+                        onNudge={(delta, snap) =>
+                          nudgeCArmParameter(control.key, delta, snap)
+                        }
+                        unitId={unitId}
+                        value={value}
+                      />
+                      <span id={unitId}>{control.unit}</span>
+                    </span>
+                  </div>
+                );
+              })}
             </div>
-          );
-        })}
+          </fieldset>
+        ))}
       </div>
 
       <fieldset className="object-rotation-controls">

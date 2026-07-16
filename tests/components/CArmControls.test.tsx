@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 import { CArmControls } from "../../src/components/controls/CArmControls";
@@ -150,6 +150,42 @@ describe("CArmControls", () => {
     ).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Collimation width")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Collimation height")).not.toBeInTheDocument();
+  });
+
+  it("groups exact controls by their matching physical manipulator", () => {
+    render(<CArmControls />);
+
+    const expectedGroups = [
+      {
+        controls: ["Cranial/caudal angle", "Orbit angle"],
+        name: "Floating orbit and tilt handle",
+      },
+      {
+        controls: [
+          "Lateral translation value",
+          "Vertical translation value",
+          "Longitudinal translation value",
+        ],
+        name: "Translation handle",
+      },
+      {
+        controls: ["Swivel angle"],
+        name: "Swivel ring",
+      },
+    ] as const;
+
+    expectedGroups.forEach(({ controls, name }) => {
+      const group = screen.getByRole("group", { name });
+      expect(group).toBeVisible();
+      expect(within(group).getAllByRole("spinbutton")).toHaveLength(
+        controls.length,
+      );
+      controls.forEach((control) => {
+        expect(
+          within(group).getByRole("spinbutton", { name: control }),
+        ).toBeVisible();
+      });
+    });
   });
 
   it("shows fixed construction dimensions as read-only text", () => {
