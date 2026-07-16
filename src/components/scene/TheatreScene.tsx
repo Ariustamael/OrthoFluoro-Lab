@@ -3,7 +3,7 @@
 import { OrbitControls } from "@react-three/drei/core/OrbitControls";
 import { Html } from "@react-three/drei/web/Html";
 import type { ThreeEvent } from "@react-three/fiber";
-import { useCallback, useMemo, useRef } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { MathUtils } from "three";
 import { useSimulationStore } from "../../state/simulationStore";
 import {
@@ -16,6 +16,13 @@ import {
 const BACKGROUND_COLOR = ["#07131f"] as const;
 const FLOOR_POSITION = [0, -700, 0] as const;
 const FLOOR_ROTATION = [-Math.PI / 2, 0, 0] as const;
+
+export function orbitControlsEnabled(
+  interactionMode: "inspect" | "move-carm" | "move-anatomy",
+  manipulatorActive: boolean,
+): boolean {
+  return interactionMode !== "move-anatomy" && !manipulatorActive;
+}
 
 export const ANATOMY_ROTATION_HANDLE_DEFINITIONS = [
   {
@@ -204,6 +211,7 @@ function AnatomicalPlaceholder() {
 
 export function TheatreScene() {
   const interactionMode = useSimulationStore((state) => state.interactionMode);
+  const [manipulatorActive, setManipulatorActive] = useState(false);
 
   return (
     <>
@@ -220,9 +228,9 @@ export function TheatreScene() {
       </mesh>
       <OperatingTable />
       <AnatomicalPlaceholder />
-      <CArmRig />
+      <CArmRig onManipulatorDragStateChange={setManipulatorActive} />
       <OrbitControls
-        enabled={interactionMode === "inspect"}
+        enabled={orbitControlsEnabled(interactionMode, manipulatorActive)}
         enableDamping
         maxDistance={3600}
         minDistance={650}

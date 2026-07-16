@@ -2,6 +2,26 @@ import { render, renderHook, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import {
+  OrthographicCamera,
+  PerspectiveCamera,
+  Raycaster,
+  Vector3,
+} from "three";
+import {
+  applyCArmManipulatorDelta,
+  applyDragModifiers,
+  constantScreenScale,
+  projectWorldAxisToScreen,
+  projectWorldPointToScreen,
+  rayPassesWithinWorldRadius,
+  screenTangentDelta,
+  signedScreenAngle,
+} from "../../src/components/scene/cArmManipulatorMath";
+import {
+  C_ARM_MANIPULATOR_CONTROL_DEFINITIONS,
+  createCArmManipulatorRenderModel,
+} from "../../src/components/scene/CArmManipulators";
+import {
   ACTIVE_FACE_INSET,
   advanceHandleDragValue,
   calculateHandleValue,
@@ -16,12 +36,14 @@ import {
 import {
   advanceAnatomyRotationValue,
   ANATOMY_ROTATION_HANDLE_DEFINITIONS,
+  orbitControlsEnabled,
 } from "../../src/components/scene/TheatreScene";
 import {
   canInitializeWebGL,
   WebGLErrorFallback,
 } from "../../src/components/scene/WebGLErrorFallback";
 import { C_ARM_RIG_PRESETS } from "../../src/engine/geometry/cArmRigPresets";
+import { deriveCArmRigGeometry } from "../../src/engine/geometry/cArmRigGeometry";
 import { buildCArmGeometry } from "../../src/engine/geometry/cArmTransforms";
 import { REFERENCE_C_ARM_POSE } from "../../src/engine/geometry/geometryTypes";
 
@@ -37,13 +59,7 @@ describe("generic scene handle deltas", () => {
 
   it("snaps angular handles to five degrees while Shift is held", () => {
     expect(
-      calculateHandleValue(
-        10,
-        7,
-        0.5,
-        { altKey: false, shiftKey: true },
-        5,
-      ),
+      calculateHandleValue(10, 7, 0.5, { altKey: false, shiftKey: true }, 5),
     ).toBe(15);
   });
 
@@ -159,6 +175,180 @@ describe("direct anatomy rotation handles", () => {
   });
 });
 
+describe("six-DoF C-arm manipulator math", () => {
+  it("projects world axes into normalized screen tangents", () => {
+    const camera = new PerspectiveCamera(60, 1, 0.1, 100);
+    camera.position.set(0, 0, 10);
+    camera.lookAt(0, 0, 0);
+    camera.updateMatrixWorld();
+    camera.updateProjectionMatrix();
+
+    expect(
+      projectWorldAxisToScreen([1, 0, 0], camera, {
+        width: 1000,
+        height: 1000,
+      }),
+    ).toEqual([1, 0]);
+    expect(
+      projectWorldAxisToScreen([0, 0, 1], camera, {
+        width: 1000,
+        height: 1000,
+      }),
+    ).toEqual([0, 0]);
+  });
+
+  it("projects the active pivot into client coordinates for offset canvases", () => {
+    const camera = new PerspectiveCamera(60, 1, 0.1, 100);
+    camera.position.set(0, 0, 10);
+    camera.lookAt(0, 0, 0);
+    camera.updateMatrixWorld();
+    camera.updateProjectionMatrix();
+
+    expect(
+      projectWorldPointToScreen([0, 0, 0], camera, {
+        width: 100,
+        height: 100,
+        left: 30,
+        top: 20,
+      }),
+    ).toEqual([80, 70]);
+  });
+
+  it("projects pointer travel onto a screen tangent without cross-axis motion", () => {
+    expect(screenTangentDelta([10, 20], [22, 29], [1, 0])).toBe(12);
+    expect(screenTangentDelta([10, 20], [22, 29], [0, 1])).toBe(9);
+    expect(screenTangentDelta([10, 20], [22, 29], [0, 0])).toBe(0);
+  });
+
+  it("reserves the translation screen region ahead of the swivel raycast", () => {
+    const raycaster = new Raycaster(
+      new Vector3(0, 0, 10),
+      new Vector3(0, 0, -1),
+    );
+
+    expect(rayPassesWithinWorldRadius(raycaster, [0, 0, 0], 0.8)).toBe(true);
+    expect(rayPassesWithinWorldRadius(raycaster, [2, 0, 0], 0.8)).toBe(false);
+    expect(rayPassesWithinWorldRadius(raycaster, [0, 0, 0], 0)).toBe(false);
+  });
+
+  it("measures signed swivel angle around the active pivot", () => {
+    expect(signedScreenAngle([0, 0], [10, 0], [0, 10])).toBeCloseTo(90);
+    expect(signedScreenAngle([0, 0], [10, 0], [0, -10])).toBeCloseTo(-90);
+    expect(signedScreenAngle([0, 0], [0, 0], [0, 10])).toBe(0);
+  });
+
+  it("applies fine movement before rotation and translation snapping", () => {
+    expect(
+      applyDragModifiers(12, "rotation", {
+        altKey: true,
+        shiftKey: false,
+      }),
+    ).toBeCloseTo(1.2);
+    expect(
+      applyDragModifiers(12, "rotation", {
+        altKey: false,
+        shiftKey: true,
+      }),
+    ).toBe(10);
+    expect(
+      applyDragModifiers(14, "translation", {
+        altKey: false,
+        shiftKey: true,
+      }),
+    ).toBe(10);
+    expect(
+      applyDragModifiers(180, "translation", {
+        altKey: true,
+        shiftKey: true,
+      }),
+    ).toBe(20);
+  });
+
+  it("keeps a stable pixel size for perspective and orthographic cameras", () => {
+    const perspective = new PerspectiveCamera(60, 1, 0.1, 100);
+    perspective.position.set(0, 0, 10);
+    perspective.lookAt(0, 0, 0);
+    perspective.updateMatrixWorld();
+    perspective.updateProjectionMatrix();
+    expect(constantScreenScale([0, 0, 0], perspective, 1000, 100)).toBeCloseTo(
+      2 * Math.tan(Math.PI / 6),
+      6,
+    );
+
+    const orthographic = new OrthographicCamera(-5, 5, 5, -5, 0.1, 100);
+    orthographic.zoom = 2;
+    orthographic.updateProjectionMatrix();
+    expect(constantScreenScale([0, 0, 0], orthographic, 1000, 100)).toBe(0.5);
+    expect(constantScreenScale([0, 0, 0], perspective, 0, 100)).toBe(0);
+  });
+
+  it("exposes all six fields and changes only the selected field", () => {
+    expect(
+      C_ARM_MANIPULATOR_CONTROL_DEFINITIONS.map(({ parameter }) => parameter),
+    ).toEqual([
+      "orbitDegrees",
+      "cranialCaudalDegrees",
+      "translationX",
+      "translationY",
+      "translationZ",
+      "swivelDegrees",
+    ]);
+
+    C_ARM_MANIPULATOR_CONTROL_DEFINITIONS.forEach(({ parameter }) => {
+      const next = applyCArmManipulatorDelta(
+        REFERENCE_C_ARM_POSE,
+        parameter,
+        7,
+      );
+      Object.keys(REFERENCE_C_ARM_POSE).forEach((field) => {
+        expect(next[field as keyof typeof next]).toBe(
+          field === parameter ? 7 : 0,
+        );
+      });
+    });
+  });
+
+  it("renders exactly three correctly placed groups only in Move C-arm mode", () => {
+    const preset = C_ARM_RIG_PRESETS["non-isocentric"];
+    const local = deriveCArmRigGeometry(preset);
+    const geometry = buildCArmGeometry(
+      { ...REFERENCE_C_ARM_POSE, orbitDegrees: 20, translationY: 40 },
+      preset,
+    );
+    const hidden = createCArmManipulatorRenderModel(
+      local,
+      preset,
+      geometry,
+      "inspect",
+    );
+    const visible = createCArmManipulatorRenderModel(
+      local,
+      preset,
+      geometry,
+      "move-carm",
+    );
+
+    expect(hidden.groups).toEqual([]);
+    expect(visible.groups.map(({ name }) => name)).toEqual([
+      "Floating orbit and tilt handle",
+      "Translation handle",
+      "Swivel ring",
+    ]);
+    expect(visible.groups[1]?.position).toEqual(geometry.referenceCentre);
+    expect(visible.groups[2]?.position).toEqual(geometry.mechanicalPivot);
+    expect(visible.floatingLocalRadius).toBe(
+      local.arcRadius + preset.arcRadialThickness / 2 + 55,
+    );
+  });
+
+  it("suspends camera controls only for active rig drags and anatomy mode", () => {
+    expect(orbitControlsEnabled("inspect", false)).toBe(true);
+    expect(orbitControlsEnabled("move-carm", false)).toBe(true);
+    expect(orbitControlsEnabled("move-carm", true)).toBe(false);
+    expect(orbitControlsEnabled("move-anatomy", false)).toBe(false);
+  });
+});
+
 describe("integrated C-arm renderer", () => {
   it("describes only the integrated rig nodes and removes only a hidden beam", () => {
     const resources = createCArmRigResources(C_ARM_RIG_PRESETS.isocentric);
@@ -219,9 +409,7 @@ describe("integrated C-arm renderer", () => {
     expect(nonIsocentric.nodes[0]?.geometry).toBe(
       isocentric.nodes[0]?.geometry,
     );
-    expect(nonIsocentric.rigTransform).not.toEqual(
-      isocentric.rigTransform,
-    );
+    expect(nonIsocentric.rigTransform).not.toEqual(isocentric.rigTransform);
 
     unmount();
   });

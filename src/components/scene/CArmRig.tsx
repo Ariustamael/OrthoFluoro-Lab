@@ -1,11 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import {
-  BufferGeometry,
-  DoubleSide,
-  Float32BufferAttribute,
-} from "three";
+import { BufferGeometry, DoubleSide, Float32BufferAttribute } from "three";
 import { deriveCArmRigGeometry } from "../../engine/geometry/cArmRigGeometry";
 import type { CArmLocalGeometry } from "../../engine/geometry/cArmRigGeometry";
 import {
@@ -18,12 +14,18 @@ import {
 import { C_ARM_RIG_PRESETS } from "../../engine/geometry/cArmRigPresets";
 import { buildCArmGeometry } from "../../engine/geometry/cArmTransforms";
 import type {
+  CArmGeometry,
   CArmPose,
   CArmRigPreset,
   RigTransform,
   Vec3,
 } from "../../engine/geometry/geometryTypes";
 import { useSimulationStore } from "../../state/simulationStore";
+import { CArmManipulators } from "./CArmManipulators";
+export {
+  captureHandlePointer,
+  releaseHandlePointer,
+} from "./cArmManipulatorMath";
 
 interface PointerModifiers {
   altKey: boolean;
@@ -98,28 +100,6 @@ export function advanceHandleDragValue(
   };
 }
 
-interface PointerCaptureTarget {
-  hasPointerCapture(pointerId: number): boolean;
-  releasePointerCapture(pointerId: number): void;
-  setPointerCapture(pointerId: number): void;
-}
-
-export function captureHandlePointer(
-  target: PointerCaptureTarget,
-  pointerId: number,
-): void {
-  target.setPointerCapture(pointerId);
-}
-
-export function releaseHandlePointer(
-  target: PointerCaptureTarget,
-  pointerId: number,
-): void {
-  if (target.hasPointerCapture(pointerId)) {
-    target.releasePointerCapture(pointerId);
-  }
-}
-
 export const ACTIVE_FACE_INSET = 0.5;
 
 export interface CArmRigResources {
@@ -131,10 +111,7 @@ export interface CArmRigResources {
 }
 
 export type CArmRigNodeName =
-  | "C arc and detector"
-  | "Detector active face"
-  | "X-ray source"
-  | "X-ray beam";
+  "C arc and detector" | "Detector active face" | "X-ray source" | "X-ray beam";
 
 export interface CArmRigNodeModel {
   readonly geometry?: BufferGeometry;
@@ -143,6 +120,7 @@ export interface CArmRigNodeModel {
 }
 
 export interface CArmRigRenderModel {
+  readonly geometry: CArmGeometry;
   readonly nodes: readonly CArmRigNodeModel[];
   readonly rigShapeKey: string;
   readonly rigTransform: RigTransform;
@@ -209,9 +187,7 @@ export function disposeCArmRigResources(resources: CArmRigResources): void {
   );
 }
 
-export function useCArmRigResources(
-  preset: CArmRigPreset,
-): CArmRigResources {
+export function useCArmRigResources(preset: CArmRigPreset): CArmRigResources {
   const shapeKey = rigShapeKey(preset);
   // The key contains every construction dimension and deliberately excludes
   // kinematic mode and pivot, so switching modes cannot rebuild static meshes.
@@ -259,13 +235,22 @@ export function createCArmRigRenderModel(
   }
 
   return Object.freeze({
+    geometry,
     nodes: Object.freeze(nodes),
     rigShapeKey: shapeKey,
     rigTransform: geometry.rigTransform,
   });
 }
 
-export function CArmRig() {
+interface CArmRigProps {
+  onManipulatorDragStateChange?: (active: boolean) => void;
+}
+
+const ignoreManipulatorDragState = () => undefined;
+
+export function CArmRig({
+  onManipulatorDragStateChange = ignoreManipulatorDragState,
+}: CArmRigProps = {}) {
   const cArmPose = useSimulationStore((state) => state.cArmPose);
   const cArmMode = useSimulationStore((state) => state.cArmMode);
   const showBeam = useSimulationStore((state) => state.showBeam);
@@ -277,63 +262,67 @@ export function CArmRig() {
   );
 
   return (
-    <group
-      name="C-arm rig"
-      position={model.rigTransform.position}
-      quaternion={model.rigTransform.quaternion}
-    >
-      <mesh
-        castShadow
-        name="C arc and detector"
-        receiveShadow
+    <>
+      <group
+        name="C-arm rig"
+        position={model.rigTransform.position}
+        quaternion={model.rigTransform.quaternion}
       >
-        <primitive
-          attach="geometry"
-          dispose={null}
-          object={resources.integrated.geometry}
-        />
-        <meshStandardMaterial
-          color="#17324d"
-          metalness={0.48}
-          roughness={0.42}
-        />
-      </mesh>
-
-      <mesh name="Detector active face">
-        <primitive
-          attach="geometry"
-          dispose={null}
-          object={resources.activeFaceGeometry}
-        />
-        <meshBasicMaterial color="#55ddff" side={DoubleSide} />
-      </mesh>
-
-      <mesh name="X-ray source" position={resources.local.source}>
-        <sphereGeometry args={[14, 24, 16]} />
-        <meshStandardMaterial
-          color="#ffb14a"
-          emissive="#8b3f0c"
-          emissiveIntensity={0.7}
-          roughness={0.36}
-        />
-      </mesh>
-
-      {showBeam ? (
-        <mesh name="X-ray beam">
+        <mesh castShadow name="C arc and detector" receiveShadow>
           <primitive
             attach="geometry"
             dispose={null}
-            object={resources.beamGeometry}
+            object={resources.integrated.geometry}
           />
-          <meshBasicMaterial
-            color="#55ddff"
-            depthWrite={false}
-            opacity={0.12}
-            side={DoubleSide}
-            transparent
+          <meshStandardMaterial
+            color="#17324d"
+            metalness={0.48}
+            roughness={0.42}
           />
         </mesh>
-      ) : null}
-    </group>
+
+        <mesh name="Detector active face">
+          <primitive
+            attach="geometry"
+            dispose={null}
+            object={resources.activeFaceGeometry}
+          />
+          <meshBasicMaterial color="#55ddff" side={DoubleSide} />
+        </mesh>
+
+        <mesh name="X-ray source" position={resources.local.source}>
+          <sphereGeometry args={[14, 24, 16]} />
+          <meshStandardMaterial
+            color="#ffb14a"
+            emissive="#8b3f0c"
+            emissiveIntensity={0.7}
+            roughness={0.36}
+          />
+        </mesh>
+
+        {showBeam ? (
+          <mesh name="X-ray beam">
+            <primitive
+              attach="geometry"
+              dispose={null}
+              object={resources.beamGeometry}
+            />
+            <meshBasicMaterial
+              color="#55ddff"
+              depthWrite={false}
+              opacity={0.12}
+              side={DoubleSide}
+              transparent
+            />
+          </mesh>
+        ) : null}
+      </group>
+      <CArmManipulators
+        geometry={model.geometry}
+        local={resources.local}
+        onDragStateChange={onManipulatorDragStateChange}
+        preset={preset}
+      />
+    </>
   );
 }
