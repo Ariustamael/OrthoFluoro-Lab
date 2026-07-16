@@ -1,33 +1,36 @@
-import { Euler, MathUtils, Quaternion, Vector3 } from "three";
+import { MathUtils, Quaternion, Vector3 } from "three";
+import { deriveCArmRigGeometry } from "./cArmRigGeometry";
+import { C_ARM_RIG_PRESETS } from "./cArmRigPresets";
 import { detectorRayToWorld } from "./detectorGeometry";
-import type { CArmGeometry, CArmPose, Vec3 } from "./geometryTypes";
+import type {
+  CArmGeometry,
+  CArmPose,
+  CArmRigPreset,
+  Quat4,
+  Vec3,
+} from "./geometryTypes";
 
-const toTuple = (vector: Vector3) => [vector.x, vector.y, vector.z] as const;
+const toTuple = (vector: Vector3): Vec3 =>
+  [vector.x, vector.y, vector.z] as const;
+
+const toQuaternionTuple = (quaternion: Quaternion): Quat4 =>
+  [quaternion.x, quaternion.y, quaternion.z, quaternion.w] as const;
 
 export const C_ARM_POSE_BOUNDS = Object.freeze({
-  orbitDegrees: Object.freeze({ min: -180, max: 180 }),
-  obliquityDegrees: Object.freeze({ min: -45, max: 45 }),
+  translationX: Object.freeze({ min: -500, max: 500 }),
+  translationY: Object.freeze({ min: -500, max: 500 }),
+  translationZ: Object.freeze({ min: -500, max: 500 }),
+  swivelDegrees: Object.freeze({ min: -45, max: 45 }),
   cranialCaudalDegrees: Object.freeze({ min: -45, max: 45 }),
-  sourceDetectorDistance: Object.freeze({ min: 700, max: 1300 }),
-  detectorPatientDistance: Object.freeze({ min: 100, max: 600 }),
+  orbitDegrees: Object.freeze({ min: -180, max: 180 }),
 });
+
+const POSE_FIELDS = Object.freeze(
+  Object.keys(C_ARM_POSE_BOUNDS) as readonly (keyof CArmPose)[],
+);
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(max, Math.max(min, value));
-
-const POSE_FIELDS: readonly (keyof CArmPose)[] = [
-  "translationX",
-  "translationY",
-  "translationZ",
-  "height",
-  "orbitDegrees",
-  "obliquityDegrees",
-  "cranialCaudalDegrees",
-  "sourceDetectorDistance",
-  "detectorPatientDistance",
-  "collimationWidth",
-  "collimationHeight",
-];
 
 function assertFinitePose(pose: CArmPose): void {
   for (const field of POSE_FIELDS) {
@@ -37,86 +40,100 @@ function assertFinitePose(pose: CArmPose): void {
   }
 }
 
-function assertPositiveDetectorDimensions(pose: CArmPose): void {
-  for (const field of ["collimationWidth", "collimationHeight"] as const) {
-    if (pose[field] <= 0) {
-      throw new RangeError(`C-arm pose field "${field}" must be positive`);
-    }
-  }
-}
-
 export function clampCArmPose(pose: CArmPose): CArmPose {
   assertFinitePose(pose);
-  assertPositiveDetectorDimensions(pose);
+
   return {
-    ...pose,
-    orbitDegrees: clamp(
-      pose.orbitDegrees,
-      C_ARM_POSE_BOUNDS.orbitDegrees.min,
-      C_ARM_POSE_BOUNDS.orbitDegrees.max,
+    translationX: clamp(
+      pose.translationX,
+      C_ARM_POSE_BOUNDS.translationX.min,
+      C_ARM_POSE_BOUNDS.translationX.max,
     ),
-    obliquityDegrees: clamp(
-      pose.obliquityDegrees,
-      C_ARM_POSE_BOUNDS.obliquityDegrees.min,
-      C_ARM_POSE_BOUNDS.obliquityDegrees.max,
+    translationY: clamp(
+      pose.translationY,
+      C_ARM_POSE_BOUNDS.translationY.min,
+      C_ARM_POSE_BOUNDS.translationY.max,
+    ),
+    translationZ: clamp(
+      pose.translationZ,
+      C_ARM_POSE_BOUNDS.translationZ.min,
+      C_ARM_POSE_BOUNDS.translationZ.max,
+    ),
+    swivelDegrees: clamp(
+      pose.swivelDegrees,
+      C_ARM_POSE_BOUNDS.swivelDegrees.min,
+      C_ARM_POSE_BOUNDS.swivelDegrees.max,
     ),
     cranialCaudalDegrees: clamp(
       pose.cranialCaudalDegrees,
       C_ARM_POSE_BOUNDS.cranialCaudalDegrees.min,
       C_ARM_POSE_BOUNDS.cranialCaudalDegrees.max,
     ),
-    sourceDetectorDistance: clamp(
-      pose.sourceDetectorDistance,
-      C_ARM_POSE_BOUNDS.sourceDetectorDistance.min,
-      C_ARM_POSE_BOUNDS.sourceDetectorDistance.max,
-    ),
-    detectorPatientDistance: clamp(
-      pose.detectorPatientDistance,
-      C_ARM_POSE_BOUNDS.detectorPatientDistance.min,
-      C_ARM_POSE_BOUNDS.detectorPatientDistance.max,
+    orbitDegrees: clamp(
+      pose.orbitDegrees,
+      C_ARM_POSE_BOUNDS.orbitDegrees.min,
+      C_ARM_POSE_BOUNDS.orbitDegrees.max,
     ),
   };
 }
 
-export function buildCArmGeometry(inputPose: CArmPose): CArmGeometry {
+export function buildCArmGeometry(
+  inputPose: CArmPose,
+  preset: CArmRigPreset = C_ARM_RIG_PRESETS.isocentric,
+): CArmGeometry {
   const pose = clampCArmPose(inputPose);
-  // Three's intrinsic ZYX order gives the documented deterministic sequence:
-  // orbit about +Z, obliquity about the rotated +Y, then cranial/caudal about
-  // the twice-rotated +X. The same quaternion rotates every frame component.
-  const orientation = new Quaternion().setFromEuler(
-    new Euler(
-      MathUtils.degToRad(pose.cranialCaudalDegrees),
-      MathUtils.degToRad(pose.obliquityDegrees),
-      MathUtils.degToRad(pose.orbitDegrees),
-      "ZYX",
-    ),
+  const local = deriveCArmRigGeometry(preset);
+
+  // Hierarchy: world translation -> swivel Y -> tilt X -> orbit Z -> rig.
+  const qSwivel = new Quaternion().setFromAxisAngle(
+    new Vector3(0, 1, 0),
+    MathUtils.degToRad(pose.swivelDegrees),
   );
+  const qTilt = new Quaternion().setFromAxisAngle(
+    new Vector3(1, 0, 0),
+    MathUtils.degToRad(pose.cranialCaudalDegrees),
+  );
+  const qOrbit = new Quaternion().setFromAxisAngle(
+    new Vector3(0, 0, 1),
+    MathUtils.degToRad(pose.orbitDegrees),
+  );
+  const orientation = qSwivel.multiply(qTilt).multiply(qOrbit).normalize();
+  const pivot = new Vector3(...preset.mechanicalPivotOffset);
   const translation = new Vector3(
     pose.translationX,
-    pose.translationY + pose.height,
+    pose.translationY,
     pose.translationZ,
   );
-  const detector = new Vector3(0, pose.detectorPatientDistance, 0)
-    .applyQuaternion(orientation)
-    .add(translation);
-  const source = new Vector3(
-    0,
-    pose.detectorPatientDistance - pose.sourceDetectorDistance,
-    0,
-  )
-    .applyQuaternion(orientation)
+  const rigPosition = pivot
+    .clone()
+    .sub(pivot.clone().applyQuaternion(orientation))
     .add(translation);
 
+  const transformPoint = (point: Vec3): Vec3 =>
+    toTuple(new Vector3(...point).applyQuaternion(orientation).add(rigPosition));
+  const transformAxis = (axis: Vec3): Vec3 =>
+    toTuple(new Vector3(...axis).applyQuaternion(orientation));
+
+  const isocentre = transformPoint(local.isocentre);
+
   return {
-    source: toTuple(source),
+    source: transformPoint(local.source),
     detector: {
-      center: toTuple(detector),
-      normal: toTuple(new Vector3(0, 1, 0).applyQuaternion(orientation)),
-      uAxis: toTuple(new Vector3(1, 0, 0).applyQuaternion(orientation)),
-      vAxis: toTuple(new Vector3(0, 0, 1).applyQuaternion(orientation)),
-      width: pose.collimationWidth,
-      height: pose.collimationHeight,
+      center: transformPoint(local.detectorCenter),
+      normal: transformAxis([0, 1, 0]),
+      uAxis: transformAxis(local.detectorUAxis),
+      vAxis: transformAxis(local.detectorVAxis),
+      width: preset.detectorWidth,
+      height: preset.detectorHeight,
     },
+    isocentre,
+    referenceCentre: isocentre,
+    mechanicalPivot: toTuple(pivot.add(translation)),
+    rigTransform: {
+      position: toTuple(rigPosition),
+      quaternion: toQuaternionTuple(orientation),
+    },
+    sourceDetectorDistance: preset.sourceDetectorDistance,
   };
 }
 

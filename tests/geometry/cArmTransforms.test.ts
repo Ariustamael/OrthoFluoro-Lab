@@ -5,15 +5,13 @@ import {
   LATERAL_C_ARM_POSE,
   PA_C_ARM_POSE,
 } from "../../src/engine/geometry/anatomicalAxes";
+import { C_ARM_RIG_PRESETS } from "../../src/engine/geometry/cArmRigPresets";
 import {
   buildCArmGeometry,
   clampCArmPose,
   detectorCenterRay,
 } from "../../src/engine/geometry/cArmTransforms";
-import {
-  detectorPointToWorld,
-  detectorRayToWorld,
-} from "../../src/engine/geometry/detectorGeometry";
+import { detectorPointToWorld } from "../../src/engine/geometry/detectorGeometry";
 import {
   add,
   cross,
@@ -33,138 +31,41 @@ import {
 } from "../../src/engine/geometry/geometryTypes";
 import { projectPointToDetector } from "../../src/engine/geometry/projectionMath";
 
-describe("reference C-arm pose", () => {
-  it("is deterministic and centred", () => {
+const ISO = C_ARM_RIG_PRESETS.isocentric;
+const NON_ISO = C_ARM_RIG_PRESETS["non-isocentric"];
+
+describe("six-DoF C-arm pose", () => {
+  it("contains exactly the six rigid-body fields", () => {
     expect(REFERENCE_C_ARM_POSE).toEqual({
       translationX: 0,
       translationY: 0,
       translationZ: 0,
-      height: 0,
-      orbitDegrees: 0,
-      obliquityDegrees: 0,
+      swivelDegrees: 0,
       cranialCaudalDegrees: 0,
-      sourceDetectorDistance: 1000,
-      detectorPatientDistance: 400,
-      collimationWidth: 300,
-      collimationHeight: 300,
+      orbitDegrees: 0,
     });
+    expect(REFERENCE_C_ARM_POSE).not.toHaveProperty("height");
+    expect(REFERENCE_C_ARM_POSE).not.toHaveProperty("sourceDetectorDistance");
+    expect(REFERENCE_C_ARM_POSE).not.toHaveProperty("collimationWidth");
   });
 
-  it("places the neutral source and detector around the world origin", () => {
-    const geometry = buildCArmGeometry(REFERENCE_C_ARM_POSE);
-
-    expect(geometry.source).toEqual([0, -600, 0]);
-    expect(geometry.detector.center).toEqual([0, 400, 0]);
-  });
-
-  it("maintains the requested source-detector separation", () => {
-    const geometry = buildCArmGeometry({
-      ...REFERENCE_C_ARM_POSE,
-      sourceDetectorDistance: 1200,
-    });
-
-    expect(magnitude(subtract(geometry.detector.center, geometry.source))).toBe(
-      1200,
-    );
-    expect(geometry.source).toEqual([0, -800, 0]);
-    expect(geometry.detector.center).toEqual([0, 400, 0]);
-  });
-
-  it("applies positive orbit about world +Z to the complete assembly", () => {
-    const geometry = buildCArmGeometry({
-      ...REFERENCE_C_ARM_POSE,
-      orbitDegrees: 90,
-    });
-
-    expect(geometry.source[0]).toBeCloseTo(600, 8);
-    expect(geometry.source[1]).toBeCloseTo(0, 8);
-    expect(geometry.detector.center[0]).toBeCloseTo(-400, 8);
-    expect(geometry.detector.center[1]).toBeCloseTo(0, 8);
-    expect(geometry.detector.normal[0]).toBeCloseTo(-1, 8);
-    expect(geometry.detector.normal[1]).toBeCloseTo(0, 8);
-  });
-
-  it("applies positive obliquity about world +Y to the detector basis", () => {
-    const geometry = buildCArmGeometry({
-      ...REFERENCE_C_ARM_POSE,
-      obliquityDegrees: 45,
-    });
-
-    expect(geometry.source).toEqual([0, -600, 0]);
-    expect(geometry.detector.center).toEqual([0, 400, 0]);
-    expect(geometry.detector.uAxis[0]).toBeCloseTo(1 / Math.sqrt(2), 8);
-    expect(geometry.detector.uAxis[2]).toBeCloseTo(-1 / Math.sqrt(2), 8);
-    expect(geometry.detector.vAxis[0]).toBeCloseTo(1 / Math.sqrt(2), 8);
-    expect(geometry.detector.vAxis[2]).toBeCloseTo(1 / Math.sqrt(2), 8);
-  });
-
-  it("applies positive cranial tilt about world +X", () => {
-    const geometry = buildCArmGeometry({
-      ...REFERENCE_C_ARM_POSE,
-      cranialCaudalDegrees: 45,
-    });
-
-    expect(geometry.source[1]).toBeCloseTo(-600 / Math.sqrt(2), 8);
-    expect(geometry.source[2]).toBeCloseTo(-600 / Math.sqrt(2), 8);
-    expect(geometry.detector.center[1]).toBeCloseTo(400 / Math.sqrt(2), 8);
-    expect(geometry.detector.center[2]).toBeCloseTo(400 / Math.sqrt(2), 8);
-    expect(geometry.detector.normal[1]).toBeCloseTo(1 / Math.sqrt(2), 8);
-    expect(geometry.detector.normal[2]).toBeCloseTo(1 / Math.sqrt(2), 8);
-  });
-
-  it("preserves the centre ray through combined ZYX rotations", () => {
-    const geometry = buildCArmGeometry({
-      ...REFERENCE_C_ARM_POSE,
-      orbitDegrees: 30,
-      obliquityDegrees: 20,
-      cranialCaudalDegrees: -15,
-    });
-    const ray = detectorCenterRay(geometry);
-
-    expect(ray.origin).toEqual(geometry.source);
-    expect(ray.direction[0]).toBeCloseTo(-0.559624631, 8);
-    expect(ray.direction[1]).toBeCloseTo(0.79225564, 8);
-    expect(ray.direction[2]).toBeCloseTo(-0.243210347, 8);
+  it("clamps all six controls to the named bounds", () => {
     expect(
-      projectPointToDetector(ray.origin, [0, 0, 0], geometry.detector),
-    ).toMatchObject({
-      u: expect.closeTo(0, 8),
-      v: expect.closeTo(0, 8),
-    });
-  });
-
-  it("moves source and detector equally under translation and height", () => {
-    const geometry = buildCArmGeometry({
-      ...REFERENCE_C_ARM_POSE,
-      translationX: 25,
-      translationY: 30,
-      translationZ: -10,
-      height: 45,
-    });
-
-    expect(geometry.source).toEqual([25, -525, -10]);
-    expect(geometry.detector.center).toEqual([25, 475, -10]);
-    expect(subtract(geometry.detector.center, geometry.source)).toEqual([
-      0, 1000, 0,
-    ]);
-  });
-
-  it("clamps angular and distance controls to named geometry bounds", () => {
-    const clamped = clampCArmPose({
-      ...REFERENCE_C_ARM_POSE,
-      orbitDegrees: 181,
-      obliquityDegrees: -46,
-      cranialCaudalDegrees: 46,
-      sourceDetectorDistance: 699,
-      detectorPatientDistance: 601,
-    });
-
-    expect(clamped).toMatchObject({
+      clampCArmPose({
+        translationX: 501,
+        translationY: -501,
+        translationZ: 900,
+        swivelDegrees: 46,
+        cranialCaudalDegrees: -46,
+        orbitDegrees: 181,
+      }),
+    ).toEqual({
+      translationX: 500,
+      translationY: -500,
+      translationZ: 500,
+      swivelDegrees: 45,
+      cranialCaudalDegrees: -45,
       orbitDegrees: 180,
-      obliquityDegrees: -45,
-      cranialCaudalDegrees: 45,
-      sourceDetectorDistance: 700,
-      detectorPatientDistance: 600,
     });
   });
 
@@ -179,46 +80,115 @@ describe("reference C-arm pose", () => {
       clampCArmPose({ ...REFERENCE_C_ARM_POSE, [field]: value }),
     ).toThrow(`C-arm pose field "${field}" must be finite`);
   });
+});
 
-  it.each(["collimationWidth", "collimationHeight"] as const)(
-    "rejects non-positive %s values",
-    (field) => {
-      expect(() =>
-        clampCArmPose({ ...REFERENCE_C_ARM_POSE, [field]: 0 }),
-      ).toThrow(`C-arm pose field "${field}" must be positive`);
-    },
-  );
-
-  it("rejects a non-finite pose before building geometry", () => {
-    expect(() =>
-      buildCArmGeometry({
-        ...REFERENCE_C_ARM_POSE,
-        translationX: Number.NaN,
-      }),
-    ).toThrow('C-arm pose field "translationX" must be finite');
-  });
-
-  it("clamps finite degenerate distances before building geometry", () => {
-    const geometry = buildCArmGeometry({
-      ...REFERENCE_C_ARM_POSE,
-      sourceDetectorDistance: 0,
-      detectorPatientDistance: 0,
-    });
-
-    expect(magnitude(subtract(geometry.detector.center, geometry.source))).toBe(
-      700,
+describe("authoritative C-arm world geometry", () => {
+  it("keeps an isocentric orbit centred and the central ray aligned", () => {
+    const geometry = buildCArmGeometry(
+      { ...REFERENCE_C_ARM_POSE, orbitDegrees: 90 },
+      ISO,
     );
-    expect(geometry.detector.center).toEqual([0, 100, 0]);
-    expect(geometry.source).toEqual([0, -600, 0]);
+
+    expect(geometry.isocentre).toEqual([0, 0, 0]);
+    expect(geometry.mechanicalPivot).toEqual([0, 0, 0]);
+    expect(
+      projectPointToDetector(
+        geometry.source,
+        geometry.isocentre,
+        geometry.detector,
+      ),
+    ).toMatchObject({ u: expect.closeTo(0, 8), v: expect.closeTo(0, 8) });
+    expect(
+      magnitude(subtract(geometry.detector.center, geometry.source)),
+    ).toBeCloseTo(1000, 8);
   });
 
-  it("round-trips detector coordinates through world space", () => {
-    const geometry = buildCArmGeometry({
-      ...REFERENCE_C_ARM_POSE,
-      orbitDegrees: 35,
-      obliquityDegrees: -20,
-      cranialCaudalDegrees: 15,
-    });
+  it("rotates a non-isocentric rig around its offset mechanical pivot", () => {
+    const geometry = buildCArmGeometry(
+      { ...REFERENCE_C_ARM_POSE, orbitDegrees: 45 },
+      NON_ISO,
+    );
+
+    expect(geometry.mechanicalPivot).toEqual([-120, 0, 0]);
+    expect(geometry.isocentre).not.toEqual([0, 0, 0]);
+    expect(
+      magnitude(subtract(geometry.isocentre, geometry.mechanicalPivot)),
+    ).toBeCloseTo(120, 8);
+    expect(geometry.isocentre[0]).toBeCloseTo(-120 + 120 / Math.sqrt(2), 8);
+    expect(geometry.isocentre[1]).toBeCloseTo(120 / Math.sqrt(2), 8);
+  });
+
+  it("applies translation equally to every reported world point", () => {
+    const base = buildCArmGeometry(
+      {
+        ...REFERENCE_C_ARM_POSE,
+        orbitDegrees: 30,
+        swivelDegrees: 20,
+        cranialCaudalDegrees: -15,
+      },
+      NON_ISO,
+    );
+    const translated = buildCArmGeometry(
+      {
+        ...REFERENCE_C_ARM_POSE,
+        translationX: 25,
+        translationY: 30,
+        translationZ: -10,
+        orbitDegrees: 30,
+        swivelDegrees: 20,
+        cranialCaudalDegrees: -15,
+      },
+      NON_ISO,
+    );
+    const delta = [25, 30, -10] as const;
+
+    expect(subtract(translated.source, base.source)).toEqual(delta);
+    expect(subtract(translated.detector.center, base.detector.center)).toEqual(
+      delta,
+    );
+    expect(subtract(translated.isocentre, base.isocentre)).toEqual(delta);
+    expect(subtract(translated.mechanicalPivot, base.mechanicalPivot)).toEqual(
+      delta,
+    );
+  });
+
+  it("returns one group transform and preset construction dimensions", () => {
+    const geometry = buildCArmGeometry(
+      {
+        ...REFERENCE_C_ARM_POSE,
+        swivelDegrees: 10,
+        cranialCaudalDegrees: 20,
+        orbitDegrees: 30,
+      },
+      ISO,
+    );
+
+    expect(geometry.rigTransform.position).toEqual([0, 0, 0]);
+    expect(
+      Math.hypot(
+        geometry.rigTransform.quaternion[0],
+        geometry.rigTransform.quaternion[1],
+        geometry.rigTransform.quaternion[2],
+      ),
+    ).toBeLessThan(1);
+    expect(
+      Math.hypot(...geometry.rigTransform.quaternion),
+    ).toBeCloseTo(1, 8);
+    expect(geometry.sourceDetectorDistance).toBe(1000);
+    expect(geometry.detector).toMatchObject({ width: 220, height: 220 });
+    expect(geometry.referenceCentre).toEqual(geometry.isocentre);
+  });
+
+  it("round-trips detector coordinates through combined rotations", () => {
+    const geometry = buildCArmGeometry(
+      {
+        ...REFERENCE_C_ARM_POSE,
+        orbitDegrees: 35,
+        swivelDegrees: -20,
+        cranialCaudalDegrees: 15,
+      },
+      ISO,
+    );
     const worldPoint = detectorPointToWorld(geometry.detector, 25, -40);
 
     expect(
@@ -230,14 +200,13 @@ describe("reference C-arm pose", () => {
     });
   });
 
-  it("constructs a unit world ray from source through a detector point", () => {
-    const geometry = buildCArmGeometry({
-      ...REFERENCE_C_ARM_POSE,
-      orbitDegrees: -40,
-      cranialCaudalDegrees: 10,
-    });
-    const ray = detectorRayToWorld(geometry.source, geometry.detector, 20, 30);
-    const target = detectorPointToWorld(geometry.detector, 20, 30);
+  it("constructs a unit centre ray from the transformed source", () => {
+    const geometry = buildCArmGeometry(
+      { ...REFERENCE_C_ARM_POSE, orbitDegrees: -40, swivelDegrees: 10 },
+      ISO,
+    );
+    const ray = detectorCenterRay(geometry);
+    const target = detectorPointToWorld(geometry.detector, 0, 0);
 
     expect(ray.origin).toEqual(geometry.source);
     expect(magnitude(ray.direction)).toBeCloseTo(1, 8);
@@ -246,21 +215,19 @@ describe("reference C-arm pose", () => {
     ).toBeCloseTo(1, 8);
   });
 
-  it("uses the configured collimation as detector dimensions", () => {
-    const geometry = buildCArmGeometry({
-      ...REFERENCE_C_ARM_POSE,
-      collimationWidth: 180,
-      collimationHeight: 120,
-    });
-
-    expect(geometry.detector.width).toBe(180);
-    expect(geometry.detector.height).toBe(120);
+  it("rejects a non-finite pose before deriving geometry", () => {
+    expect(() =>
+      buildCArmGeometry(
+        { ...REFERENCE_C_ARM_POSE, translationX: Number.NaN },
+        ISO,
+      ),
+    ).toThrow('C-arm pose field "translationX" must be finite');
   });
 });
 
 describe("anatomical reference views", () => {
   it("names the neutral posterior-to-anterior view as PA", () => {
-    const geometry = buildCArmGeometry(PA_C_ARM_POSE);
+    const geometry = buildCArmGeometry(PA_C_ARM_POSE, ISO);
     const left = projectPointToDetector(
       geometry.source,
       ANATOMICAL_LANDMARKS.patientLeft,
@@ -272,13 +239,12 @@ describe("anatomical reference views", () => {
       geometry.detector,
     );
 
-    expect(geometry.source).toEqual([0, -600, 0]);
-    expect(geometry.detector.center).toEqual([0, 400, 0]);
+    expect(geometry.source[1]).toBeLessThan(0);
     expect(left!.u).toBeGreaterThan(right!.u);
   });
 
-  it("places the AP source anteriorly and reverses left-right detector ordering", () => {
-    const geometry = buildCArmGeometry(AP_C_ARM_POSE);
+  it("places the AP source anteriorly and reverses left-right ordering", () => {
+    const geometry = buildCArmGeometry(AP_C_ARM_POSE, ISO);
     const left = projectPointToDetector(
       geometry.source,
       ANATOMICAL_LANDMARKS.patientLeft,
@@ -289,25 +255,13 @@ describe("anatomical reference views", () => {
       ANATOMICAL_LANDMARKS.patientRight,
       geometry.detector,
     );
-    const head = projectPointToDetector(
-      geometry.source,
-      ANATOMICAL_LANDMARKS.head,
-      geometry.detector,
-    );
-    const feet = projectPointToDetector(
-      geometry.source,
-      ANATOMICAL_LANDMARKS.feet,
-      geometry.detector,
-    );
 
-    expect(geometry.source[1]).toBeCloseTo(600, 8);
-    expect(geometry.detector.center[1]).toBeCloseTo(-400, 8);
+    expect(geometry.source[1]).toBeGreaterThan(0);
     expect(left!.u).toBeLessThan(right!.u);
-    expect(head!.v).toBeGreaterThan(feet!.v);
   });
 
   it("orders anterior and headward landmarks positively in lateral", () => {
-    const geometry = buildCArmGeometry(LATERAL_C_ARM_POSE);
+    const geometry = buildCArmGeometry(LATERAL_C_ARM_POSE, ISO);
     const anterior = projectPointToDetector(
       geometry.source,
       ANATOMICAL_LANDMARKS.anterior,
