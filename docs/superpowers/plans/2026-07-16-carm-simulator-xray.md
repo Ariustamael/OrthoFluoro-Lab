@@ -393,13 +393,17 @@ git commit -m "feat: add pivot-aware c-arm transforms"
 
 The tests must inspect positions and indices, not screenshots. Require:
 
-- every non-taper centreline sample has radius `R`;
-- every interior circular sample has `X < 0`, with the last sample at `A`;
-- the last main-arc ring is the first taper ring by index;
-- the last circular taper profile and the ruled transition share indices;
-- the ruled transition ends in a distinct four-vertex attachment profile whose
-  indices are reused by the subdivided detector-backing face;
-- the last circular profile has `8 mm` radial thickness and `8 mm` depth;
+- every main-band centreline sample has radius `R` and `X < 0`;
+- the exact circular main band ends at
+  `taperStart = arcEndRadians + degToRad(taperSweepDegrees)`;
+- `mainArcEndRing === taperStartRing` by index identity;
+- there is no circular terminal ring at `A`;
+- taper rings smoothstep-morph centre, in-plane basis, radial thickness, and
+  depth directly from the circular start loop to the axis-aligned portal;
+- every taper loop is simple/non-self-intersecting and disjoint from
+  non-neighbouring loops;
+- `taperEndRing === backingAttachmentProfile` by index identity, with `A` the
+  lower-edge midpoint of that final profile;
 - all triangles have finite coordinates and non-zero area;
 - every index is an integer within the position-buffer range;
 - shared edges have manifold incidence and outward triangle winding is
@@ -419,7 +423,7 @@ export interface IntegratedRigMesh {
   readonly centrelineSamples: readonly Vec3[];
   readonly mainArcEndRing: readonly number[];
   readonly taperStartRing: readonly number[];
-  readonly taperTerminalProfile: readonly number[];
+  readonly taperEndRing: readonly number[];
   readonly backingAttachmentProfile: readonly number[];
 }
 ```
@@ -432,23 +436,33 @@ Expected: FAIL because `cArmRigMesh.ts` does not exist.
 
 - [ ] **Step 3: Implement the indexed annular-prism generator**
 
-Sample the exact circular centreline clockwise from source toward attachment,
-using the unwrapped negative-X interval. For each circular profile, derive
-radial and Z half-depth values. Keep full thickness until the final
-`taperSweepDegrees`, then linearly interpolate to tongue thickness and detector
-backing depth. Push each circular boundary profile once and reuse the final
-main-arc indices as the taper's first profile.
+Sample the exact circular main band clockwise over the unwrapped negative-X
+interval only as far as:
 
-Do not attempt to reuse the circular terminal profile as an axis-aligned
-backing edge. Join it with ruled quads to a separate four-vertex attachment
-profile in the backing's `-X` face; reuse those four attachment indices when
-triangulating the subdivided backing face. With backing thickness `b`, define
-the attachment profile exactly on `X = -detectorWidth/2`,
-`Y in [detectorDistance, detectorDistance + b]`, and
-`Z in [-b/2, b/2]`. Preflight inputs before allocation, then verify finite
-positions, integer in-range indices, non-zero triangle area, two oppositely
-directed uses per undirected edge, and positive signed volume before returning
-the mesh.
+```ts
+const taperStart =
+  local.arcEndRadians + MathUtils.degToRad(preset.taperSweepDegrees);
+```
+
+Push that circular boundary loop once and reuse its indices as both
+`mainArcEndRing` and `taperStartRing`. Do not create an intermediate circular
+ring at `A`.
+
+For taper parameter `t`, use `h = t * t * (3 - 2 * t)` to interpolate the loop
+centre from the circular start centre to
+`[-detectorWidth/2, detectorDistance + b/2, 0]`, rotate its first in-plane
+basis smoothly from the start radial direction to `+Y` while retaining `+Z`
+as the second basis, and interpolate its two half-sizes to `b/2`. Join each
+successive four-vertex loop with ruled quads. The last loop must be exactly the
+axis-aligned portal on `X = -detectorWidth/2`,
+`Y in [detectorDistance, detectorDistance + b]`, and `Z in [-b/2, b/2]`;
+reuse its indices as both `taperEndRing` and `backingAttachmentProfile` when
+triangulating the backing face. Its lower-edge midpoint is `A`.
+
+Preflight inputs before allocation, then verify finite positions, integer
+in-range indices, simple/non-self-intersecting taper loops disjoint from
+non-neighbouring loops, non-zero triangle area, two oppositely directed uses
+per undirected edge, and positive signed volume before returning the mesh.
 
 Expose:
 
@@ -473,9 +487,9 @@ Call `computeVertexNormals()` after all indexed faces are present.
 
 Run: `npm run test:unit -- tests/geometry/cArmRigMesh.test.ts`
 
-Expected: PASS with no `NaN` positions, exact equality only at genuinely shared
-boundaries, a distinct ruled terminal transition, and all preflight/topology
-checks satisfied.
+Expected: PASS with no `NaN` positions, exact start/end index identities, no
+circular loop at `A`, no intersecting taper profiles, and all
+preflight/topology checks satisfied.
 
 - [ ] **Step 5: Commit the mesh engine**
 

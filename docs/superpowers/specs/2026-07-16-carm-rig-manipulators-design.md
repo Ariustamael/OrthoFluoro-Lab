@@ -160,26 +160,35 @@ The main C arc is a custom annular-prism `BufferGeometry`, not a partial torus.
 Its centreline samples one exact circle of radius `R`. Inner and outer radial
 surfaces and both `Z` faces are generated from that centreline.
 
-The final taper is not a separate overlay mesh. Over the terminal circular
-sweep it continuously interpolates:
+The exact circular main band stops before `A`. With clockwise parameterization
+and taper sweep `delta > 0`:
 
-- radial thickness from the main band thickness to the tongue thickness;
-- axial depth from the main band depth to detector-backing thickness; and
-- its last circular cross-section toward the detector rear edge at `A`.
+```text
+thetaTaperStart = thetaA + delta
+C0 = p(thetaTaperStart)
+CB = (-a, d + b/2, 0)
+h(t) = 3*t^2 - 2*t^3,  t in [0, 1]
+```
 
-A circular cross-section cannot literally be reused as an axis-aligned edge of
-the detector backing. The mesh therefore finishes the circular taper with a
-short ruled transition: its four terminal vertices connect to a distinct
-four-vertex attachment profile embedded in the backing's `-X` face. The ruled
-quad faces share the terminal vertices on one side, and the attachment-profile
-vertices are reused by the subdivided backing face on the other. This keeps a
-welded indexed mesh without pretending the differently oriented profiles are
-the same ring. For backing thickness `b`, that attachment profile is the small
-rectangle `X = -a`, `Y in [d, d + b]`, `Z in [-b/2, b/2]`; the rest of the
-backing's `-X` face is triangulated around it.
+The final main-arc loop is also the first taper loop. From that disjoint
+circular loop, taper profiles smoothly morph their centre from `C0` to `CB`,
+their in-plane basis from the circle's radial basis to backing `+Y`, and their
+two profile sizes from the main band dimensions to `b x b`, all using `h(t)`.
+The local `Z` basis remains common. Adjacent profiles are joined by ruled quad
+faces.
 
-Arc, taper, ruled transition, and detector backing share the appropriate
-boundary vertices and form one indexed geometry. Mesh preflight must reject
+There is no circular terminal ring at `A`: such a loop would intersect the
+axis-aligned backing portal. The last taper profile is instead exactly the
+four-vertex attachment rectangle `X = -a`, `Y in [d, d + b]`,
+`Z in [-b/2, b/2]`, centred at `CB`. Its lower `Y = d` edge has midpoint `A`.
+Those same four indices are reused as the portal boundary in the subdivided
+backing face. Therefore `mainArcEndRing === taperStartRing` and
+`taperEndRing === backingAttachmentProfile` by index identity.
+
+Arc, taper, and detector backing share the appropriate boundary vertices and
+form one indexed geometry. Every interpolated loop must be a simple,
+non-self-intersecting profile and remain disjoint from non-neighbouring loops.
+Mesh preflight must reject
 non-finite dimensions, non-integral or undersized sampling counts, out-of-range
 indices, zero-area triangles, inconsistent outward winding, and non-manifold
 boundary incidence. There must be no gap, z-fighting, floating connector,
@@ -384,8 +393,9 @@ Visual similarity is not accepted as proof. Automated tests must cover:
 5. Every beam corner equals one detector corner exactly within floating-point
    tolerance.
 6. The arc centreline has constant radius at every non-taper sample.
-7. The taper start reuses the final main-arc profile; its ruled terminal
-   transition reuses a separate four-vertex profile embedded in the backing.
+7. `mainArcEndRing` reuses `taperStartRing`, and `taperEndRing` reuses the
+   axis-aligned four-vertex `backingAttachmentProfile`; no circular loop exists
+   at `A`.
 8. The central ray projects to detector coordinates `(0, 0)` after every
    supported isocentric rotation and translation.
 9. Isocentric rotations keep the transformed isocentre fixed relative to the
@@ -398,6 +408,9 @@ Visual similarity is not accepted as proof. Automated tests must cover:
     in-range indices, consistent outward winding, and manifold edge incidence:
     each undirected edge occurs twice with opposite directed uses, and the
     chosen outward winding produces positive signed volume.
+13. Every interpolated taper loop is simple and non-self-intersecting, remains
+    disjoint from non-neighbouring loops, and joins its neighbours without
+    producing a zero-area face.
 
 ### Interaction and state
 
