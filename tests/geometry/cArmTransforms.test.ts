@@ -1,4 +1,5 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
+import { MathUtils, Quaternion, Vector3 } from "three";
 import {
   ANATOMICAL_LANDMARKS,
   AP_C_ARM_POSE,
@@ -6,6 +7,7 @@ import {
   PA_C_ARM_POSE,
 } from "../../src/engine/geometry/anatomicalAxes";
 import { C_ARM_RIG_PRESETS } from "../../src/engine/geometry/cArmRigPresets";
+import { deriveCArmRigGeometry } from "../../src/engine/geometry/cArmRigGeometry";
 import {
   buildCArmGeometry,
   clampCArmPose,
@@ -33,6 +35,12 @@ import { projectPointToDetector } from "../../src/engine/geometry/projectionMath
 
 const ISO = C_ARM_RIG_PRESETS.isocentric;
 const NON_ISO = C_ARM_RIG_PRESETS["non-isocentric"];
+
+function expectVectorClose(actual: readonly number[], expected: Vector3): void {
+  expect(actual[0]).toBeCloseTo(expected.x, 8);
+  expect(actual[1]).toBeCloseTo(expected.y, 8);
+  expect(actual[2]).toBeCloseTo(expected.z, 8);
+}
 
 describe("six-DoF C-arm pose", () => {
   it("contains exactly the six rigid-body fields", () => {
@@ -116,6 +124,90 @@ describe("authoritative C-arm world geometry", () => {
     ).toBeCloseTo(120, 8);
     expect(geometry.isocentre[0]).toBeCloseTo(-120 + 120 / Math.sqrt(2), 8);
     expect(geometry.isocentre[1]).toBeCloseTo(120 / Math.sqrt(2), 8);
+  });
+
+  it("keeps the moved reference centre on-axis while the neutral target drifts", () => {
+    const geometry = buildCArmGeometry(
+      { ...REFERENCE_C_ARM_POSE, orbitDegrees: 45 },
+      NON_ISO,
+    );
+    const movedReference = projectPointToDetector(
+      geometry.source,
+      geometry.referenceCentre,
+      geometry.detector,
+    );
+    const neutralTarget = projectPointToDetector(
+      geometry.source,
+      [0, 0, 0],
+      geometry.detector,
+    );
+
+    expect(movedReference).toMatchObject({
+      u: expect.closeTo(0, 8),
+      v: expect.closeTo(0, 8),
+    });
+    expect(neutralTarget).not.toBeNull();
+    expect(Math.hypot(neutralTarget!.u, neutralTarget!.v)).toBeGreaterThan(1);
+  });
+
+  it("matches qY*qX*qZ and maps the complete local rig through one transform", () => {
+    const pose: CArmPose = {
+      translationX: 25,
+      translationY: -40,
+      translationZ: 15,
+      swivelDegrees: 20,
+      cranialCaudalDegrees: -15,
+      orbitDegrees: 35,
+    };
+    const local = deriveCArmRigGeometry(NON_ISO);
+    const geometry = buildCArmGeometry(pose, NON_ISO);
+    const qY = new Quaternion().setFromAxisAngle(
+      new Vector3(0, 1, 0),
+      MathUtils.degToRad(pose.swivelDegrees),
+    );
+    const qX = new Quaternion().setFromAxisAngle(
+      new Vector3(1, 0, 0),
+      MathUtils.degToRad(pose.cranialCaudalDegrees),
+    );
+    const qZ = new Quaternion().setFromAxisAngle(
+      new Vector3(0, 0, 1),
+      MathUtils.degToRad(pose.orbitDegrees),
+    );
+    const oracle = qY.multiply(qX).multiply(qZ).normalize();
+    const pivot = new Vector3(...NON_ISO.mechanicalPivotOffset);
+    const translation = new Vector3(
+      pose.translationX,
+      pose.translationY,
+      pose.translationZ,
+    );
+    const expectedPosition = pivot
+      .clone()
+      .sub(pivot.clone().applyQuaternion(oracle))
+      .add(translation);
+    const transformPoint = (point: readonly [number, number, number]) =>
+      new Vector3(...point).applyQuaternion(oracle).add(expectedPosition);
+    const transformAxis = (axis: readonly [number, number, number]) =>
+      new Vector3(...axis).applyQuaternion(oracle);
+
+    expect(geometry.rigTransform.quaternion[0]).toBeCloseTo(oracle.x, 8);
+    expect(geometry.rigTransform.quaternion[1]).toBeCloseTo(oracle.y, 8);
+    expect(geometry.rigTransform.quaternion[2]).toBeCloseTo(oracle.z, 8);
+    expect(geometry.rigTransform.quaternion[3]).toBeCloseTo(oracle.w, 8);
+    expectVectorClose(geometry.rigTransform.position, expectedPosition);
+    expectVectorClose(geometry.source, transformPoint(local.source));
+    expectVectorClose(
+      geometry.detector.center,
+      transformPoint(local.detectorCenter),
+    );
+    expectVectorClose(
+      geometry.detector.uAxis,
+      transformAxis(local.detectorUAxis),
+    );
+    expectVectorClose(
+      geometry.detector.vAxis,
+      transformAxis(local.detectorVAxis),
+    );
+    expectVectorClose(geometry.detector.normal, transformAxis([0, 1, 0]));
   });
 
   it("applies translation equally to every reported world point", () => {

@@ -131,6 +131,19 @@ source endpoint `S`, around the `-X` side of the circle, to attachment point
 `A`. The detector active plane is centred at `D` with local axes `U = +X` and
 `V = +Z`.
 
+The angular interval must be explicitly unwrapped onto that clockwise branch:
+
+```text
+thetaS = -pi / 2
+thetaA = atan2(d, -a) - 2*pi
+p(theta) = (R*cos(theta), R*sin(theta), 0)
+```
+
+Samples progress from `thetaS` down to `thetaA`. Every interior centreline
+sample therefore has `X < 0`, and `p(thetaA) = A`. Using the wrapped positive
+`atan2` result directly would interpolate across the open `+X` side and create
+the wrong C shape.
+
 This construction guarantees all of the relationships that were only
 approximated in the visual drafts:
 
@@ -147,18 +160,32 @@ The main C arc is a custom annular-prism `BufferGeometry`, not a partial torus.
 Its centreline samples one exact circle of radius `R`. Inner and outer radial
 surfaces and both `Z` faces are generated from that centreline.
 
-The final taper is not a separate overlay mesh. Over the terminal sweep it
-continuously interpolates:
+The final taper is not a separate overlay mesh. Over the terminal circular
+sweep it continuously interpolates:
 
 - radial thickness from the main band thickness to the tongue thickness;
 - axial depth from the main band depth to detector-backing thickness; and
-- end profile into the detector rear edge at `A`.
+- its last circular cross-section toward the detector rear edge at `A`.
 
-Arc, taper, and detector backing share vertices at their boundaries or are
-merged into one indexed geometry. There must be no gap, z-fighting, floating
-connector, joint dot, or visible seam. The active detector face may remain a
-separate inset material surface for contrast, but it is parented to the same
-rig and never floats away from the backing.
+A circular cross-section cannot literally be reused as an axis-aligned edge of
+the detector backing. The mesh therefore finishes the circular taper with a
+short ruled transition: its four terminal vertices connect to a distinct
+four-vertex attachment profile embedded in the backing's `-X` face. The ruled
+quad faces share the terminal vertices on one side, and the attachment-profile
+vertices are reused by the subdivided backing face on the other. This keeps a
+welded indexed mesh without pretending the differently oriented profiles are
+the same ring. For backing thickness `b`, that attachment profile is the small
+rectangle `X = -a`, `Y in [d, d + b]`, `Z in [-b/2, b/2]`; the rest of the
+backing's `-X` face is triangulated around it.
+
+Arc, taper, ruled transition, and detector backing share the appropriate
+boundary vertices and form one indexed geometry. Mesh preflight must reject
+non-finite dimensions, non-integral or undersized sampling counts, out-of-range
+indices, zero-area triangles, inconsistent outward winding, and non-manifold
+boundary incidence. There must be no gap, z-fighting, floating connector,
+joint dot, or visible seam. The active detector face may remain a separate
+inset material surface for contrast, but it is parented to the same rig and
+never floats away from the backing.
 
 The lower arc terminates at `S`. A small amber source marker is embedded at the
 endpoint; it does not add a tube housing.
@@ -357,14 +384,20 @@ Visual similarity is not accepted as proof. Automated tests must cover:
 5. Every beam corner equals one detector corner exactly within floating-point
    tolerance.
 6. The arc centreline has constant radius at every non-taper sample.
-7. Taper start and end profiles share boundary vertices with their neighbouring
-   geometry.
+7. The taper start reuses the final main-arc profile; its ruled terminal
+   transition reuses a separate four-vertex profile embedded in the backing.
 8. The central ray projects to detector coordinates `(0, 0)` after every
    supported isocentric rotation and translation.
 9. Isocentric rotations keep the transformed isocentre fixed relative to the
    rotational pivot.
 10. Non-isocentric rotation produces measurable central-ray drift relative to
     the initial target point.
+11. Every sampled arc interior lies in `X < 0`, and the unwrapped endpoint
+    evaluates to `A`.
+12. Every integrated-rig triangle has finite coordinates, non-zero area,
+    in-range indices, consistent outward winding, and manifold edge incidence:
+    each undirected edge occurs twice with opposite directed uses, and the
+    chosen outward winding produces positive signed volume.
 
 ### Interaction and state
 

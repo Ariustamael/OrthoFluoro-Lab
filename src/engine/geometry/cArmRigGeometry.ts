@@ -37,6 +37,9 @@ function validatePreset(preset: CArmRigPreset): void {
       "C-arm detector half-width must not exceed source-detector distance",
     );
   }
+  if (preset.mechanicalPivotOffset.some((value) => !Number.isFinite(value))) {
+    throw new RangeError("C-arm mechanical pivot offset must be finite");
+  }
 }
 
 export function deriveCArmRigGeometry(
@@ -68,6 +71,9 @@ export function deriveCArmRigGeometry(
     arcRadius,
     detectorDistance,
     arcStartRadians: -Math.PI / 2,
-    arcEndRadians: Math.atan2(detectorDistance, -halfWidth),
+    // Unwrap A into the clockwise branch so interpolation follows the
+    // negative-X C rather than crossing the open side through positive X.
+    arcEndRadians:
+      Math.atan2(detectorDistance, -halfWidth) - Math.PI * 2,
   });
 }

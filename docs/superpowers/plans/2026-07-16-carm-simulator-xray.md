@@ -203,11 +203,15 @@ expect(rig.detectorCorners).toEqual([
   [110, rig.detectorDistance, 110],
   [-110, rig.detectorDistance, 110],
 ]);
+expect(rig.arcEndRadians).toBeLessThan(rig.arcStartRadians);
 ```
 
 Also test invalid presets: non-positive SID or detector dimensions, and a
 detector half-width greater than SID, must throw a `RangeError` before any
-square root or division result can become invalid.
+square root or division result can become invalid. Every component of
+`mechanicalPivotOffset` must also be finite. Sample the open angular interval
+and require every centreline point to have `X < 0`; evaluate the terminal angle
+and require it to equal `A`.
 
 - [ ] **Step 2: Run the new test and confirm the missing module fails**
 
@@ -253,7 +257,8 @@ export function deriveCArmRigGeometry(
     arcRadius: radius,
     detectorDistance,
     arcStartRadians: -Math.PI / 2,
-    arcEndRadians: Math.atan2(detectorDistance, -a),
+    // Use the clockwise branch around -X, not the wrapped +X interpolation.
+    arcEndRadians: Math.atan2(detectorDistance, -a) - Math.PI * 2,
   });
 }
 ```
@@ -389,10 +394,19 @@ git commit -m "feat: add pivot-aware c-arm transforms"
 The tests must inspect positions and indices, not screenshots. Require:
 
 - every non-taper centreline sample has radius `R`;
+- every interior circular sample has `X < 0`, with the last sample at `A`;
 - the last main-arc ring is the first taper ring by index;
-- the last taper ring and detector backing attachment edge share indices;
-- the terminal ring has `8 mm` radial thickness and `8 mm` depth;
+- the last circular taper profile and the ruled transition share indices;
+- the ruled transition ends in a distinct four-vertex attachment profile whose
+  indices are reused by the subdivided detector-backing face;
+- the last circular profile has `8 mm` radial thickness and `8 mm` depth;
 - all triangles have finite coordinates and non-zero area;
+- every index is an integer within the position-buffer range;
+- shared edges have manifold incidence and outward triangle winding is
+  consistent across the arc, transition, and backing: each undirected edge has
+  two opposite directed uses and signed volume is positive;
+- invalid dimensions and non-integral or undersized `radialSegments` fail
+  before allocating a `BufferGeometry`;
 - beam vertices are one source plus the four exact detector corners;
 - beam indices define four side faces and two detector-cap faces.
 
@@ -405,8 +419,8 @@ export interface IntegratedRigMesh {
   readonly centrelineSamples: readonly Vec3[];
   readonly mainArcEndRing: readonly number[];
   readonly taperStartRing: readonly number[];
-  readonly taperEndRing: readonly number[];
-  readonly backingAttachmentEdge: readonly number[];
+  readonly taperTerminalProfile: readonly number[];
+  readonly backingAttachmentProfile: readonly number[];
 }
 ```
 
@@ -418,11 +432,23 @@ Expected: FAIL because `cArmRigMesh.ts` does not exist.
 
 - [ ] **Step 3: Implement the indexed annular-prism generator**
 
-Sample the exact circular centreline from source to attachment. For each ring,
-derive radial and Z half-depth values. Keep full thickness until the final
+Sample the exact circular centreline clockwise from source toward attachment,
+using the unwrapped negative-X interval. For each circular profile, derive
+radial and Z half-depth values. Keep full thickness until the final
 `taperSweepDegrees`, then linearly interpolate to tongue thickness and detector
-backing depth. Push each boundary ring once and reuse its indices when adding
-adjacent faces.
+backing depth. Push each circular boundary profile once and reuse the final
+main-arc indices as the taper's first profile.
+
+Do not attempt to reuse the circular terminal profile as an axis-aligned
+backing edge. Join it with ruled quads to a separate four-vertex attachment
+profile in the backing's `-X` face; reuse those four attachment indices when
+triangulating the subdivided backing face. With backing thickness `b`, define
+the attachment profile exactly on `X = -detectorWidth/2`,
+`Y in [detectorDistance, detectorDistance + b]`, and
+`Z in [-b/2, b/2]`. Preflight inputs before allocation, then verify finite
+positions, integer in-range indices, non-zero triangle area, two oppositely
+directed uses per undirected edge, and positive signed volume before returning
+the mesh.
 
 Expose:
 
@@ -447,7 +473,9 @@ Call `computeVertexNormals()` after all indexed faces are present.
 
 Run: `npm run test:unit -- tests/geometry/cArmRigMesh.test.ts`
 
-Expected: PASS with no `NaN` positions and exact boundary-index equality.
+Expected: PASS with no `NaN` positions, exact equality only at genuinely shared
+boundaries, a distinct ruled terminal transition, and all preflight/topology
+checks satisfied.
 
 - [ ] **Step 5: Commit the mesh engine**
 
