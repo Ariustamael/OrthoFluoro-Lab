@@ -110,8 +110,18 @@ export function LabWorkspace() {
         </div>
       ) : viewport === "desktop" ? (
         <>
-          <div className="lab-workspace__viewports">
-            <TheatreCanvas />
+          <div
+            aria-label="Synchronized imaging views"
+            className="lab-workspace__viewports"
+            data-layout-priority="equal"
+            role="group"
+          >
+            <div className="lab-workspace__viewport lab-workspace__viewport--theatre">
+              <TheatreCanvas surface="theatre" />
+            </div>
+            <div className="lab-workspace__viewport lab-workspace__viewport--projection">
+              <TheatreCanvas surface="projection" />
+            </div>
           </div>
           <div className="lab-workspace__controls-dock">
             <CArmControls />

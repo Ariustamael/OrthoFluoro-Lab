@@ -4,8 +4,11 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CArmControls } from "../../src/components/controls/CArmControls";
@@ -29,6 +32,8 @@ import type {
 } from "../../src/engine/projection/rendererTypes";
 import { LabPage } from "../../src/pages/LabPage";
 import { useSimulationStore } from "../../src/state/simulationStore";
+
+const appCss = readFileSync(join(process.cwd(), "src/styles/app.css"), "utf8");
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -136,6 +141,60 @@ function mockViewport(initiallyMobile: boolean) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("responsive laboratory workspace", () => {
+  it("gives the synchronized desktop views equal semantic priority", () => {
+    mockViewport(false);
+
+    render(<LabWorkspace />);
+
+    const imagingViews = screen.getByRole("group", {
+      name: "Synchronized imaging views",
+    });
+    expect(imagingViews).toHaveAttribute("data-layout-priority", "equal");
+    expect(
+      within(imagingViews).getByRole("region", { name: "3D theatre" }),
+    ).toBeInTheDocument();
+    expect(
+      within(imagingViews).getByRole("region", {
+        name: "Simulated X-ray view",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("retains accessible names for simulator modes, beam, and numeric inputs", () => {
+    mockViewport(false);
+
+    render(<LabWorkspace />);
+
+    ["Inspect", "Move C-arm", "Move anatomy"].forEach((name) => {
+      expect(screen.getByRole("button", { name })).toHaveAccessibleName(name);
+    });
+    expect(
+      screen.getByRole("checkbox", { name: "Show X-ray beam" }),
+    ).toHaveAccessibleName("Show X-ray beam");
+    screen.getAllByRole("spinbutton").forEach((input) => {
+      expect(input).toHaveAccessibleName();
+    });
+  });
+
+  it("uses one 44px target token for mobile tabs and simulator controls", () => {
+    expect(appCss).toMatch(/--target-min:\s*44px/);
+    expect(appCss).toMatch(
+      /\.mobile-lab-tabs__tab\s*\{[^}]*min-block-size:\s*var\(--target-min\)/s,
+    );
+    expect(appCss).toMatch(
+      /\.c-arm-controls__beam-toggle\s*\{[^}]*min-block-size:\s*var\(--target-min\)/s,
+    );
+  });
+
+  it("uses equal desktop viewport columns without collapsing either instrument", () => {
+    expect(appCss).toMatch(
+      /\.lab-workspace__viewports\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/s,
+    );
+    expect(appCss).toMatch(
+      /\.lab-workspace__viewport\s*\{[^}]*min-inline-size:\s*0/s,
+    );
+  });
+
   it("server-renders a lightweight hydration shell with stable empty panels", () => {
     const markup = renderToString(<LabWorkspace />);
 
