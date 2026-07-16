@@ -1,15 +1,17 @@
-import { render, screen } from "@testing-library/react";
+import { render, renderHook, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import {
-  C_ARM_HANDLE_DEFINITIONS,
+  ACTIVE_FACE_INSET,
   advanceHandleDragValue,
   calculateHandleValue,
   calculateIncrementalHandleValue,
   captureHandlePointer,
-  createRigTransform,
-  handlesForInteractionMode,
+  createCArmRigRenderModel,
+  createCArmRigResources,
+  disposeCArmRigResources,
   releaseHandlePointer,
+  useCArmRigResources,
 } from "../../src/components/scene/CArmRig";
 import {
   advanceAnatomyRotationValue,
@@ -19,98 +21,11 @@ import {
   canInitializeWebGL,
   WebGLErrorFallback,
 } from "../../src/components/scene/WebGLErrorFallback";
+import { C_ARM_RIG_PRESETS } from "../../src/engine/geometry/cArmRigPresets";
 import { buildCArmGeometry } from "../../src/engine/geometry/cArmTransforms";
 import { REFERENCE_C_ARM_POSE } from "../../src/engine/geometry/geometryTypes";
 
-describe("direct C-arm handle deltas", () => {
-  it("defines every required manipulation handle with a live-readout scale", () => {
-    expect(
-      C_ARM_HANDLE_DEFINITIONS.map(
-        ({
-          label,
-          parameter,
-          snapDescription,
-          snapIncrement,
-          unit,
-          unitsPerPixel,
-        }) => ({
-          label,
-          parameter,
-          snapDescription,
-          snapIncrement,
-          unit,
-          unitsPerPixel,
-        }),
-      ),
-    ).toEqual([
-      {
-        label: "Orbit",
-        parameter: "orbitDegrees",
-        snapDescription: "Shift snaps to 5° increments",
-        snapIncrement: 5,
-        unit: "°",
-        unitsPerPixel: 0.5,
-      },
-      {
-        label: "Obliquity",
-        parameter: "obliquityDegrees",
-        snapDescription: "Shift snaps to 5° increments",
-        snapIncrement: 5,
-        unit: "°",
-        unitsPerPixel: 0.5,
-      },
-      {
-        label: "Cranial/caudal tilt",
-        parameter: "cranialCaudalDegrees",
-        snapDescription: "Shift snaps to 5° increments",
-        snapIncrement: 5,
-        unit: "°",
-        unitsPerPixel: 0.5,
-      },
-      {
-        label: "Height",
-        parameter: "height",
-        snapDescription: "Shift snaps to 10 mm increments",
-        snapIncrement: 10,
-        unit: "mm",
-        unitsPerPixel: 2,
-      },
-      {
-        label: "Horizontal translation",
-        parameter: "translationX",
-        snapDescription: "Shift snaps to 10 mm increments",
-        snapIncrement: 10,
-        unit: "mm",
-        unitsPerPixel: 2,
-      },
-      {
-        label: "Source-detector distance",
-        parameter: "sourceDetectorDistance",
-        snapDescription: "Shift snaps to 10 mm increments",
-        snapIncrement: 10,
-        unit: "mm",
-        unitsPerPixel: 2,
-      },
-    ]);
-  });
-
-  it("shows direct handles only in Move C-arm mode", () => {
-    expect(handlesForInteractionMode("inspect")).toEqual([]);
-    expect(handlesForInteractionMode("move-anatomy")).toEqual([]);
-    expect(
-      handlesForInteractionMode("move-carm").map(
-        (definition) => definition.parameter,
-      ),
-    ).toEqual([
-      "orbitDegrees",
-      "obliquityDegrees",
-      "cranialCaudalDegrees",
-      "height",
-      "translationX",
-      "sourceDetectorDistance",
-    ]);
-  });
-
+describe("generic scene handle deltas", () => {
   it("converts pointer movement into handle units", () => {
     expect(
       calculateHandleValue(10, 12, 0.5, {
@@ -126,10 +41,7 @@ describe("direct C-arm handle deltas", () => {
         10,
         7,
         0.5,
-        {
-          altKey: false,
-          shiftKey: true,
-        },
+        { altKey: false, shiftKey: true },
         5,
       ),
     ).toBe(15);
@@ -247,23 +159,128 @@ describe("direct anatomy rotation handles", () => {
   });
 });
 
-describe("C-arm renderer transform", () => {
-  it("preserves detector roll around the centre ray", () => {
-    const geometry = buildCArmGeometry({
-      ...REFERENCE_C_ARM_POSE,
-      obliquityDegrees: 30,
-    });
-    const transform = createRigTransform(geometry);
-    const { x, y, z, w } = transform.quaternion;
-    const renderedUAxis = [
-      1 - 2 * (y * y + z * z),
-      2 * (x * y + z * w),
-      2 * (x * z - y * w),
-    ];
+describe("integrated C-arm renderer", () => {
+  it("describes only the integrated rig nodes and removes only a hidden beam", () => {
+    const resources = createCArmRigResources(C_ARM_RIG_PRESETS.isocentric);
+    const visible = createCArmRigRenderModel(
+      REFERENCE_C_ARM_POSE,
+      C_ARM_RIG_PRESETS.isocentric,
+      resources,
+      true,
+    );
+    const hidden = createCArmRigRenderModel(
+      REFERENCE_C_ARM_POSE,
+      C_ARM_RIG_PRESETS.isocentric,
+      resources,
+      false,
+    );
 
-    renderedUAxis.forEach((coordinate, index) => {
-      expect(coordinate).toBeCloseTo(geometry.detector.uAxis[index], 8);
+    expect(visible.nodes.map(({ name }) => name)).toEqual([
+      "C arc and detector",
+      "Detector active face",
+      "X-ray source",
+      "X-ray beam",
+    ]);
+    expect(hidden.nodes.map(({ name }) => name)).toEqual(
+      visible.nodes.slice(0, -1).map(({ name }) => name),
+    );
+
+    disposeCArmRigResources(resources);
+  });
+
+  it("keeps one local mesh identity across modes while changing the group transform", () => {
+    const { result, rerender, unmount } = renderHook(
+      ({ mode }) => useCArmRigResources(C_ARM_RIG_PRESETS[mode]),
+      { initialProps: { mode: "isocentric" as const } },
+    );
+    const resources = result.current;
+    const pose = {
+      ...REFERENCE_C_ARM_POSE,
+      orbitDegrees: 25,
+      cranialCaudalDegrees: -15,
+    };
+    const isocentric = createCArmRigRenderModel(
+      pose,
+      C_ARM_RIG_PRESETS.isocentric,
+      resources,
+      true,
+    );
+
+    rerender({ mode: "non-isocentric" });
+    expect(result.current).toBe(resources);
+
+    const nonIsocentric = createCArmRigRenderModel(
+      pose,
+      C_ARM_RIG_PRESETS["non-isocentric"],
+      result.current,
+      true,
+    );
+    expect(nonIsocentric.rigShapeKey).toBe(isocentric.rigShapeKey);
+    expect(nonIsocentric.nodes[0]?.geometry).toBe(
+      isocentric.nodes[0]?.geometry,
+    );
+    expect(nonIsocentric.rigTransform).not.toEqual(
+      isocentric.rigTransform,
+    );
+
+    unmount();
+  });
+
+  it("uses the authoritative transform without baking pose into the mesh", () => {
+    const preset = C_ARM_RIG_PRESETS["non-isocentric"];
+    const resources = createCArmRigResources(preset);
+    const pose = {
+      ...REFERENCE_C_ARM_POSE,
+      translationX: 31,
+      translationY: -47,
+      swivelDegrees: 18,
+      orbitDegrees: 33,
+    };
+    const model = createCArmRigRenderModel(pose, preset, resources, true);
+
+    expect(model.rigTransform).toEqual(
+      buildCArmGeometry(pose, preset).rigTransform,
+    );
+    expect(
+      model.nodes.find(({ name }) => name === "X-ray source")?.position,
+    ).toEqual(resources.local.source);
+
+    disposeCArmRigResources(resources);
+  });
+
+  it("builds the active face from the exact local detector corners", () => {
+    const resources = createCArmRigResources(C_ARM_RIG_PRESETS.isocentric);
+    const position = resources.activeFaceGeometry.getAttribute("position");
+
+    resources.local.detectorCorners.forEach((corner, index) => {
+      expect(position.getX(index)).toBeCloseTo(corner[0], 8);
+      expect(position.getY(index)).toBeCloseTo(
+        corner[1] - ACTIVE_FACE_INSET,
+        4,
+      );
+      expect(position.getZ(index)).toBeCloseTo(corner[2], 8);
     });
+
+    disposeCArmRigResources(resources);
+  });
+
+  it("explicitly owns and disposes all external rig geometries", () => {
+    const { result, unmount } = renderHook(() =>
+      useCArmRigResources(C_ARM_RIG_PRESETS.isocentric),
+    );
+    const disposals = [
+      result.current.integrated.geometry,
+      result.current.activeFaceGeometry,
+      result.current.beamGeometry,
+    ].map((geometry) => {
+      const listener = vi.fn();
+      geometry.addEventListener("dispose", listener);
+      return listener;
+    });
+
+    unmount();
+
+    disposals.forEach((listener) => expect(listener).toHaveBeenCalledOnce());
   });
 });
 
