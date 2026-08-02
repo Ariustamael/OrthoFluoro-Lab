@@ -2,7 +2,7 @@
 
 Date: 2026-08-02
 
-Status: Approved design; written specification awaiting user review
+Status: Approved
 
 ## Objective
 
