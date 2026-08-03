@@ -410,9 +410,13 @@ describe("integrated C-arm renderer", () => {
     expect(visible.nodes.map(({ name }) => name)).toEqual([
       "C arc and detector",
       "Detector active face",
+      "C arc highlight",
       "X-ray source",
       "X-ray beam",
     ]);
+    expect(
+      visible.nodes.find(({ name }) => name === "C arc highlight")?.geometry,
+    ).toBe(resources.arcHighlightGeometry);
     expect(hidden.nodes.map(({ name }) => name)).toEqual(
       visible.nodes.slice(0, -1).map(({ name }) => name),
     );
@@ -501,6 +505,7 @@ describe("integrated C-arm renderer", () => {
     const disposals = [
       result.current.integrated.geometry,
       result.current.activeFaceGeometry,
+      result.current.arcHighlightGeometry,
       result.current.beamGeometry,
     ].map((geometry) => {
       const listener = vi.fn();

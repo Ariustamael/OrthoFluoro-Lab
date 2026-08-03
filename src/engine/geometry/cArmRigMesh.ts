@@ -1,4 +1,4 @@
-import { BufferGeometry, Float32BufferAttribute } from "three";
+import { BufferGeometry, Float32BufferAttribute, Vector3 } from "three";
 import type { CArmLocalGeometry } from "./cArmRigGeometry";
 import type { CArmRigPreset, Vec3 } from "./geometryTypes";
 
@@ -23,6 +23,31 @@ export interface IntegratedRigTopology extends IndexedMeshTopology {
 
 export interface IntegratedRigMesh extends IntegratedRigTopology {
   readonly geometry: BufferGeometry;
+}
+
+export function buildArcHighlightGeometry(
+  local: CArmLocalGeometry,
+  preset: CArmRigPreset,
+  segments = 48,
+): BufferGeometry {
+  if (!Number.isInteger(segments) || segments < 8) {
+    throw new RangeError(
+      "C-arm highlight segments must be an integer of at least 8",
+    );
+  }
+  const taperStart =
+    local.arcEndRadians + (preset.taperSweepDegrees * Math.PI) / 180;
+  const radius = local.arcRadius + preset.arcRadialThickness / 2;
+  const z = preset.arcDepth / 2 + 0.25;
+  const points = Array.from({ length: segments + 1 }, (_, index) => {
+    const t = index / segments;
+    const theta =
+      local.arcStartRadians + (taperStart - local.arcStartRadians) * t;
+    return new Vector3(radius * Math.cos(theta), radius * Math.sin(theta), z);
+  });
+  const geometry = new BufferGeometry();
+  geometry.setFromPoints(points);
+  return geometry;
 }
 
 const EPSILON = 1e-9;

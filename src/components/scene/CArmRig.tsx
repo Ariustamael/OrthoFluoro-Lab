@@ -5,6 +5,7 @@ import { BufferGeometry, DoubleSide, Float32BufferAttribute } from "three";
 import { deriveCArmRigGeometry } from "../../engine/geometry/cArmRigGeometry";
 import type { CArmLocalGeometry } from "../../engine/geometry/cArmRigGeometry";
 import {
+  buildArcHighlightGeometry,
   buildIntegratedRigMesh,
   buildSquareBeamGeometry,
   disposeCArmRigGeometries,
@@ -110,6 +111,7 @@ export const C_ARM_INTEGRATED_MATERIAL = {
 
 export interface CArmRigResources {
   readonly activeFaceGeometry: BufferGeometry;
+  readonly arcHighlightGeometry: BufferGeometry;
   readonly beamGeometry: BufferGeometry;
   readonly integrated: IntegratedRigMesh;
   readonly local: CArmLocalGeometry;
@@ -117,7 +119,11 @@ export interface CArmRigResources {
 }
 
 export type CArmRigNodeName =
-  "C arc and detector" | "Detector active face" | "X-ray source" | "X-ray beam";
+  | "C arc and detector"
+  | "Detector active face"
+  | "C arc highlight"
+  | "X-ray source"
+  | "X-ray beam";
 
 export interface CArmRigNodeModel {
   readonly geometry?: BufferGeometry;
@@ -163,13 +169,16 @@ export function createCArmRigResources(
   const local = deriveCArmRigGeometry(preset);
   const integrated = buildIntegratedRigMesh(local, preset);
   let activeFaceGeometry: BufferGeometry | undefined;
+  let arcHighlightGeometry: BufferGeometry | undefined;
   let beamGeometry: BufferGeometry | undefined;
 
   try {
     activeFaceGeometry = buildDetectorActiveFaceGeometry(local);
+    arcHighlightGeometry = buildArcHighlightGeometry(local, preset);
     beamGeometry = buildSquareBeamGeometry(local);
     return Object.freeze({
       activeFaceGeometry,
+      arcHighlightGeometry,
       beamGeometry,
       integrated,
       local,
@@ -179,6 +188,7 @@ export function createCArmRigResources(
     disposeCArmRigGeometries(
       integrated.geometry,
       ...(activeFaceGeometry === undefined ? [] : [activeFaceGeometry]),
+      ...(arcHighlightGeometry === undefined ? [] : [arcHighlightGeometry]),
       ...(beamGeometry === undefined ? [] : [beamGeometry]),
     );
     throw error;
@@ -189,6 +199,7 @@ export function disposeCArmRigResources(resources: CArmRigResources): void {
   disposeCArmRigGeometries(
     resources.integrated.geometry,
     resources.activeFaceGeometry,
+    resources.arcHighlightGeometry,
     resources.beamGeometry,
   );
 }
@@ -230,6 +241,10 @@ export function createCArmRigRenderModel(
     {
       geometry: resources.activeFaceGeometry,
       name: "Detector active face",
+    },
+    {
+      geometry: resources.arcHighlightGeometry,
+      name: "C arc highlight",
     },
     {
       name: "X-ray source",
@@ -291,6 +306,15 @@ export function CArmRig({
           />
           <meshBasicMaterial color="#55ddff" side={DoubleSide} />
         </mesh>
+
+        <line name="C arc highlight" renderOrder={2}>
+          <primitive
+            attach="geometry"
+            dispose={null}
+            object={resources.arcHighlightGeometry}
+          />
+          <lineBasicMaterial color="#72b5d2" transparent opacity={0.48} />
+        </line>
 
         <mesh name="X-ray source" position={resources.local.source}>
           <sphereGeometry args={[14, 24, 16]} />

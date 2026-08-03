@@ -6,6 +6,7 @@ import {
 } from "../../src/engine/geometry/cArmRigGeometry";
 import {
   areTaperProfilesDisjoint,
+  buildArcHighlightGeometry,
   buildIntegratedRigMesh,
   buildIntegratedRigTopology,
   buildSquareBeamGeometry,
@@ -219,15 +220,43 @@ describe("integrated C-rig topology", () => {
     }
 
     expect(topology.taperEndRing).toBe(topology.backingAttachmentProfile);
+    const backing = preset.detectorBackingThickness;
     expect(ringPositions(topology, topology.taperEndRing)).toEqual([
-      [-110, local.detectorDistance, -4],
-      [-110, local.detectorDistance + 8, -4],
-      [-110, local.detectorDistance + 8, 4],
-      [-110, local.detectorDistance, 4],
+      [-preset.detectorWidth / 2, local.detectorDistance, -backing / 2],
+      [
+        -preset.detectorWidth / 2,
+        local.detectorDistance + backing,
+        -backing / 2,
+      ],
+      [
+        -preset.detectorWidth / 2,
+        local.detectorDistance + backing,
+        backing / 2,
+      ],
+      [-preset.detectorWidth / 2, local.detectorDistance, backing / 2],
     ]);
     expect(ringCenter(topology, topology.taperEndRing)).not.toEqual(
       local.attachmentPoint,
     );
+  });
+
+  it("builds a finite highlight along the outer circular edge", () => {
+    const highlight = buildArcHighlightGeometry(local, preset, 48);
+    const positions = highlight.getAttribute("position");
+
+    expect(positions.count).toBe(49);
+    for (let index = 0; index < positions.count; index += 1) {
+      const x = positions.getX(index);
+      const y = positions.getY(index);
+      const z = positions.getZ(index);
+      expect(Math.hypot(x, y)).toBeCloseTo(
+        local.arcRadius + preset.arcRadialThickness / 2,
+        4,
+      );
+      expect(z).toBeCloseTo(preset.arcDepth / 2 + 0.25, 6);
+    }
+
+    highlight.dispose();
   });
 
   it("is a finite, non-degenerate, closed outward manifold", () => {
