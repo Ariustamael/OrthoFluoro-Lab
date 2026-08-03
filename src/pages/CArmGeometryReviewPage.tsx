@@ -11,6 +11,7 @@ const REVIEW_VIEWS: readonly { label: string; value: CArmReviewView }[] = [
 ];
 
 export function CArmGeometryReviewPage() {
+  const [showBeam, setShowBeam] = useState(false);
   const [view, setView] = useState<CArmReviewView>("side");
 
   return (
@@ -23,19 +24,37 @@ export function CArmGeometryReviewPage() {
           approving its display geometry.
         </p>
       </header>
-      <div aria-label="Review viewpoint" className="c-arm-review__toolbar">
-        {REVIEW_VIEWS.map(({ label, value }) => (
-          <button
-            aria-pressed={view === value}
-            key={value}
-            onClick={() => setView(value)}
-            type="button"
-          >
-            {label}
-          </button>
-        ))}
+      <div
+        aria-label="Review controls"
+        className="c-arm-review__toolbar"
+        role="group"
+      >
+        <div
+          aria-label="Review viewpoint"
+          className="c-arm-review__view-buttons"
+          role="group"
+        >
+          {REVIEW_VIEWS.map(({ label, value }) => (
+            <button
+              aria-pressed={view === value}
+              key={value}
+              onClick={() => setView(value)}
+              type="button"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <button
+          aria-pressed={showBeam}
+          className="c-arm-review__beam-toggle"
+          onClick={() => setShowBeam((visible) => !visible)}
+          type="button"
+        >
+          {showBeam ? "Beam on" : "Beam off"}
+        </button>
       </div>
-      <CArmGeometryReview view={view} />
+      <CArmGeometryReview showBeam={showBeam} view={view} />
       <ul className="c-arm-review__checklist">
         <li>Detector face is square and centred on the source.</li>
         <li>Arc is circular and continuous into both terminal units.</li>
