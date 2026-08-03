@@ -7,9 +7,16 @@ vi.mock("../../src/components/scene/TheatreCanvas", () => ({
   TheatreCanvas: () => <div aria-label="3D theatre" role="region" />,
 }));
 
+vi.mock("../../src/components/scene/CArmGeometryReview", () => ({
+  CArmGeometryReview: () => (
+    <div aria-label="C-arm geometry model" role="region" />
+  ),
+}));
+
 const routeHeadings = [
   ["/", "Explore fluoroscopy in three dimensions"],
   ["/lab", "Projection geometry lab"],
+  ["/lab/c-arm-review", "C-arm geometry review"],
   ["/guided", "Guided views"],
   ["/guided/wrist-true-lateral", "Wrist true lateral"],
   ["/library", "Case library"],

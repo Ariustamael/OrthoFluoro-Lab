@@ -414,6 +414,71 @@ button:hover {
   padding: clamp(var(--space-3), 2.5vw, 3rem);
 }
 
+.c-arm-review {
+  background:
+    radial-gradient(circle at 72% 10%, rgb(39 212 239 / 12%), transparent 32rem),
+    var(--navy-950);
+  min-block-size: calc(100vh - 8rem);
+  padding: clamp(var(--space-4), 4vw, 4rem);
+}
+
+.c-arm-review__header,
+.c-arm-review__toolbar,
+.c-arm-review__canvas,
+.c-arm-review__checklist {
+  inline-size: min(100%, 80rem);
+  margin-inline: auto;
+}
+
+.c-arm-review__header {
+  max-inline-size: 58rem;
+  text-align: center;
+}
+
+.c-arm-review__header h1 {
+  font-size: clamp(2.4rem, 5vw, 4.2rem);
+  letter-spacing: -0.045em;
+  line-height: 0.98;
+  margin-block: var(--space-3);
+}
+
+.c-arm-review__header p:last-child,
+.c-arm-review__checklist {
+  color: var(--text-muted);
+  line-height: 1.65;
+}
+
+.c-arm-review__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: center;
+  margin-block: var(--space-4) var(--space-3);
+}
+
+.c-arm-review__toolbar button[aria-pressed="true"] {
+  background: var(--cyan-500);
+  border-color: var(--cyan-300);
+  color: var(--navy-950);
+  font-weight: 750;
+}
+
+.c-arm-review__canvas {
+  background: var(--navy-900);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  display: block;
+  min-block-size: 42rem;
+  overflow: hidden;
+}
+
+.c-arm-review__checklist {
+  display: grid;
+  gap: var(--space-1);
+  margin-block: var(--space-4) 0;
+  max-inline-size: 52rem;
+}
+
 .lab-page__header,
 .lab-workspace {
   inline-size: min(100%, 96rem);

@@ -22,6 +22,7 @@ import {
 import { buildCArmGeometry } from "../../engine/geometry/cArmTransforms";
 import type {
   CArmGeometry,
+  CArmKinematicMode,
   CArmPose,
   CArmRigPreset,
   RigTransform,
@@ -280,27 +281,38 @@ export function createCArmRigRenderModel(
   });
 }
 
-interface CArmRigProps {
+export interface CArmRigProps {
+  modeOverride?: CArmKinematicMode;
   onManipulatorDragStateChange?: (active: boolean) => void;
+  poseOverride?: CArmPose;
+  showBeamOverride?: boolean;
+  showManipulators?: boolean;
 }
 
 const ignoreManipulatorDragState = () => undefined;
 
 export function CArmRig({
+  modeOverride,
   onManipulatorDragStateChange = ignoreManipulatorDragState,
+  poseOverride,
+  showBeamOverride,
+  showManipulators,
 }: CArmRigProps = {}) {
-  const cArmPose = useSimulationStore((state) => state.cArmPose);
-  const cArmMode = useSimulationStore((state) => state.cArmMode);
-  const showBeam = useSimulationStore((state) => state.showBeam);
-  const preset = C_ARM_RIG_PRESETS[cArmMode];
+  const storePose = useSimulationStore((state) => state.cArmPose);
+  const storeMode = useSimulationStore((state) => state.cArmMode);
+  const storeShowBeam = useSimulationStore((state) => state.showBeam);
+  const pose = poseOverride ?? storePose;
+  const mode = modeOverride ?? storeMode;
+  const showBeam = showBeamOverride ?? storeShowBeam;
+  const preset = C_ARM_RIG_PRESETS[mode];
   const resources = useCArmRigResources(preset);
   const sourceDisplay = useMemo(
     () => deriveCArmSourceDisplay(resources.local),
     [resources.local],
   );
   const model = useMemo(
-    () => createCArmRigRenderModel(cArmPose, preset, resources, showBeam),
-    [cArmPose, preset, resources, showBeam],
+    () => createCArmRigRenderModel(pose, preset, resources, showBeam),
+    [pose, preset, resources, showBeam],
   );
 
   return (
@@ -389,12 +401,14 @@ export function CArmRig({
           </mesh>
         ) : null}
       </group>
-      <CArmManipulators
-        geometry={model.geometry}
-        local={resources.local}
-        onDragStateChange={onManipulatorDragStateChange}
-        preset={preset}
-      />
+      {showManipulators !== false ? (
+        <CArmManipulators
+          geometry={model.geometry}
+          local={resources.local}
+          onDragStateChange={onManipulatorDragStateChange}
+          preset={preset}
+        />
+      ) : null}
     </>
   );
 }

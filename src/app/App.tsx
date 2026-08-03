@@ -1,6 +1,7 @@
 import type { RouteObject } from "react-router-dom";
 import { AppLayout } from "../components/layout/AppLayout";
 import { AboutPage } from "../pages/AboutPage";
+import { CArmGeometryReviewPage } from "../pages/CArmGeometryReviewPage";
 import { HomePage } from "../pages/HomePage";
 import { LabPage } from "../pages/LabPage";
 import { PlaceholderPage } from "../pages/PlaceholderPage";
@@ -12,6 +13,7 @@ export const appRoutes: RouteObject[] = [
     children: [
       { index: true, element: <HomePage /> },
       { path: "lab", element: <LabPage /> },
+      { path: "lab/c-arm-review", element: <CArmGeometryReviewPage /> },
       {
         path: "guided",
         element: (
