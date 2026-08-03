@@ -5,6 +5,7 @@ import { useFrame, useThree } from "@react-three/fiber";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import {
   Group,
+  MathUtils,
   Mesh,
   Quaternion,
   Vector3,
@@ -93,7 +94,9 @@ export const C_ARM_MANIPULATOR_CONTROL_DEFINITIONS: readonly CArmManipulatorCont
   ]);
 
 type ManipulatorGroupName =
-  "Floating orbit and tilt handle" | "Translation handle" | "Swivel ring";
+  | "Orbit and tilt cue"
+  | "Wig-wag cue"
+  | "Translation cue";
 
 interface ManipulatorGroupModel {
   readonly name: ManipulatorGroupName;
@@ -101,7 +104,11 @@ interface ManipulatorGroupModel {
 }
 
 export interface CArmManipulatorRenderModel {
-  readonly floatingLocalRadius: number;
+  readonly localAnchors: Readonly<{
+    orbitTilt: Vec3;
+    swivel: Vec3;
+    translation: Vec3;
+  }>;
   readonly floatingOrbitTangent: Vec3;
   readonly floatingTiltAxis: Vec3;
   readonly groups: readonly ManipulatorGroupModel[];
@@ -110,27 +117,62 @@ export interface CArmManipulatorRenderModel {
 const tuple = (vector: Vector3): Vec3 =>
   [vector.x, vector.y, vector.z] as const;
 
+export const C_ARM_CUE_ANCHORS = Object.freeze({
+  orbitTilt: Object.freeze({ degrees: -225, radialOffset: 36 }),
+  translation: Object.freeze({ degrees: -135, radialOffset: 48 }),
+} as const);
+
+export function localArcCueAnchor(
+  local: CArmLocalGeometry,
+  preset: CArmRigPreset,
+  degrees: number,
+  radialOffset: number,
+): Vec3 {
+  const theta = MathUtils.degToRad(degrees);
+  const radius = local.arcRadius + preset.arcRadialThickness / 2 + radialOffset;
+  return [radius * Math.cos(theta), radius * Math.sin(theta), 0];
+}
+
 export function createCArmManipulatorRenderModel(
   local: CArmLocalGeometry,
   preset: CArmRigPreset,
   geometry: CArmGeometry,
   interactionMode: InteractionMode,
 ): CArmManipulatorRenderModel {
-  const polarAngle = (135 * Math.PI) / 180;
-  const floatingLocalRadius =
-    local.arcRadius + preset.arcRadialThickness / 2 + 55;
+  const orbitTiltDegrees = C_ARM_CUE_ANCHORS.orbitTilt.degrees;
+  const swivelDegrees = MathUtils.radToDeg(
+    (local.arcStartRadians + local.arcEndRadians) / 2,
+  );
+  const localAnchors = Object.freeze({
+    orbitTilt: localArcCueAnchor(
+      local,
+      preset,
+      orbitTiltDegrees,
+      C_ARM_CUE_ANCHORS.orbitTilt.radialOffset,
+    ),
+    swivel: localArcCueAnchor(
+      local,
+      preset,
+      swivelDegrees,
+      C_ARM_CUE_ANCHORS.orbitTilt.radialOffset,
+    ),
+    translation: localArcCueAnchor(
+      local,
+      preset,
+      C_ARM_CUE_ANCHORS.translation.degrees,
+      C_ARM_CUE_ANCHORS.translation.radialOffset,
+    ),
+  });
   const rigQuaternion = new Quaternion(...geometry.rigTransform.quaternion);
   const rigPosition = new Vector3(...geometry.rigTransform.position);
-  const floatingPosition = new Vector3(
-    floatingLocalRadius * Math.cos(polarAngle),
-    floatingLocalRadius * Math.sin(polarAngle),
-    0,
-  )
-    .applyQuaternion(rigQuaternion)
-    .add(rigPosition);
+  const toWorldAnchor = (anchor: Vec3): Vec3 =>
+    tuple(new Vector3(...anchor).applyQuaternion(rigQuaternion).add(rigPosition));
+  const orbitTiltPosition = toWorldAnchor(localAnchors.orbitTilt);
+  const swivelPosition = toWorldAnchor(localAnchors.swivel);
+  const translationPosition = toWorldAnchor(localAnchors.translation);
   const floatingOrbitTangent = new Vector3(
-    -Math.sin(polarAngle),
-    Math.cos(polarAngle),
+    -Math.sin(MathUtils.degToRad(orbitTiltDegrees)),
+    Math.cos(MathUtils.degToRad(orbitTiltDegrees)),
     0,
   ).applyQuaternion(rigQuaternion);
   const floatingTiltAxis = new Vector3(0, 0, 1).applyQuaternion(rigQuaternion);
@@ -138,16 +180,16 @@ export function createCArmManipulatorRenderModel(
     interactionMode === "move-carm"
       ? [
           {
-            name: "Floating orbit and tilt handle",
-            position: tuple(floatingPosition),
+            name: "Orbit and tilt cue",
+            position: orbitTiltPosition,
           },
-          { name: "Translation handle", position: geometry.referenceCentre },
-          { name: "Swivel ring", position: geometry.mechanicalPivot },
+          { name: "Wig-wag cue", position: swivelPosition },
+          { name: "Translation cue", position: translationPosition },
         ]
       : [];
 
   return Object.freeze({
-    floatingLocalRadius,
+    localAnchors,
     floatingOrbitTangent: tuple(floatingOrbitTangent),
     floatingTiltAxis: tuple(floatingTiltAxis),
     groups: Object.freeze(groups),
@@ -213,11 +255,15 @@ export function CArmManipulators({
   const swivelRaycast = useCallback(
     function (this: Mesh, raycaster: Raycaster, intersections: Intersection[]) {
       const translation = translationRef.current;
+      const translationPosition = model.groups.find(
+        ({ name }) => name === "Translation cue",
+      )?.position;
       if (
         translation !== null &&
+        translationPosition !== undefined &&
         rayPassesWithinWorldRadius(
           raycaster,
-          geometry.referenceCentre,
+          translationPosition,
           translation.scale.x * 0.95,
         )
       ) {
@@ -225,7 +271,7 @@ export function CArmManipulators({
       }
       Mesh.prototype.raycast.call(this, raycaster, intersections);
     },
-    [geometry.referenceCentre],
+    [model],
   );
 
   const finishActiveDrag = useCallback(
@@ -263,9 +309,15 @@ export function CArmManipulators({
     const floating = floatingRef.current;
     const translation = translationRef.current;
     const swivel = swivelRef.current;
-    const floatingPosition = model.groups[0]?.position;
-    const translationPosition = model.groups[1]?.position;
-    const swivelPosition = model.groups[2]?.position;
+    const floatingPosition = model.groups.find(
+      ({ name }) => name === "Orbit and tilt cue",
+    )?.position;
+    const translationPosition = model.groups.find(
+      ({ name }) => name === "Translation cue",
+    )?.position;
+    const swivelPosition = model.groups.find(
+      ({ name }) => name === "Wig-wag cue",
+    )?.position;
 
     if (floating !== null && floatingPosition !== undefined) {
       floating.scale.setScalar(
@@ -316,7 +368,7 @@ export function CArmManipulators({
 
       if (definition.id === "swivel") {
         center = projectWorldPointToScreen(
-          geometry.mechanicalPivot,
+          model.groups.find(({ name }) => name === "Wig-wag cue")!.position,
           camera,
           size,
         );
@@ -329,8 +381,9 @@ export function CArmManipulators({
               : definition.worldAxis!;
         const origin =
           definition.kind === "translation"
-            ? geometry.referenceCentre
-            : model.groups[0]!.position;
+            ? model.groups.find(({ name }) => name === "Translation cue")!.position
+            : model.groups.find(({ name }) => name === "Orbit and tilt cue")!
+                .position;
         screenTangent = projectWorldAxisToScreen(axis, camera, size, origin);
       }
 
@@ -345,7 +398,7 @@ export function CArmManipulators({
       };
       onDragStateChange(true);
     },
-    [camera, finishActiveDrag, geometry, model, onDragStateChange, size],
+    [camera, finishActiveDrag, model, onDragStateChange, size],
   );
 
   const moveDrag = useCallback(
@@ -417,7 +470,7 @@ export function CArmManipulators({
   return (
     <>
       <group
-        name="Floating orbit and tilt handle"
+        name="Orbit and tilt cue"
         position={model.groups[0]!.position}
         ref={floatingRef}
       >
@@ -494,8 +547,8 @@ export function CArmManipulators({
       </group>
 
       <group
-        name="Translation handle"
-        position={model.groups[1]!.position}
+        name="Translation cue"
+        position={model.groups[2]!.position}
         ref={translationRef}
       >
         {translationDefinitions.map((definition) => (
@@ -549,8 +602,8 @@ export function CArmManipulators({
       </group>
 
       <group
-        name="Swivel ring"
-        position={model.groups[2]!.position}
+        name="Wig-wag cue"
+        position={model.groups[1]!.position}
         ref={swivelRef}
       >
         <mesh

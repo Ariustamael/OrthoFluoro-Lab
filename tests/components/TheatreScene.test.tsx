@@ -48,9 +48,27 @@ import {
   WebGLErrorFallback,
 } from "../../src/components/scene/WebGLErrorFallback";
 import { C_ARM_RIG_PRESETS } from "../../src/engine/geometry/cArmRigPresets";
-import { deriveCArmRigGeometry } from "../../src/engine/geometry/cArmRigGeometry";
+import {
+  deriveCArmRigGeometry,
+  type CArmLocalGeometry,
+} from "../../src/engine/geometry/cArmRigGeometry";
 import { buildCArmGeometry } from "../../src/engine/geometry/cArmTransforms";
-import { REFERENCE_C_ARM_POSE } from "../../src/engine/geometry/geometryTypes";
+import {
+  REFERENCE_C_ARM_POSE,
+  type CArmRigPreset,
+  type Vec3,
+} from "../../src/engine/geometry/geometryTypes";
+
+function expectArcAnchor(
+  local: CArmLocalGeometry,
+  preset: CArmRigPreset,
+  degrees: number,
+  offset: number,
+): Vec3 {
+  const theta = (degrees * Math.PI) / 180;
+  const radius = local.arcRadius + preset.arcRadialThickness / 2 + offset;
+  return [radius * Math.cos(theta), radius * Math.sin(theta), 0];
+}
 
 function colorLightness(color: string): number {
   return new Color(color).getHSL({ h: 0, l: 0, s: 0 }).l;
@@ -372,15 +390,27 @@ describe("six-DoF C-arm manipulator math", () => {
 
     expect(hidden.groups).toEqual([]);
     expect(visible.groups.map(({ name }) => name)).toEqual([
-      "Floating orbit and tilt handle",
-      "Translation handle",
-      "Swivel ring",
+      "Orbit and tilt cue",
+      "Wig-wag cue",
+      "Translation cue",
     ]);
-    expect(visible.groups[1]?.position).toEqual(geometry.referenceCentre);
-    expect(visible.groups[2]?.position).toEqual(geometry.mechanicalPivot);
-    expect(visible.floatingLocalRadius).toBe(
-      local.arcRadius + preset.arcRadialThickness / 2 + 55,
+    expect(visible.localAnchors.orbitTilt).toEqual(
+      expectArcAnchor(local, preset, -225, 36),
     );
+    expect(visible.localAnchors.swivel).toEqual(
+      expectArcAnchor(
+        local,
+        preset,
+        ((local.arcStartRadians + local.arcEndRadians) / 2) * (180 / Math.PI),
+        36,
+      ),
+    );
+    expect(visible.localAnchors.translation).toEqual(
+      expectArcAnchor(local, preset, -135, 48),
+    );
+    expect(visible.groups.every(({ position }) => position)).toBe(true);
+    expect(visible.groups[1]?.position).not.toEqual(geometry.mechanicalPivot);
+    expect(visible.groups[2]?.position).not.toEqual(geometry.referenceCentre);
   });
 
   it("suspends camera controls only for active rig drags and anatomy mode", () => {
