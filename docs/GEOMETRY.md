@@ -52,10 +52,22 @@ p(θ) = (R cos θ, R sin θ, 0)
 clockwise from the source through negative `X`; interpolation must not cross
 the open, positive-`X` side of the C.
 
-The integrated indexed mesh uses a `32 mm` radial by `24 mm` depth rectangular
-arc profile. Its exact circular band stops `12°` before `θA`. That last circular
-ring is also the first taper ring, so the circular-to-taper join shares vertex
-indices rather than overlapping surfaces.
+### Schematic display dimensions
+
+The following dimensions belong to the schematic Three.js display model, not
+to a clinically realistic device model:
+
+- detector backing thickness: `18 mm`;
+- arc radial thickness: `24 mm`;
+- arc depth: `20 mm`;
+- terminal taper sweep: `16 degrees`;
+- source/collimator display block: `44 x 24 x 44 mm`;
+- source aperture radius: `9 mm`.
+
+The integrated indexed mesh therefore uses a `24 mm` radial by `20 mm` depth
+rectangular arc profile. Its exact circular band stops `16 degrees` before
+`θA`. That last circular ring is also the first taper ring, so the
+circular-to-taper join shares vertex indices rather than overlapping surfaces.
 
 The remaining sweep uses the smoothstep function `h(t) = 3t² - 2t³` to morph
 the ring centre, basis, radial half-width, and depth half-width into the
@@ -74,6 +86,13 @@ the arc, transition, and detector backing; topology checks reject degenerate
 faces, self-intersecting taper profile edge loops, and intersections between
 non-neighbour taper profiles. The source-facing active face is a separate inset
 surface.
+
+The active detector remains an authoritative `220 x 220 mm` square, independent
+of the backing thickness. `deriveCArmSourceDisplay` supplies presentation-only
+placement for the source root and collimator block. Its aperture centre reuses
+the authoritative `local.source` point; it does not calculate an alternative
+source or change the `1000 mm` SID. The display inset used to avoid z-fighting
+is likewise not projection geometry.
 
 ## Six-degree pose and mechanical pivots
 
@@ -111,6 +130,12 @@ pose values are rejected.
 3D scene and the projection renderer. It returns the transformed source,
 detector centre/normal/basis and physical dimensions, reference centre,
 mechanical pivot, rigid transform, and SID.
+
+The authoritative imaging invariants are the source point, detector centre and
+active corners, detector active dimensions (`220 x 220 mm`), and SID (`1000
+mm`). Display meshes, including the arc, backing, collimator, aperture, and
+highlight, must be derived around those values and must not replace or modify
+them.
 
 For source `S`, object point `P`, detector centre `C`, and detector normal `n`,
 the ray is `r = P - S`. Its plane-intersection scale is:

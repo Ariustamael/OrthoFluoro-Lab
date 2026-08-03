@@ -30,6 +30,9 @@ so hiding the beam does not invalidate or change projection geometry.
   detector, attachment, and circular-arc geometry from a rig preset.
 - `src/engine/geometry/cArmRigMesh.ts` builds and validates the local indexed
   arc/transition/detector-backing manifold plus the square beam geometry.
+- `src/engine/geometry/cArmSourceDisplay.ts` derives schematic source-root,
+  collimator, and aperture placement from the authoritative local source point;
+  it does not own projection geometry.
 - `src/engine/geometry/cArmTransforms.ts` clamps the six-degree pose, composes
   its quaternion and pivot transform, and produces authoritative world
   `CArmGeometry`.
@@ -42,8 +45,18 @@ so hiding the beam does not invalidate or change projection geometry.
   interaction mode, beam visibility, and graphics quality. Reset is a store
   transition, not component-local cleanup.
 - `src/components/scene/CArmRig.tsx` renders the local resources under the
-  authoritative rigid transform. `CArmManipulators.tsx` derives its world
-  handles from the same geometry and writes pose changes back to the store.
+  authoritative rigid transform. `CArmManipulators.tsx` derives its outer
+  control-spine anchors from the local circular arc, transforms those anchors
+  with the rig, and writes pose changes back to the store.
+- `src/components/scene/CArmGeometryReview.tsx` and the unlinked
+  `/lab/c-arm-review` route provide isolated side, detector-facing, and oblique
+  inspection views of the real rig. The review surface uses deterministic
+  camera presets and suppresses manipulators; it is a development/review
+  surface, not primary learner navigation.
+- `src/components/scene/TheatreCanvas.tsx` owns the fixed cue-help DOM overlay.
+  It maps semantic cue IDs from the Three.js scene through `cArmCueHints.ts` and
+  renders the hint in the theatre corner, outside the Canvas rather than as a
+  world-space `Html` label.
 - `src/components/projection/ProjectionView.tsx` derives the same world
   geometry, packages it with object pose and raster dimensions, and owns the
   asynchronous renderer lifecycle.
@@ -53,6 +66,21 @@ so hiding the beam does not invalidate or change projection geometry.
 `src/app/App.tsx` declares the route surface. Home, Lab, About, and Settings are
 functional; Guided, Library, Communication, and Saved routes clearly identify
 themselves as planned modules.
+
+## Display-only rig cues
+
+The display model deliberately remains schematic. `CArmRig.tsx` draws the
+source/collimator around the source supplied by the geometry engine, while
+`buildCArmGeometry` remains the shared authority for source, detector frame,
+active detector dimensions, and SID for both the scene and projection renderer.
+
+`CArmManipulators.tsx` uses `localArcCueAnchor` with the outer arc radius
+(`local.arcRadius + preset.arcRadialThickness / 2`) plus a radial offset. The
+orbit-and-tilt anchor is at `-225 degrees` with a `36 mm` offset, wig-wag uses
+the actual local arc midpoint with the same `36 mm` offset, and translation is
+at `-135 degrees` with a `48 mm` offset. These local anchors are transformed by
+the authoritative rig transform, so the quiet cue spine follows the C-arm
+instead of being attached to the isocentre or a fixed screen position.
 
 ## Resource lifetime and render invalidation
 
