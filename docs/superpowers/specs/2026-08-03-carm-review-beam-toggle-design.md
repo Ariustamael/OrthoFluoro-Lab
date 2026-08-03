@@ -1,6 +1,6 @@
 # C-arm Review Beam Toggle Design
 
-**Status:** Approved design; awaiting written-spec review
+**Status:** Approved
 
 ## Goal
 
