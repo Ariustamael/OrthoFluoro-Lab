@@ -4,7 +4,7 @@ import { OrbitControls } from "@react-three/drei/core/OrbitControls";
 import { Canvas, useThree } from "@react-three/fiber";
 import { useEffect } from "react";
 import { REFERENCE_C_ARM_POSE } from "../../engine/geometry/geometryTypes";
-import { CArmRig } from "./CArmRig";
+import { CArmRig, type CArmRigProps } from "./CArmRig";
 
 export type CArmReviewView = "side" | "detector" | "oblique";
 
@@ -32,10 +32,33 @@ function ReviewCamera({ view }: { view: CArmReviewView }) {
 }
 
 interface CArmGeometryReviewProps {
+  showBeam: boolean;
   view: CArmReviewView;
 }
 
-export function CArmGeometryReview({ view }: CArmGeometryReviewProps) {
+type ReviewRigOverrides = Pick<
+  CArmRigProps,
+  | "modeOverride"
+  | "poseOverride"
+  | "showBeamOverride"
+  | "showManipulators"
+>;
+
+export function reviewRigOverrides(showBeam: boolean): ReviewRigOverrides {
+  return {
+    modeOverride: "isocentric",
+    poseOverride: REFERENCE_C_ARM_POSE,
+    showBeamOverride: showBeam,
+    showManipulators: false,
+  };
+}
+
+export function CArmGeometryReview({
+  showBeam,
+  view,
+}: CArmGeometryReviewProps) {
+  const rigOverrides = reviewRigOverrides(showBeam);
+
   return (
     <div className="c-arm-review__canvas">
       <Canvas
@@ -45,12 +68,7 @@ export function CArmGeometryReview({ view }: CArmGeometryReviewProps) {
         <color args={["#07131f"]} attach="background" />
         <ambientLight intensity={0.75} />
         <directionalLight intensity={1.6} position={[700, 1000, 600]} />
-        <CArmRig
-          modeOverride="isocentric"
-          poseOverride={REFERENCE_C_ARM_POSE}
-          showBeamOverride={false}
-          showManipulators={false}
-        />
+        <CArmRig {...rigOverrides} />
       </Canvas>
     </div>
   );
