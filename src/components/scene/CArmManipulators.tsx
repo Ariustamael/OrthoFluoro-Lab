@@ -103,6 +103,54 @@ export function isCArmCancelKey(key: string): boolean {
   return key === "Escape";
 }
 
+export type CArmDragEndReason =
+  | "pointer-up"
+  | "pointer-cancel"
+  | "lost-capture"
+  | "blur"
+  | "mode-exit"
+  | "escape";
+
+export function cArmDragEndPolicy(reason: CArmDragEndReason) {
+  return {
+    clearHint: true,
+    restoreStartPose: reason === "escape",
+  } as const;
+}
+
+export const C_ARM_CUE_DIMENSIONS = Object.freeze({
+  orbit: Object.freeze({
+    glyphMaximumExtent: 0.36,
+    hitShape: "filled-disc",
+    targetMinimumExtent: 1,
+  }),
+  tilt: Object.freeze({
+    glyphMaximumExtent: 0.43,
+    hitShape: "capsule",
+    targetMinimumExtent: 1.04,
+  }),
+  "translate-x": Object.freeze({
+    glyphMaximumExtent: 0.43,
+    hitShape: "capsule",
+    targetMinimumExtent: 1.04,
+  }),
+  "translate-y": Object.freeze({
+    glyphMaximumExtent: 0.43,
+    hitShape: "capsule",
+    targetMinimumExtent: 1.04,
+  }),
+  "translate-z": Object.freeze({
+    glyphMaximumExtent: 0.43,
+    hitShape: "capsule",
+    targetMinimumExtent: 1.04,
+  }),
+  swivel: Object.freeze({
+    glyphMaximumExtent: 0.36,
+    hitShape: "filled-disc",
+    targetMinimumExtent: 1,
+  }),
+} as const);
+
 type ManipulatorGroupName =
   "Orbit and tilt cue" | "Wig-wag cue" | "Translation cue";
 
@@ -227,8 +275,19 @@ interface CArmManipulatorsProps {
 const ROTATION_DEGREES_PER_PIXEL = 0.4;
 const TRANSLATION_MM_PER_PIXEL = 1.5;
 const CUE_TARGET_PIXELS = 44;
-const VISIBLE_CUE_SCALE = 0.42;
 const OVERLAY_RENDER_ORDER = 1200;
+const CIRCULAR_HIT_RADIUS = 0.5;
+const CIRCULAR_GLYPH_RADIUS = 0.15;
+const CIRCULAR_GLYPH_TUBE = 0.03;
+const LINEAR_HIT_RADIUS = 0.22;
+const LINEAR_HIT_LENGTH = 0.6;
+const LINEAR_GLYPH_RADIUS = 0.035;
+const LINEAR_GLYPH_LENGTH = 0.27;
+const LINEAR_ARROW_OFFSET = 0.18;
+const LINEAR_ARROW_RADIUS = 0.03;
+const LINEAR_ARROW_HEIGHT = 0.07;
+const CIRCULAR_ARROW_RADIUS = 0.03;
+const CIRCULAR_ARROW_HEIGHT = 0.08;
 
 const AXIS_ROTATIONS = {
   "translate-x": [0, 0, -Math.PI / 2],
@@ -289,7 +348,11 @@ export function CArmManipulators({
   );
 
   const finishActiveDrag = useCallback(
-    (pointerId?: number, releaseCapture = true) => {
+    (
+      pointerId?: number,
+      releaseCapture = true,
+      reason: CArmDragEndReason = "pointer-up",
+    ) => {
       const drag = dragRef.current;
       if (
         drag === null ||
@@ -297,28 +360,31 @@ export function CArmManipulators({
       ) {
         return;
       }
+      const policy = cArmDragEndPolicy(reason);
       if (releaseCapture) {
         releaseHandlePointer(drag.captureTarget, drag.pointerId);
       }
       dragRef.current = null;
       setActiveId(null);
       onDragStateChange(false);
-      onHintChange(null);
+      if (policy.clearHint) onHintChange(null);
     },
     [onDragStateChange, onHintChange],
   );
 
   useEffect(() => {
-    const handleWindowBlur = () => finishActiveDrag();
+    const handleWindowBlur = () => finishActiveDrag(undefined, true, "blur");
     window.addEventListener("blur", handleWindowBlur);
     return () => {
       window.removeEventListener("blur", handleWindowBlur);
-      finishActiveDrag();
+      finishActiveDrag(undefined, true, "mode-exit");
     };
   }, [finishActiveDrag]);
 
   useEffect(() => {
-    if (interactionMode !== "move-carm") finishActiveDrag();
+    if (interactionMode !== "move-carm") {
+      finishActiveDrag(undefined, true, "mode-exit");
+    }
     if (interactionMode !== "move-carm") {
       setHoveredId(null);
       setActiveId(null);
@@ -331,12 +397,13 @@ export function CArmManipulators({
       const drag = dragRef.current;
       if (!isCArmCancelKey(event.key) || drag === null) return;
       event.preventDefault();
-      setCArmPose(drag.startPose);
+      const policy = cArmDragEndPolicy("escape");
+      if (policy.restoreStartPose) setCArmPose(drag.startPose);
       releaseHandlePointer(drag.captureTarget, drag.pointerId);
       dragRef.current = null;
       setActiveId(null);
       onDragStateChange(false);
-      onHintChange(null);
+      if (policy.clearHint) onHintChange(null);
     };
     window.addEventListener("keydown", cancelActiveDrag);
     return () => window.removeEventListener("keydown", cancelActiveDrag);
@@ -476,21 +543,30 @@ export function CArmManipulators({
     (event: ThreeEvent<PointerEvent>) => {
       if (dragRef.current?.pointerId !== event.pointerId) return;
       event.stopPropagation();
-      finishActiveDrag(event.pointerId);
+      finishActiveDrag(event.pointerId, true, "pointer-up");
     },
     [finishActiveDrag],
   );
 
   const loseCapture = useCallback(
     (event: ThreeEvent<PointerEvent>) => {
-      finishActiveDrag(event.pointerId, false);
+      finishActiveDrag(event.pointerId, false, "lost-capture");
+    },
+    [finishActiveDrag],
+  );
+
+  const cancelDrag = useCallback(
+    (event: ThreeEvent<PointerEvent>) => {
+      if (dragRef.current?.pointerId !== event.pointerId) return;
+      event.stopPropagation();
+      finishActiveDrag(event.pointerId, true, "pointer-cancel");
     },
     [finishActiveDrag],
   );
 
   const handlersFor = (definition: CArmManipulatorControlDefinition) => ({
     onLostPointerCapture: loseCapture,
-    onPointerCancel: endDrag,
+    onPointerCancel: cancelDrag,
     onPointerDown: (event: ThreeEvent<PointerEvent>) =>
       beginDrag(definition, event),
     onPointerMove: moveDrag,
@@ -537,7 +613,7 @@ export function CArmManipulators({
           renderOrder={OVERLAY_RENDER_ORDER + 1}
           {...handlersFor(orbit)}
         >
-          <torusGeometry args={[0.54, 0.22, 10, 40]} />
+          <circleGeometry args={[CIRCULAR_HIT_RADIUS, 32]} />
           <meshBasicMaterial
             depthTest={false}
             depthWrite={false}
@@ -545,9 +621,11 @@ export function CArmManipulators({
             transparent
           />
         </mesh>
-        <group scale={VISIBLE_CUE_SCALE}>
+        <group>
           <mesh name="Orbit glyph" renderOrder={OVERLAY_RENDER_ORDER + 1}>
-            <torusGeometry args={[0.54, 0.075, 10, 40]} />
+            <torusGeometry
+              args={[CIRCULAR_GLYPH_RADIUS, CIRCULAR_GLYPH_TUBE, 10, 32]}
+            />
             <meshBasicMaterial
               color={orbit.color}
               depthTest={false}
@@ -560,11 +638,13 @@ export function CArmManipulators({
             <mesh
               key={direction}
               name={`Orbit ${direction > 0 ? "clockwise" : "counterclockwise"} arrowhead`}
-              position={[0, direction * 0.54, 0]}
+              position={[0, direction * CIRCULAR_GLYPH_RADIUS, 0]}
               renderOrder={OVERLAY_RENDER_ORDER + 1}
               rotation={[0, 0, (direction * Math.PI) / 2]}
             >
-              <coneGeometry args={[0.13, 0.3, 10]} />
+              <coneGeometry
+                args={[CIRCULAR_ARROW_RADIUS, CIRCULAR_ARROW_HEIGHT, 10]}
+              />
               <meshBasicMaterial
                 color={orbit.color}
                 depthTest={false}
@@ -581,7 +661,9 @@ export function CArmManipulators({
           renderOrder={OVERLAY_RENDER_ORDER + 1}
           {...handlersFor(tilt)}
         >
-          <capsuleGeometry args={[0.22, 0.55, 5, 10]} />
+          <capsuleGeometry
+            args={[LINEAR_HIT_RADIUS, LINEAR_HIT_LENGTH, 5, 10]}
+          />
           <meshBasicMaterial
             depthTest={false}
             depthWrite={false}
@@ -589,9 +671,11 @@ export function CArmManipulators({
             transparent
           />
         </mesh>
-        <group scale={VISIBLE_CUE_SCALE} position={[0.78, 0, 0]}>
+        <group position={[0.78, 0, 0]}>
           <mesh name="Tilt glyph" renderOrder={OVERLAY_RENDER_ORDER + 1}>
-            <capsuleGeometry args={[0.11, 0.55, 5, 10]} />
+            <capsuleGeometry
+              args={[LINEAR_GLYPH_RADIUS, LINEAR_GLYPH_LENGTH, 5, 10]}
+            />
             <meshBasicMaterial
               color={tilt.color}
               depthTest={false}
@@ -604,11 +688,13 @@ export function CArmManipulators({
             <mesh
               key={direction}
               name={`Tilt ${direction > 0 ? "positive" : "negative"} arrowhead`}
-              position={[0, direction * 0.48, 0]}
+              position={[0, direction * LINEAR_ARROW_OFFSET, 0]}
               renderOrder={OVERLAY_RENDER_ORDER + 1}
               rotation={direction > 0 ? [0, 0, 0] : [0, 0, Math.PI]}
             >
-              <coneGeometry args={[0.13, 0.3, 10]} />
+              <coneGeometry
+                args={[LINEAR_ARROW_RADIUS, LINEAR_ARROW_HEIGHT, 10]}
+              />
               <meshBasicMaterial
                 color={tilt.color}
                 depthTest={false}
@@ -638,7 +724,9 @@ export function CArmManipulators({
               renderOrder={OVERLAY_RENDER_ORDER + 3}
               {...handlersFor(definition)}
             >
-              <capsuleGeometry args={[0.22, 1.1, 5, 10]} />
+              <capsuleGeometry
+                args={[LINEAR_HIT_RADIUS, LINEAR_HIT_LENGTH, 5, 10]}
+              />
               <meshBasicMaterial
                 depthTest={false}
                 depthWrite={false}
@@ -646,12 +734,14 @@ export function CArmManipulators({
                 transparent
               />
             </mesh>
-            <group scale={VISIBLE_CUE_SCALE}>
+            <group>
               <mesh
                 name={`${definition.id} glyph`}
                 renderOrder={OVERLAY_RENDER_ORDER + 3}
               >
-                <capsuleGeometry args={[0.09, 1.1, 5, 10]} />
+                <capsuleGeometry
+                  args={[LINEAR_GLYPH_RADIUS, LINEAR_GLYPH_LENGTH, 5, 10]}
+                />
                 <meshBasicMaterial
                   color={definition.color}
                   depthTest={false}
@@ -664,11 +754,13 @@ export function CArmManipulators({
                 <mesh
                   key={direction}
                   name={`${definition.id} ${direction > 0 ? "positive" : "negative"} arrowhead`}
-                  position={[0, direction * 0.72, 0]}
+                  position={[0, direction * LINEAR_ARROW_OFFSET, 0]}
                   renderOrder={OVERLAY_RENDER_ORDER + 3}
                   rotation={[0, 0, direction > 0 ? 0 : Math.PI]}
                 >
-                  <coneGeometry args={[0.19, 0.32, 12]} />
+                  <coneGeometry
+                    args={[LINEAR_ARROW_RADIUS, LINEAR_ARROW_HEIGHT, 10]}
+                  />
                   <meshBasicMaterial
                     color={definition.color}
                     depthTest={false}
@@ -694,7 +786,7 @@ export function CArmManipulators({
           renderOrder={OVERLAY_RENDER_ORDER}
           {...handlersFor(swivel)}
         >
-          <torusGeometry args={[1.08, 0.22, 10, 48]} />
+          <circleGeometry args={[CIRCULAR_HIT_RADIUS, 32]} />
           <meshBasicMaterial
             depthTest={false}
             depthWrite={false}
@@ -702,9 +794,11 @@ export function CArmManipulators({
             opacity={0}
           />
         </mesh>
-        <group scale={VISIBLE_CUE_SCALE}>
+        <group>
           <mesh name="Swivel glyph" renderOrder={OVERLAY_RENDER_ORDER}>
-            <torusGeometry args={[1.08, 0.07, 10, 48]} />
+            <torusGeometry
+              args={[CIRCULAR_GLYPH_RADIUS, CIRCULAR_GLYPH_TUBE, 10, 32]}
+            />
             <meshBasicMaterial
               color={swivel.color}
               depthTest={false}
@@ -717,11 +811,13 @@ export function CArmManipulators({
             <mesh
               key={direction}
               name={`Swivel ${direction > 0 ? "clockwise" : "counterclockwise"} arrowhead`}
-              position={[0, direction * 1.08, 0]}
+              position={[0, direction * CIRCULAR_GLYPH_RADIUS, 0]}
               renderOrder={OVERLAY_RENDER_ORDER}
               rotation={[0, 0, (direction * Math.PI) / 2]}
             >
-              <coneGeometry args={[0.13, 0.3, 10]} />
+              <coneGeometry
+                args={[CIRCULAR_ARROW_RADIUS, CIRCULAR_ARROW_HEIGHT, 10]}
+              />
               <meshBasicMaterial
                 color={swivel.color}
                 depthTest={false}

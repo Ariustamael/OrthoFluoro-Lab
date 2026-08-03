@@ -20,7 +20,9 @@ import {
   signedScreenAngle,
 } from "../../src/components/scene/cArmManipulatorMath";
 import {
+  C_ARM_CUE_DIMENSIONS,
   C_ARM_MANIPULATOR_CONTROL_DEFINITIONS,
+  cArmDragEndPolicy,
   cueAppearance,
   createCArmManipulatorRenderModel,
   isCArmCancelKey,
@@ -247,6 +249,36 @@ describe("direct anatomy rotation handles", () => {
 });
 
 describe("six-DoF C-arm manipulator math", () => {
+  it("normalizes filled targets and compact glyphs to the direct-grab scale", () => {
+    Object.values(C_ARM_CUE_DIMENSIONS).forEach(
+      ({ glyphMaximumExtent, targetMinimumExtent }) => {
+        expect(targetMinimumExtent).toBeGreaterThanOrEqual(1);
+        expect(glyphMaximumExtent).toBeGreaterThanOrEqual(0.36);
+        expect(glyphMaximumExtent).toBeLessThanOrEqual(0.45);
+      },
+    );
+    expect(C_ARM_CUE_DIMENSIONS.orbit.hitShape).toBe("filled-disc");
+    expect(C_ARM_CUE_DIMENSIONS.swivel.hitShape).toBe("filled-disc");
+  });
+
+  it("clears direct-grab help for every drag end and restores pose only on Escape", () => {
+    [
+      "pointer-up",
+      "pointer-cancel",
+      "lost-capture",
+      "blur",
+      "mode-exit",
+    ].forEach((reason) => {
+      expect(
+        cArmDragEndPolicy(reason as Parameters<typeof cArmDragEndPolicy>[0]),
+      ).toEqual({ clearHint: true, restoreStartPose: false });
+    });
+    expect(cArmDragEndPolicy("escape")).toEqual({
+      clearHint: true,
+      restoreStartPose: true,
+    });
+  });
+
   it("keeps inactive cues quiet and prioritizes the hovered or active cue", () => {
     expect(cueAppearance(false, false)).toEqual({
       glyphOpacity: 0.34,
