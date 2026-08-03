@@ -1,11 +1,27 @@
+import { render, screen } from "@testing-library/react";
+import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 import {
+  CArmCueHintOverlay,
   qualityToRenderConfig,
   rendererPreparationState,
   theatreRendererKey,
 } from "../../src/components/scene/TheatreCanvas";
 
 describe("theatre render quality", () => {
+  it("renders fixed semantic help without a numeric value", () => {
+    render(
+      createElement(CArmCueHintOverlay, {
+        hint: { label: "Orbit", instruction: "Drag along the arc" },
+      }),
+    );
+
+    const hint = screen.getByTestId("c-arm-cue-hint");
+    expect(hint).toHaveTextContent("Orbit");
+    expect(hint).toHaveTextContent("Drag along the arc");
+    expect(hint).not.toHaveTextContent(/\d/);
+  });
+
   it("maps each preset to resolution and effects without geometry data", () => {
     expect(qualityToRenderConfig("low")).toEqual({
       antialias: false,

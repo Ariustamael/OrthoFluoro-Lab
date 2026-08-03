@@ -21,7 +21,9 @@ import {
 } from "../../src/components/scene/cArmManipulatorMath";
 import {
   C_ARM_MANIPULATOR_CONTROL_DEFINITIONS,
+  cueAppearance,
   createCArmManipulatorRenderModel,
+  isCArmCancelKey,
 } from "../../src/components/scene/CArmManipulators";
 import {
   ACTIVE_FACE_INSET,
@@ -245,6 +247,26 @@ describe("direct anatomy rotation handles", () => {
 });
 
 describe("six-DoF C-arm manipulator math", () => {
+  it("keeps inactive cues quiet and prioritizes the hovered or active cue", () => {
+    expect(cueAppearance(false, false)).toEqual({
+      glyphOpacity: 0.34,
+      otherOpacity: 0.34,
+    });
+    expect(cueAppearance(true, false)).toEqual({
+      glyphOpacity: 0.92,
+      otherOpacity: 0.18,
+    });
+    expect(cueAppearance(true, true)).toEqual({
+      glyphOpacity: 1,
+      otherOpacity: 0.1,
+    });
+  });
+
+  it("recognizes Escape as the direct-grab cancellation key", () => {
+    expect(isCArmCancelKey("Escape")).toBe(true);
+    expect(isCArmCancelKey("Enter")).toBe(false);
+  });
+
   it("projects world axes into normalized screen tangents", () => {
     const camera = new PerspectiveCamera(60, 1, 0.1, 100);
     camera.position.set(0, 0, 10);
@@ -470,13 +492,11 @@ describe("integrated C-arm renderer", () => {
     expect(hidden.nodes.map(({ name }) => name)).toEqual(
       visible.nodes.slice(0, -1).map(({ name }) => name),
     );
-    ["Source root", "Source collimator", "Source aperture"].forEach(
-      (name) => {
-        expect(visible.nodes.find((node) => node.name === name)?.position).toEqual(
-          resources.local.source,
-        );
-      },
-    );
+    ["Source root", "Source collimator", "Source aperture"].forEach((name) => {
+      expect(
+        visible.nodes.find((node) => node.name === name)?.position,
+      ).toEqual(resources.local.source);
+    });
 
     disposeCArmRigResources(resources);
   });

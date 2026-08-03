@@ -30,6 +30,7 @@ import type {
 } from "../../engine/geometry/geometryTypes";
 import { useSimulationStore } from "../../state/simulationStore";
 import { CArmManipulators } from "./CArmManipulators";
+import type { CArmCueId } from "./cArmCueHints";
 export {
   captureHandlePointer,
   releaseHandlePointer,
@@ -284,16 +285,19 @@ export function createCArmRigRenderModel(
 export interface CArmRigProps {
   modeOverride?: CArmKinematicMode;
   onManipulatorDragStateChange?: (active: boolean) => void;
+  onManipulatorHintChange?: (id: CArmCueId | null) => void;
   poseOverride?: CArmPose;
   showBeamOverride?: boolean;
   showManipulators?: boolean;
 }
 
 const ignoreManipulatorDragState = () => undefined;
+const ignoreManipulatorHint = () => undefined;
 
 export function CArmRig({
   modeOverride,
   onManipulatorDragStateChange = ignoreManipulatorDragState,
+  onManipulatorHintChange = ignoreManipulatorHint,
   poseOverride,
   showBeamOverride,
   showManipulators,
@@ -353,8 +357,7 @@ export function CArmRig({
           <mesh
             name="Source root"
             position={[
-              sourceDisplay.rootPosition[0] -
-                sourceDisplay.aperturePosition[0],
+              sourceDisplay.rootPosition[0] - sourceDisplay.aperturePosition[0],
               0,
               0,
             ]}
@@ -406,6 +409,7 @@ export function CArmRig({
           geometry={model.geometry}
           local={resources.local}
           onDragStateChange={onManipulatorDragStateChange}
+          onHintChange={onManipulatorHintChange}
           preset={preset}
         />
       ) : null}

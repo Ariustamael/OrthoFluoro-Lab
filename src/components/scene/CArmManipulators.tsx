@@ -2,7 +2,7 @@
 
 import type { ThreeEvent } from "@react-three/fiber";
 import { useFrame, useThree } from "@react-three/fiber";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Group,
   MathUtils,
@@ -37,10 +37,10 @@ import {
   type PointerCaptureTarget,
   type ScreenPoint,
 } from "./cArmManipulatorMath";
+import type { CArmCueId } from "./cArmCueHints";
 
 type ManipulatorKind = "rotation" | "translation";
-type ManipulatorId =
-  "orbit" | "tilt" | "translate-x" | "translate-y" | "translate-z" | "swivel";
+type ManipulatorId = CArmCueId;
 
 export interface CArmManipulatorControlDefinition {
   readonly color: string;
@@ -93,10 +93,18 @@ export const C_ARM_MANIPULATOR_CONTROL_DEFINITIONS: readonly CArmManipulatorCont
     }),
   ]);
 
+export function cueAppearance(hovered: boolean, active: boolean) {
+  if (active) return { glyphOpacity: 1, otherOpacity: 0.1 } as const;
+  if (hovered) return { glyphOpacity: 0.92, otherOpacity: 0.18 } as const;
+  return { glyphOpacity: 0.34, otherOpacity: 0.34 } as const;
+}
+
+export function isCArmCancelKey(key: string): boolean {
+  return key === "Escape";
+}
+
 type ManipulatorGroupName =
-  | "Orbit and tilt cue"
-  | "Wig-wag cue"
-  | "Translation cue";
+  "Orbit and tilt cue" | "Wig-wag cue" | "Translation cue";
 
 interface ManipulatorGroupModel {
   readonly name: ManipulatorGroupName;
@@ -166,7 +174,9 @@ export function createCArmManipulatorRenderModel(
   const rigQuaternion = new Quaternion(...geometry.rigTransform.quaternion);
   const rigPosition = new Vector3(...geometry.rigTransform.position);
   const toWorldAnchor = (anchor: Vec3): Vec3 =>
-    tuple(new Vector3(...anchor).applyQuaternion(rigQuaternion).add(rigPosition));
+    tuple(
+      new Vector3(...anchor).applyQuaternion(rigQuaternion).add(rigPosition),
+    );
   const orbitTiltPosition = toWorldAnchor(localAnchors.orbitTilt);
   const swivelPosition = toWorldAnchor(localAnchors.swivel);
   const translationPosition = toWorldAnchor(localAnchors.translation);
@@ -210,14 +220,14 @@ interface CArmManipulatorsProps {
   geometry: CArmGeometry;
   local: CArmLocalGeometry;
   onDragStateChange: (active: boolean) => void;
+  onHintChange: (id: CArmCueId | null) => void;
   preset: CArmRigPreset;
 }
 
 const ROTATION_DEGREES_PER_PIXEL = 0.4;
 const TRANSLATION_MM_PER_PIXEL = 1.5;
-const FLOATING_TARGET_PIXELS = 104;
-const TRANSLATION_TARGET_PIXELS = 118;
-const SWIVEL_TARGET_PIXELS = 146;
+const CUE_TARGET_PIXELS = 44;
+const VISIBLE_CUE_SCALE = 0.42;
 const OVERLAY_RENDER_ORDER = 1200;
 
 const AXIS_ROTATIONS = {
@@ -230,18 +240,22 @@ export function CArmManipulators({
   geometry,
   local,
   onDragStateChange,
+  onHintChange,
   preset,
 }: CArmManipulatorsProps) {
   const interactionMode = useSimulationStore((state) => state.interactionMode);
   const setCArmParameter = useSimulationStore(
     (state) => state.setCArmParameter,
   );
+  const setCArmPose = useSimulationStore((state) => state.setCArmPose);
   const camera = useThree((state) => state.camera);
   const size = useThree((state) => state.size);
   const floatingRef = useRef<Group>(null);
   const translationRef = useRef<Group>(null);
   const swivelRef = useRef<Group>(null);
   const dragRef = useRef<ActiveDrag | null>(null);
+  const [activeId, setActiveId] = useState<CArmCueId | null>(null);
+  const [hoveredId, setHoveredId] = useState<CArmCueId | null>(null);
   const model = useMemo(
     () =>
       createCArmManipulatorRenderModel(
@@ -287,9 +301,11 @@ export function CArmManipulators({
         releaseHandlePointer(drag.captureTarget, drag.pointerId);
       }
       dragRef.current = null;
+      setActiveId(null);
       onDragStateChange(false);
+      onHintChange(null);
     },
-    [onDragStateChange],
+    [onDragStateChange, onHintChange],
   );
 
   useEffect(() => {
@@ -303,7 +319,28 @@ export function CArmManipulators({
 
   useEffect(() => {
     if (interactionMode !== "move-carm") finishActiveDrag();
-  }, [finishActiveDrag, interactionMode]);
+    if (interactionMode !== "move-carm") {
+      setHoveredId(null);
+      setActiveId(null);
+      onHintChange(null);
+    }
+  }, [finishActiveDrag, interactionMode, onHintChange]);
+
+  useEffect(() => {
+    const cancelActiveDrag = (event: KeyboardEvent) => {
+      const drag = dragRef.current;
+      if (!isCArmCancelKey(event.key) || drag === null) return;
+      event.preventDefault();
+      setCArmPose(drag.startPose);
+      releaseHandlePointer(drag.captureTarget, drag.pointerId);
+      dragRef.current = null;
+      setActiveId(null);
+      onDragStateChange(false);
+      onHintChange(null);
+    };
+    window.addEventListener("keydown", cancelActiveDrag);
+    return () => window.removeEventListener("keydown", cancelActiveDrag);
+  }, [onDragStateChange, onHintChange, setCArmPose]);
 
   useFrame(() => {
     const floating = floatingRef.current;
@@ -325,7 +362,7 @@ export function CArmManipulators({
           floatingPosition,
           camera,
           size.height,
-          FLOATING_TARGET_PIXELS,
+          CUE_TARGET_PIXELS,
         ),
       );
       floating.quaternion.copy(camera.quaternion);
@@ -336,7 +373,7 @@ export function CArmManipulators({
           translationPosition,
           camera,
           size.height,
-          TRANSLATION_TARGET_PIXELS,
+          CUE_TARGET_PIXELS,
         ),
       );
     }
@@ -346,7 +383,7 @@ export function CArmManipulators({
           swivelPosition,
           camera,
           size.height,
-          SWIVEL_TARGET_PIXELS,
+          CUE_TARGET_PIXELS,
         ),
       );
       swivel.quaternion.copy(camera.quaternion);
@@ -381,7 +418,8 @@ export function CArmManipulators({
               : definition.worldAxis!;
         const origin =
           definition.kind === "translation"
-            ? model.groups.find(({ name }) => name === "Translation cue")!.position
+            ? model.groups.find(({ name }) => name === "Translation cue")!
+                .position
             : model.groups.find(({ name }) => name === "Orbit and tilt cue")!
                 .position;
         screenTangent = projectWorldAxisToScreen(axis, camera, size, origin);
@@ -396,9 +434,11 @@ export function CArmManipulators({
         startPointer,
         startPose: { ...useSimulationStore.getState().cArmPose },
       };
+      setActiveId(definition.id);
+      onHintChange(definition.id);
       onDragStateChange(true);
     },
-    [camera, finishActiveDrag, model, onDragStateChange, size],
+    [camera, finishActiveDrag, model, onDragStateChange, onHintChange, size],
   );
 
   const moveDrag = useCallback(
@@ -454,8 +494,26 @@ export function CArmManipulators({
     onPointerDown: (event: ThreeEvent<PointerEvent>) =>
       beginDrag(definition, event),
     onPointerMove: moveDrag,
+    onPointerOut: (event: ThreeEvent<PointerEvent>) => {
+      event.stopPropagation();
+      setHoveredId((current) => (current === definition.id ? null : current));
+      if (dragRef.current === null) onHintChange(null);
+    },
+    onPointerOver: (event: ThreeEvent<PointerEvent>) => {
+      event.stopPropagation();
+      setHoveredId(definition.id);
+      if (dragRef.current === null) onHintChange(definition.id);
+    },
     onPointerUp: endDrag,
   });
+
+  const glyphOpacity = (id: CArmCueId): number => {
+    const foregroundId = activeId ?? hoveredId;
+    const appearance = cueAppearance(foregroundId === id, activeId === id);
+    return foregroundId === null || foregroundId === id
+      ? appearance.glyphOpacity
+      : appearance.otherOpacity;
+  };
 
   if (interactionMode !== "move-carm") return null;
 
@@ -475,75 +533,92 @@ export function CArmManipulators({
         ref={floatingRef}
       >
         <mesh
-          name="Orbit drag target"
+          name="Orbit hit target"
           renderOrder={OVERLAY_RENDER_ORDER + 1}
           {...handlersFor(orbit)}
         >
-          <torusGeometry args={[0.54, 0.075, 12, 44]} />
+          <torusGeometry args={[0.54, 0.22, 10, 40]} />
           <meshBasicMaterial
-            color={orbit.color}
             depthTest={false}
             depthWrite={false}
+            opacity={0}
+            transparent
           />
         </mesh>
+        <group scale={VISIBLE_CUE_SCALE}>
+          <mesh name="Orbit glyph" renderOrder={OVERLAY_RENDER_ORDER + 1}>
+            <torusGeometry args={[0.54, 0.075, 10, 40]} />
+            <meshBasicMaterial
+              color={orbit.color}
+              depthTest={false}
+              depthWrite={false}
+              opacity={glyphOpacity(orbit.id)}
+              transparent
+            />
+          </mesh>
+          {([-1, 1] as const).map((direction) => (
+            <mesh
+              key={direction}
+              name={`Orbit ${direction > 0 ? "clockwise" : "counterclockwise"} arrowhead`}
+              position={[0, direction * 0.54, 0]}
+              renderOrder={OVERLAY_RENDER_ORDER + 1}
+              rotation={[0, 0, (direction * Math.PI) / 2]}
+            >
+              <coneGeometry args={[0.13, 0.3, 10]} />
+              <meshBasicMaterial
+                color={orbit.color}
+                depthTest={false}
+                depthWrite={false}
+                opacity={glyphOpacity(orbit.id)}
+                transparent
+              />
+            </mesh>
+          ))}
+        </group>
         <mesh
-          name="Orbit clockwise arrowhead"
-          position={[0, 0.54, 0]}
-          renderOrder={OVERLAY_RENDER_ORDER + 1}
-          rotation={[0, 0, Math.PI / 2]}
-          {...handlersFor(orbit)}
-        >
-          <coneGeometry args={[0.13, 0.3, 10]} />
-          <meshBasicMaterial
-            color={orbit.color}
-            depthTest={false}
-            depthWrite={false}
-          />
-        </mesh>
-        <mesh
-          name="Orbit counterclockwise arrowhead"
-          position={[0, -0.54, 0]}
-          renderOrder={OVERLAY_RENDER_ORDER + 1}
-          rotation={[0, 0, -Math.PI / 2]}
-          {...handlersFor(orbit)}
-        >
-          <coneGeometry args={[0.13, 0.3, 10]} />
-          <meshBasicMaterial
-            color={orbit.color}
-            depthTest={false}
-            depthWrite={false}
-          />
-        </mesh>
-        <mesh
-          name="Cranial caudal drag target"
+          name="Tilt hit target"
           position={[0.78, 0, 0]}
           renderOrder={OVERLAY_RENDER_ORDER + 1}
           {...handlersFor(tilt)}
         >
-          <capsuleGeometry args={[0.11, 0.55, 5, 10]} />
+          <capsuleGeometry args={[0.22, 0.55, 5, 10]} />
           <meshBasicMaterial
-            color={tilt.color}
             depthTest={false}
             depthWrite={false}
+            opacity={0}
+            transparent
           />
         </mesh>
-        {([-1, 1] as const).map((direction) => (
-          <mesh
-            key={direction}
-            name={`Cranial caudal ${direction > 0 ? "positive" : "negative"} arrowhead`}
-            position={[0.78, direction * 0.48, 0]}
-            renderOrder={OVERLAY_RENDER_ORDER + 1}
-            rotation={direction > 0 ? [0, 0, 0] : [0, 0, Math.PI]}
-            {...handlersFor(tilt)}
-          >
-            <coneGeometry args={[0.13, 0.3, 10]} />
+        <group scale={VISIBLE_CUE_SCALE} position={[0.78, 0, 0]}>
+          <mesh name="Tilt glyph" renderOrder={OVERLAY_RENDER_ORDER + 1}>
+            <capsuleGeometry args={[0.11, 0.55, 5, 10]} />
             <meshBasicMaterial
               color={tilt.color}
               depthTest={false}
               depthWrite={false}
+              opacity={glyphOpacity(tilt.id)}
+              transparent
             />
           </mesh>
-        ))}
+          {([-1, 1] as const).map((direction) => (
+            <mesh
+              key={direction}
+              name={`Tilt ${direction > 0 ? "positive" : "negative"} arrowhead`}
+              position={[0, direction * 0.48, 0]}
+              renderOrder={OVERLAY_RENDER_ORDER + 1}
+              rotation={direction > 0 ? [0, 0, 0] : [0, 0, Math.PI]}
+            >
+              <coneGeometry args={[0.13, 0.3, 10]} />
+              <meshBasicMaterial
+                color={tilt.color}
+                depthTest={false}
+                depthWrite={false}
+                opacity={glyphOpacity(tilt.id)}
+                transparent
+              />
+            </mesh>
+          ))}
+        </group>
       </group>
 
       <group
@@ -557,46 +632,53 @@ export function CArmManipulators({
             rotation={
               AXIS_ROTATIONS[definition.id as keyof typeof AXIS_ROTATIONS]
             }
-            {...handlersFor(definition)}
           >
-            {([-1, 1] as const).map((direction) => (
+            <mesh
+              name={`${definition.id} hit target`}
+              renderOrder={OVERLAY_RENDER_ORDER + 3}
+              {...handlersFor(definition)}
+            >
+              <capsuleGeometry args={[0.22, 1.1, 5, 10]} />
+              <meshBasicMaterial
+                depthTest={false}
+                depthWrite={false}
+                opacity={0}
+                transparent
+              />
+            </mesh>
+            <group scale={VISIBLE_CUE_SCALE}>
               <mesh
-                key={direction}
-                name={`${definition.id} ${direction > 0 ? "positive" : "negative"} hit target`}
-                position={[0, direction * 0.4, 0]}
+                name={`${definition.id} glyph`}
                 renderOrder={OVERLAY_RENDER_ORDER + 3}
               >
-                <cylinderGeometry args={[0.09, 0.09, 0.42, 12]} />
+                <capsuleGeometry args={[0.09, 1.1, 5, 10]} />
                 <meshBasicMaterial
                   color={definition.color}
                   depthTest={false}
                   depthWrite={false}
+                  opacity={glyphOpacity(definition.id)}
+                  transparent
                 />
               </mesh>
-            ))}
-            <mesh
-              position={[0, 0.72, 0]}
-              renderOrder={OVERLAY_RENDER_ORDER + 3}
-            >
-              <coneGeometry args={[0.19, 0.32, 12]} />
-              <meshBasicMaterial
-                color={definition.color}
-                depthTest={false}
-                depthWrite={false}
-              />
-            </mesh>
-            <mesh
-              position={[0, -0.72, 0]}
-              renderOrder={OVERLAY_RENDER_ORDER + 3}
-              rotation={[0, 0, Math.PI]}
-            >
-              <coneGeometry args={[0.19, 0.32, 12]} />
-              <meshBasicMaterial
-                color={definition.color}
-                depthTest={false}
-                depthWrite={false}
-              />
-            </mesh>
+              {([-1, 1] as const).map((direction) => (
+                <mesh
+                  key={direction}
+                  name={`${definition.id} ${direction > 0 ? "positive" : "negative"} arrowhead`}
+                  position={[0, direction * 0.72, 0]}
+                  renderOrder={OVERLAY_RENDER_ORDER + 3}
+                  rotation={[0, 0, direction > 0 ? 0 : Math.PI]}
+                >
+                  <coneGeometry args={[0.19, 0.32, 12]} />
+                  <meshBasicMaterial
+                    color={definition.color}
+                    depthTest={false}
+                    depthWrite={false}
+                    opacity={glyphOpacity(definition.id)}
+                    transparent
+                  />
+                </mesh>
+              ))}
+            </group>
           </group>
         ))}
       </group>
@@ -607,50 +689,49 @@ export function CArmManipulators({
         ref={swivelRef}
       >
         <mesh
-          name="Swivel drag target"
+          name="Swivel hit target"
           raycast={swivelRaycast}
           renderOrder={OVERLAY_RENDER_ORDER}
           {...handlersFor(swivel)}
         >
-          <torusGeometry args={[1.08, 0.07, 12, 56]} />
+          <torusGeometry args={[1.08, 0.22, 10, 48]} />
           <meshBasicMaterial
-            color={swivel.color}
             depthTest={false}
             depthWrite={false}
             transparent
-            opacity={0.9}
+            opacity={0}
           />
         </mesh>
-        <mesh
-          name="Swivel clockwise arrowhead"
-          position={[0, 1.08, 0]}
-          raycast={swivelRaycast}
-          renderOrder={OVERLAY_RENDER_ORDER}
-          rotation={[0, 0, Math.PI / 2]}
-          {...handlersFor(swivel)}
-        >
-          <coneGeometry args={[0.13, 0.3, 10]} />
-          <meshBasicMaterial
-            color={swivel.color}
-            depthTest={false}
-            depthWrite={false}
-          />
-        </mesh>
-        <mesh
-          name="Swivel counterclockwise arrowhead"
-          position={[0, -1.08, 0]}
-          raycast={swivelRaycast}
-          renderOrder={OVERLAY_RENDER_ORDER}
-          rotation={[0, 0, -Math.PI / 2]}
-          {...handlersFor(swivel)}
-        >
-          <coneGeometry args={[0.13, 0.3, 10]} />
-          <meshBasicMaterial
-            color={swivel.color}
-            depthTest={false}
-            depthWrite={false}
-          />
-        </mesh>
+        <group scale={VISIBLE_CUE_SCALE}>
+          <mesh name="Swivel glyph" renderOrder={OVERLAY_RENDER_ORDER}>
+            <torusGeometry args={[1.08, 0.07, 10, 48]} />
+            <meshBasicMaterial
+              color={swivel.color}
+              depthTest={false}
+              depthWrite={false}
+              transparent
+              opacity={glyphOpacity(swivel.id)}
+            />
+          </mesh>
+          {([-1, 1] as const).map((direction) => (
+            <mesh
+              key={direction}
+              name={`Swivel ${direction > 0 ? "clockwise" : "counterclockwise"} arrowhead`}
+              position={[0, direction * 1.08, 0]}
+              renderOrder={OVERLAY_RENDER_ORDER}
+              rotation={[0, 0, (direction * Math.PI) / 2]}
+            >
+              <coneGeometry args={[0.13, 0.3, 10]} />
+              <meshBasicMaterial
+                color={swivel.color}
+                depthTest={false}
+                depthWrite={false}
+                transparent
+                opacity={glyphOpacity(swivel.id)}
+              />
+            </mesh>
+          ))}
+        </group>
       </group>
     </>
   );

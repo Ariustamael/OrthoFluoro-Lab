@@ -15,6 +15,7 @@ import {
   type QualityPreset,
 } from "../../state/simulationStore";
 import { TheatreScene } from "./TheatreScene";
+import { cArmCueHint, type CArmCueHint, type CArmCueId } from "./cArmCueHints";
 import {
   canInitializeWebGL,
   WebGLErrorBoundary,
@@ -97,6 +98,15 @@ function useWebGLContextLoss(
   }, [canvasRef, enabled, onContextLost, rendererKey]);
 }
 
+export function CArmCueHintOverlay({ hint }: { hint: CArmCueHint | null }) {
+  return hint ? (
+    <div className="theatre-canvas__cue-hint" data-testid="c-arm-cue-hint">
+      <strong>{hint.label}</strong>
+      <span>{hint.instruction}</span>
+    </div>
+  ) : null;
+}
+
 function TheatreViewport() {
   const quality = useSimulationStore((state) => state.quality);
   const renderConfig = qualityToRenderConfig(quality);
@@ -114,6 +124,10 @@ function TheatreViewport() {
     failedRendererKey,
   );
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [cueHint, setCueHint] = useState<CArmCueHint | null>(null);
+  const handleManipulatorHintChange = useCallback((id: CArmCueId | null) => {
+    setCueHint(id === null ? null : cArmCueHint(id));
+  }, []);
   const resetGraphics = useCallback(() => {
     setGraphicsKey((currentKey) => currentKey + 1);
   }, []);
@@ -149,6 +163,7 @@ function TheatreViewport() {
 
   return (
     <section aria-label="3D theatre" className="theatre-canvas">
+      <CArmCueHintOverlay hint={cueHint} />
       {graphicsStatus === "checking" ? (
         <p role="status">Starting 3D view…</p>
       ) : graphicsStatus === "error" ? (
@@ -166,7 +181,9 @@ function TheatreViewport() {
             ref={canvasRef}
             shadows={renderConfig.shadows}
           >
-            <TheatreScene />
+            <TheatreScene
+              onManipulatorHintChange={handleManipulatorHintChange}
+            />
           </Canvas>
         </WebGLErrorBoundary>
       )}

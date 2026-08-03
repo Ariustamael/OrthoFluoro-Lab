@@ -12,6 +12,7 @@ import {
   CArmRig,
   releaseHandlePointer,
 } from "./CArmRig";
+import type { CArmCueId } from "./cArmCueHints";
 
 export const THEATRE_BACKGROUND_COLOR = "#07131f";
 export const DEFAULT_THEATRE_TARGET = [0, -200, 0] satisfies [
@@ -215,7 +216,15 @@ function AnatomicalPlaceholder() {
   );
 }
 
-export function TheatreScene() {
+interface TheatreSceneProps {
+  onManipulatorHintChange?: (id: CArmCueId | null) => void;
+}
+
+const ignoreManipulatorHint = () => undefined;
+
+export function TheatreScene({
+  onManipulatorHintChange = ignoreManipulatorHint,
+}: TheatreSceneProps) {
   const interactionMode = useSimulationStore((state) => state.interactionMode);
   const [manipulatorActive, setManipulatorActive] = useState(false);
 
@@ -234,7 +243,10 @@ export function TheatreScene() {
       </mesh>
       <OperatingTable />
       <AnatomicalPlaceholder />
-      <CArmRig onManipulatorDragStateChange={setManipulatorActive} />
+      <CArmRig
+        onManipulatorDragStateChange={setManipulatorActive}
+        onManipulatorHintChange={onManipulatorHintChange}
+      />
       <OrbitControls
         enabled={orbitControlsEnabled(interactionMode, manipulatorActive)}
         enableDamping
