@@ -20,10 +20,12 @@ import {
   signedScreenAngle,
 } from "../../src/components/scene/cArmManipulatorMath";
 import {
-  C_ARM_CUE_DIMENSIONS,
+  C_ARM_CUE_GEOMETRY,
   C_ARM_MANIPULATOR_CONTROL_DEFINITIONS,
-  cArmDragEndPolicy,
+  cArmCueGlyphMaximumExtent,
+  cArmCueTargetMinimumExtent,
   cueAppearance,
+  createCArmDragController,
   createCArmManipulatorRenderModel,
   isCArmCancelKey,
 } from "../../src/components/scene/CArmManipulators";
@@ -249,34 +251,68 @@ describe("direct anatomy rotation handles", () => {
 });
 
 describe("six-DoF C-arm manipulator math", () => {
-  it("normalizes filled targets and compact glyphs to the direct-grab scale", () => {
-    Object.values(C_ARM_CUE_DIMENSIONS).forEach(
-      ({ glyphMaximumExtent, targetMinimumExtent }) => {
-        expect(targetMinimumExtent).toBeGreaterThanOrEqual(1);
-        expect(glyphMaximumExtent).toBeGreaterThanOrEqual(0.36);
-        expect(glyphMaximumExtent).toBeLessThanOrEqual(0.45);
-      },
-    );
-    expect(C_ARM_CUE_DIMENSIONS.orbit.hitShape).toBe("filled-disc");
-    expect(C_ARM_CUE_DIMENSIONS.swivel.hitShape).toBe("filled-disc");
+  it("derives full-size targets and compact glyphs from rendered cue geometry", () => {
+    expect(C_ARM_CUE_GEOMETRY.linear.hitRadius).toBeGreaterThanOrEqual(0.5);
+    ["circular", "linear"].forEach((kind) => {
+      const cueKind = kind as "circular" | "linear";
+      expect(cArmCueTargetMinimumExtent(cueKind)).toBeGreaterThanOrEqual(1);
+      expect(cArmCueGlyphMaximumExtent(cueKind)).toBeGreaterThanOrEqual(0.36);
+      expect(cArmCueGlyphMaximumExtent(cueKind)).toBeLessThanOrEqual(0.45);
+    });
+    expect(C_ARM_CUE_GEOMETRY.circular.hitShape).toBe("filled-disc");
   });
 
-  it("clears direct-grab help for every drag end and restores pose only on Escape", () => {
-    [
-      "pointer-up",
-      "pointer-cancel",
-      "lost-capture",
-      "blur",
-      "mode-exit",
-    ].forEach((reason) => {
-      expect(
-        cArmDragEndPolicy(reason as Parameters<typeof cArmDragEndPolicy>[0]),
-      ).toEqual({ clearHint: true, restoreStartPose: false });
-    });
-    expect(cArmDragEndPolicy("escape")).toEqual({
-      clearHint: true,
-      restoreStartPose: true,
-    });
+  it("clears actual direct-grab lifecycle effects and restores only on Escape", () => {
+    const callbacks = {
+      onActiveIdChange: vi.fn(),
+      onDragStateChange: vi.fn(),
+      onHintChange: vi.fn(),
+      setCArmPose: vi.fn(),
+    };
+    const controller = createCArmDragController(callbacks);
+    const startPose = { ...REFERENCE_C_ARM_POSE, orbitDegrees: 18 };
+    const target = {
+      hasPointerCapture: vi.fn(() => true),
+      releasePointerCapture: vi.fn(),
+      setPointerCapture: vi.fn(),
+    };
+    const start = () =>
+      controller.start({
+        captureTarget: target,
+        definition: C_ARM_MANIPULATOR_CONTROL_DEFINITIONS[0]!,
+        pointerId: 7,
+        startPointer: [10, 10],
+        startPose,
+      });
+
+    start();
+    expect(target.setPointerCapture).toHaveBeenLastCalledWith(7);
+    controller.finish("pointer-up", 7);
+
+    ["pointer-cancel", "lost-capture", "blur", "mode-exit"].forEach(
+      (reason) => {
+        start();
+        controller.finish(
+          reason as "pointer-cancel" | "lost-capture" | "blur" | "mode-exit",
+          7,
+          reason !== "lost-capture",
+        );
+        expect(controller.activeDrag()).toBeNull();
+        expect(callbacks.onDragStateChange).toHaveBeenLastCalledWith(false);
+        expect(callbacks.onActiveIdChange).toHaveBeenLastCalledWith(null);
+        expect(callbacks.onHintChange).toHaveBeenLastCalledWith(null);
+      },
+    );
+
+    start();
+    expect(controller.cancelKey("Escape")).toBe(true);
+    expect(controller.activeDrag()).toBeNull();
+    expect(callbacks.setCArmPose).toHaveBeenLastCalledWith(startPose);
+    expect(callbacks.onDragStateChange).toHaveBeenLastCalledWith(false);
+    expect(callbacks.onHintChange).toHaveBeenLastCalledWith(null);
+    expect(target.releasePointerCapture).toHaveBeenCalledTimes(5);
+    expect(callbacks.setCArmPose).toHaveBeenCalledTimes(1);
+    expect(controller.cancelKey("Enter")).toBe(false);
   });
 
   it("keeps inactive cues quiet and prioritizes the hovered or active cue", () => {

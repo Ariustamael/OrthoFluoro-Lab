@@ -111,45 +111,48 @@ export type CArmDragEndReason =
   | "mode-exit"
   | "escape";
 
-export function cArmDragEndPolicy(reason: CArmDragEndReason) {
-  return {
-    clearHint: true,
-    restoreStartPose: reason === "escape",
-  } as const;
-}
-
-export const C_ARM_CUE_DIMENSIONS = Object.freeze({
-  orbit: Object.freeze({
-    glyphMaximumExtent: 0.36,
+export const C_ARM_CUE_GEOMETRY = Object.freeze({
+  circular: Object.freeze({
+    arrowHeight: 0.08,
+    arrowRadius: 0.03,
+    glyphRadius: 0.15,
+    glyphTube: 0.03,
+    hitRadius: 0.5,
     hitShape: "filled-disc",
-    targetMinimumExtent: 1,
   }),
-  tilt: Object.freeze({
-    glyphMaximumExtent: 0.43,
+  linear: Object.freeze({
+    arrowHeight: 0.07,
+    arrowOffset: 0.18,
+    arrowRadius: 0.03,
+    glyphLength: 0.27,
+    glyphRadius: 0.035,
+    hitLength: 0.6,
+    hitRadius: 0.5,
     hitShape: "capsule",
-    targetMinimumExtent: 1.04,
-  }),
-  "translate-x": Object.freeze({
-    glyphMaximumExtent: 0.43,
-    hitShape: "capsule",
-    targetMinimumExtent: 1.04,
-  }),
-  "translate-y": Object.freeze({
-    glyphMaximumExtent: 0.43,
-    hitShape: "capsule",
-    targetMinimumExtent: 1.04,
-  }),
-  "translate-z": Object.freeze({
-    glyphMaximumExtent: 0.43,
-    hitShape: "capsule",
-    targetMinimumExtent: 1.04,
-  }),
-  swivel: Object.freeze({
-    glyphMaximumExtent: 0.36,
-    hitShape: "filled-disc",
-    targetMinimumExtent: 1,
   }),
 } as const);
+
+export function cArmCueTargetMinimumExtent(
+  kind: keyof typeof C_ARM_CUE_GEOMETRY,
+): number {
+  if (kind === "circular") return C_ARM_CUE_GEOMETRY.circular.hitRadius * 2;
+  const geometry = C_ARM_CUE_GEOMETRY.linear;
+  return Math.min(
+    geometry.hitRadius * 2,
+    geometry.hitLength + geometry.hitRadius * 2,
+  );
+}
+
+export function cArmCueGlyphMaximumExtent(
+  kind: keyof typeof C_ARM_CUE_GEOMETRY,
+): number {
+  if (kind === "circular") {
+    const geometry = C_ARM_CUE_GEOMETRY.circular;
+    return (geometry.glyphRadius + geometry.glyphTube) * 2;
+  }
+  const geometry = C_ARM_CUE_GEOMETRY.linear;
+  return (geometry.arrowOffset + geometry.arrowHeight / 2) * 2;
+}
 
 type ManipulatorGroupName =
   "Orbit and tilt cue" | "Wig-wag cue" | "Translation cue";
@@ -254,7 +257,7 @@ export function createCArmManipulatorRenderModel(
   });
 }
 
-interface ActiveDrag {
+export interface CArmManipulatorDrag {
   readonly captureTarget: PointerCaptureTarget;
   readonly center?: ScreenPoint;
   readonly definition: CArmManipulatorControlDefinition;
@@ -262,6 +265,74 @@ interface ActiveDrag {
   readonly screenTangent?: ScreenPoint;
   readonly startPointer: ScreenPoint;
   readonly startPose: CArmPose;
+}
+
+export interface CArmDragControllerCallbacks {
+  onActiveIdChange: (id: CArmCueId | null) => void;
+  onDragStateChange: (active: boolean) => void;
+  onHintChange: (id: CArmCueId | null) => void;
+  setCArmPose: (pose: CArmPose) => void;
+}
+
+export interface CArmDragController {
+  activeDrag: () => CArmManipulatorDrag | null;
+  cancelKey: (key: string) => boolean;
+  finish: (
+    reason: CArmDragEndReason,
+    pointerId?: number,
+    releaseCapture?: boolean,
+  ) => boolean;
+  start: (drag: CArmManipulatorDrag) => void;
+  updateCallbacks: (next: CArmDragControllerCallbacks) => void;
+}
+
+export function createCArmDragController(
+  initialCallbacks: CArmDragControllerCallbacks,
+): CArmDragController {
+  let active: CArmManipulatorDrag | null = null;
+  let callbacks = initialCallbacks;
+
+  const clear = (drag: CArmManipulatorDrag, releaseCapture: boolean) => {
+    if (releaseCapture) {
+      releaseHandlePointer(drag.captureTarget, drag.pointerId);
+    }
+    active = null;
+    callbacks.onActiveIdChange(null);
+    callbacks.onDragStateChange(false);
+    callbacks.onHintChange(null);
+  };
+
+  return {
+    activeDrag: () => active,
+    cancelKey: (key) => {
+      const drag = active;
+      if (!isCArmCancelKey(key) || drag === null) return false;
+      callbacks.setCArmPose(drag.startPose);
+      clear(drag, true);
+      return true;
+    },
+    finish: (_reason, pointerId, releaseCapture = true) => {
+      const drag = active;
+      if (
+        drag === null ||
+        (pointerId !== undefined && drag.pointerId !== pointerId)
+      ) {
+        return false;
+      }
+      clear(drag, releaseCapture);
+      return true;
+    },
+    start: (drag) => {
+      captureHandlePointer(drag.captureTarget, drag.pointerId);
+      active = drag;
+      callbacks.onActiveIdChange(drag.definition.id);
+      callbacks.onDragStateChange(true);
+      callbacks.onHintChange(drag.definition.id);
+    },
+    updateCallbacks: (next) => {
+      callbacks = next;
+    },
+  };
 }
 
 interface CArmManipulatorsProps {
@@ -276,18 +347,6 @@ const ROTATION_DEGREES_PER_PIXEL = 0.4;
 const TRANSLATION_MM_PER_PIXEL = 1.5;
 const CUE_TARGET_PIXELS = 44;
 const OVERLAY_RENDER_ORDER = 1200;
-const CIRCULAR_HIT_RADIUS = 0.5;
-const CIRCULAR_GLYPH_RADIUS = 0.15;
-const CIRCULAR_GLYPH_TUBE = 0.03;
-const LINEAR_HIT_RADIUS = 0.22;
-const LINEAR_HIT_LENGTH = 0.6;
-const LINEAR_GLYPH_RADIUS = 0.035;
-const LINEAR_GLYPH_LENGTH = 0.27;
-const LINEAR_ARROW_OFFSET = 0.18;
-const LINEAR_ARROW_RADIUS = 0.03;
-const LINEAR_ARROW_HEIGHT = 0.07;
-const CIRCULAR_ARROW_RADIUS = 0.03;
-const CIRCULAR_ARROW_HEIGHT = 0.08;
 
 const AXIS_ROTATIONS = {
   "translate-x": [0, 0, -Math.PI / 2],
@@ -312,9 +371,22 @@ export function CArmManipulators({
   const floatingRef = useRef<Group>(null);
   const translationRef = useRef<Group>(null);
   const swivelRef = useRef<Group>(null);
-  const dragRef = useRef<ActiveDrag | null>(null);
   const [activeId, setActiveId] = useState<CArmCueId | null>(null);
   const [hoveredId, setHoveredId] = useState<CArmCueId | null>(null);
+  const dragControllerRef = useRef<CArmDragController | null>(null);
+  const dragControllerCallbacks: CArmDragControllerCallbacks = {
+    onActiveIdChange: setActiveId,
+    onDragStateChange,
+    onHintChange,
+    setCArmPose,
+  };
+  if (dragControllerRef.current === null) {
+    dragControllerRef.current = createCArmDragController(
+      dragControllerCallbacks,
+    );
+  } else {
+    dragControllerRef.current.updateCallbacks(dragControllerCallbacks);
+  }
   const model = useMemo(
     () =>
       createCArmManipulatorRenderModel(
@@ -353,23 +425,9 @@ export function CArmManipulators({
       releaseCapture = true,
       reason: CArmDragEndReason = "pointer-up",
     ) => {
-      const drag = dragRef.current;
-      if (
-        drag === null ||
-        (pointerId !== undefined && drag.pointerId !== pointerId)
-      ) {
-        return;
-      }
-      const policy = cArmDragEndPolicy(reason);
-      if (releaseCapture) {
-        releaseHandlePointer(drag.captureTarget, drag.pointerId);
-      }
-      dragRef.current = null;
-      setActiveId(null);
-      onDragStateChange(false);
-      if (policy.clearHint) onHintChange(null);
+      dragControllerRef.current!.finish(reason, pointerId, releaseCapture);
     },
-    [onDragStateChange, onHintChange],
+    [],
   );
 
   useEffect(() => {
@@ -394,20 +452,12 @@ export function CArmManipulators({
 
   useEffect(() => {
     const cancelActiveDrag = (event: KeyboardEvent) => {
-      const drag = dragRef.current;
-      if (!isCArmCancelKey(event.key) || drag === null) return;
+      if (!dragControllerRef.current!.cancelKey(event.key)) return;
       event.preventDefault();
-      const policy = cArmDragEndPolicy("escape");
-      if (policy.restoreStartPose) setCArmPose(drag.startPose);
-      releaseHandlePointer(drag.captureTarget, drag.pointerId);
-      dragRef.current = null;
-      setActiveId(null);
-      onDragStateChange(false);
-      if (policy.clearHint) onHintChange(null);
     };
     window.addEventListener("keydown", cancelActiveDrag);
     return () => window.removeEventListener("keydown", cancelActiveDrag);
-  }, [onDragStateChange, onHintChange, setCArmPose]);
+  }, []);
 
   useFrame(() => {
     const floating = floatingRef.current;
@@ -465,7 +515,6 @@ export function CArmManipulators({
       event.stopPropagation();
       finishActiveDrag();
       const captureTarget = event.target as unknown as PointerCaptureTarget;
-      captureHandlePointer(captureTarget, event.pointerId);
       const startPointer: ScreenPoint = [event.clientX, event.clientY];
       let screenTangent: ScreenPoint | undefined;
       let center: ScreenPoint | undefined;
@@ -492,7 +541,7 @@ export function CArmManipulators({
         screenTangent = projectWorldAxisToScreen(axis, camera, size, origin);
       }
 
-      dragRef.current = {
+      dragControllerRef.current!.start({
         captureTarget,
         center,
         definition,
@@ -500,17 +549,14 @@ export function CArmManipulators({
         screenTangent,
         startPointer,
         startPose: { ...useSimulationStore.getState().cArmPose },
-      };
-      setActiveId(definition.id);
-      onHintChange(definition.id);
-      onDragStateChange(true);
+      });
     },
-    [camera, finishActiveDrag, model, onDragStateChange, onHintChange, size],
+    [camera, finishActiveDrag, model, size],
   );
 
   const moveDrag = useCallback(
     (event: ThreeEvent<PointerEvent>) => {
-      const drag = dragRef.current;
+      const drag = dragControllerRef.current!.activeDrag();
       if (drag === null || drag.pointerId !== event.pointerId) return;
       event.stopPropagation();
       const current: ScreenPoint = [event.clientX, event.clientY];
@@ -541,7 +587,11 @@ export function CArmManipulators({
 
   const endDrag = useCallback(
     (event: ThreeEvent<PointerEvent>) => {
-      if (dragRef.current?.pointerId !== event.pointerId) return;
+      if (
+        dragControllerRef.current!.activeDrag()?.pointerId !== event.pointerId
+      ) {
+        return;
+      }
       event.stopPropagation();
       finishActiveDrag(event.pointerId, true, "pointer-up");
     },
@@ -557,7 +607,11 @@ export function CArmManipulators({
 
   const cancelDrag = useCallback(
     (event: ThreeEvent<PointerEvent>) => {
-      if (dragRef.current?.pointerId !== event.pointerId) return;
+      if (
+        dragControllerRef.current!.activeDrag()?.pointerId !== event.pointerId
+      ) {
+        return;
+      }
       event.stopPropagation();
       finishActiveDrag(event.pointerId, true, "pointer-cancel");
     },
@@ -573,12 +627,14 @@ export function CArmManipulators({
     onPointerOut: (event: ThreeEvent<PointerEvent>) => {
       event.stopPropagation();
       setHoveredId((current) => (current === definition.id ? null : current));
-      if (dragRef.current === null) onHintChange(null);
+      if (dragControllerRef.current!.activeDrag() === null) onHintChange(null);
     },
     onPointerOver: (event: ThreeEvent<PointerEvent>) => {
       event.stopPropagation();
       setHoveredId(definition.id);
-      if (dragRef.current === null) onHintChange(definition.id);
+      if (dragControllerRef.current!.activeDrag() === null) {
+        onHintChange(definition.id);
+      }
     },
     onPointerUp: endDrag,
   });
@@ -613,7 +669,7 @@ export function CArmManipulators({
           renderOrder={OVERLAY_RENDER_ORDER + 1}
           {...handlersFor(orbit)}
         >
-          <circleGeometry args={[CIRCULAR_HIT_RADIUS, 32]} />
+          <circleGeometry args={[C_ARM_CUE_GEOMETRY.circular.hitRadius, 32]} />
           <meshBasicMaterial
             depthTest={false}
             depthWrite={false}
@@ -624,7 +680,12 @@ export function CArmManipulators({
         <group>
           <mesh name="Orbit glyph" renderOrder={OVERLAY_RENDER_ORDER + 1}>
             <torusGeometry
-              args={[CIRCULAR_GLYPH_RADIUS, CIRCULAR_GLYPH_TUBE, 10, 32]}
+              args={[
+                C_ARM_CUE_GEOMETRY.circular.glyphRadius,
+                C_ARM_CUE_GEOMETRY.circular.glyphTube,
+                10,
+                32,
+              ]}
             />
             <meshBasicMaterial
               color={orbit.color}
@@ -638,12 +699,20 @@ export function CArmManipulators({
             <mesh
               key={direction}
               name={`Orbit ${direction > 0 ? "clockwise" : "counterclockwise"} arrowhead`}
-              position={[0, direction * CIRCULAR_GLYPH_RADIUS, 0]}
+              position={[
+                0,
+                direction * C_ARM_CUE_GEOMETRY.circular.glyphRadius,
+                0,
+              ]}
               renderOrder={OVERLAY_RENDER_ORDER + 1}
               rotation={[0, 0, (direction * Math.PI) / 2]}
             >
               <coneGeometry
-                args={[CIRCULAR_ARROW_RADIUS, CIRCULAR_ARROW_HEIGHT, 10]}
+                args={[
+                  C_ARM_CUE_GEOMETRY.circular.arrowRadius,
+                  C_ARM_CUE_GEOMETRY.circular.arrowHeight,
+                  10,
+                ]}
               />
               <meshBasicMaterial
                 color={orbit.color}
@@ -662,7 +731,12 @@ export function CArmManipulators({
           {...handlersFor(tilt)}
         >
           <capsuleGeometry
-            args={[LINEAR_HIT_RADIUS, LINEAR_HIT_LENGTH, 5, 10]}
+            args={[
+              C_ARM_CUE_GEOMETRY.linear.hitRadius,
+              C_ARM_CUE_GEOMETRY.linear.hitLength,
+              5,
+              10,
+            ]}
           />
           <meshBasicMaterial
             depthTest={false}
@@ -674,7 +748,12 @@ export function CArmManipulators({
         <group position={[0.78, 0, 0]}>
           <mesh name="Tilt glyph" renderOrder={OVERLAY_RENDER_ORDER + 1}>
             <capsuleGeometry
-              args={[LINEAR_GLYPH_RADIUS, LINEAR_GLYPH_LENGTH, 5, 10]}
+              args={[
+                C_ARM_CUE_GEOMETRY.linear.glyphRadius,
+                C_ARM_CUE_GEOMETRY.linear.glyphLength,
+                5,
+                10,
+              ]}
             />
             <meshBasicMaterial
               color={tilt.color}
@@ -688,12 +767,20 @@ export function CArmManipulators({
             <mesh
               key={direction}
               name={`Tilt ${direction > 0 ? "positive" : "negative"} arrowhead`}
-              position={[0, direction * LINEAR_ARROW_OFFSET, 0]}
+              position={[
+                0,
+                direction * C_ARM_CUE_GEOMETRY.linear.arrowOffset,
+                0,
+              ]}
               renderOrder={OVERLAY_RENDER_ORDER + 1}
               rotation={direction > 0 ? [0, 0, 0] : [0, 0, Math.PI]}
             >
               <coneGeometry
-                args={[LINEAR_ARROW_RADIUS, LINEAR_ARROW_HEIGHT, 10]}
+                args={[
+                  C_ARM_CUE_GEOMETRY.linear.arrowRadius,
+                  C_ARM_CUE_GEOMETRY.linear.arrowHeight,
+                  10,
+                ]}
               />
               <meshBasicMaterial
                 color={tilt.color}
@@ -725,7 +812,12 @@ export function CArmManipulators({
               {...handlersFor(definition)}
             >
               <capsuleGeometry
-                args={[LINEAR_HIT_RADIUS, LINEAR_HIT_LENGTH, 5, 10]}
+                args={[
+                  C_ARM_CUE_GEOMETRY.linear.hitRadius,
+                  C_ARM_CUE_GEOMETRY.linear.hitLength,
+                  5,
+                  10,
+                ]}
               />
               <meshBasicMaterial
                 depthTest={false}
@@ -740,7 +832,12 @@ export function CArmManipulators({
                 renderOrder={OVERLAY_RENDER_ORDER + 3}
               >
                 <capsuleGeometry
-                  args={[LINEAR_GLYPH_RADIUS, LINEAR_GLYPH_LENGTH, 5, 10]}
+                  args={[
+                    C_ARM_CUE_GEOMETRY.linear.glyphRadius,
+                    C_ARM_CUE_GEOMETRY.linear.glyphLength,
+                    5,
+                    10,
+                  ]}
                 />
                 <meshBasicMaterial
                   color={definition.color}
@@ -754,12 +851,20 @@ export function CArmManipulators({
                 <mesh
                   key={direction}
                   name={`${definition.id} ${direction > 0 ? "positive" : "negative"} arrowhead`}
-                  position={[0, direction * LINEAR_ARROW_OFFSET, 0]}
+                  position={[
+                    0,
+                    direction * C_ARM_CUE_GEOMETRY.linear.arrowOffset,
+                    0,
+                  ]}
                   renderOrder={OVERLAY_RENDER_ORDER + 3}
                   rotation={[0, 0, direction > 0 ? 0 : Math.PI]}
                 >
                   <coneGeometry
-                    args={[LINEAR_ARROW_RADIUS, LINEAR_ARROW_HEIGHT, 10]}
+                    args={[
+                      C_ARM_CUE_GEOMETRY.linear.arrowRadius,
+                      C_ARM_CUE_GEOMETRY.linear.arrowHeight,
+                      10,
+                    ]}
                   />
                   <meshBasicMaterial
                     color={definition.color}
@@ -786,7 +891,7 @@ export function CArmManipulators({
           renderOrder={OVERLAY_RENDER_ORDER}
           {...handlersFor(swivel)}
         >
-          <circleGeometry args={[CIRCULAR_HIT_RADIUS, 32]} />
+          <circleGeometry args={[C_ARM_CUE_GEOMETRY.circular.hitRadius, 32]} />
           <meshBasicMaterial
             depthTest={false}
             depthWrite={false}
@@ -797,7 +902,12 @@ export function CArmManipulators({
         <group>
           <mesh name="Swivel glyph" renderOrder={OVERLAY_RENDER_ORDER}>
             <torusGeometry
-              args={[CIRCULAR_GLYPH_RADIUS, CIRCULAR_GLYPH_TUBE, 10, 32]}
+              args={[
+                C_ARM_CUE_GEOMETRY.circular.glyphRadius,
+                C_ARM_CUE_GEOMETRY.circular.glyphTube,
+                10,
+                32,
+              ]}
             />
             <meshBasicMaterial
               color={swivel.color}
@@ -811,12 +921,20 @@ export function CArmManipulators({
             <mesh
               key={direction}
               name={`Swivel ${direction > 0 ? "clockwise" : "counterclockwise"} arrowhead`}
-              position={[0, direction * CIRCULAR_GLYPH_RADIUS, 0]}
+              position={[
+                0,
+                direction * C_ARM_CUE_GEOMETRY.circular.glyphRadius,
+                0,
+              ]}
               renderOrder={OVERLAY_RENDER_ORDER}
               rotation={[0, 0, (direction * Math.PI) / 2]}
             >
               <coneGeometry
-                args={[CIRCULAR_ARROW_RADIUS, CIRCULAR_ARROW_HEIGHT, 10]}
+                args={[
+                  C_ARM_CUE_GEOMETRY.circular.arrowRadius,
+                  C_ARM_CUE_GEOMETRY.circular.arrowHeight,
+                  10,
+                ]}
               />
               <meshBasicMaterial
                 color={swivel.color}
