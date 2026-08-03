@@ -30,8 +30,11 @@ import {
   cueAppearance,
   createCArmDragController,
   createCArmManipulatorRenderModel,
+  createTranslationHitTargetRaycastLayout,
   isCArmCancelKey,
   resolveCArmManipulatorScreenTangent,
+  selectTranslationHitTargetForRay,
+  shouldRaycastTranslationHitTarget,
   teardownCArmManipulatorInteraction,
 } from "../../src/components/scene/CArmManipulators";
 import {
@@ -337,6 +340,124 @@ describe("six-DoF C-arm manipulator math", () => {
           (definition) => definition.id === target.controlId,
         )?.kind,
       ).toBe("translation");
+    });
+  });
+
+  it("arbitrates projected translation lobes by the actual default-camera ray", () => {
+    const viewport = { width: 1200, height: 800 };
+    const camera = new PerspectiveCamera(
+      DEFAULT_THEATRE_CAMERA.fov,
+      viewport.width / viewport.height,
+      DEFAULT_THEATRE_CAMERA.near,
+      DEFAULT_THEATRE_CAMERA.far,
+    );
+    camera.position.fromArray(DEFAULT_THEATRE_CAMERA.position);
+    camera.lookAt(...DEFAULT_THEATRE_TARGET);
+    camera.updateMatrixWorld();
+    camera.updateProjectionMatrix();
+
+    const preset = C_ARM_RIG_PRESETS.isocentric;
+    const local = deriveCArmRigGeometry(preset);
+    const geometry = buildCArmGeometry(REFERENCE_C_ARM_POSE, preset);
+    const model = createCArmManipulatorRenderModel(
+      local,
+      preset,
+      geometry,
+      "move-carm",
+    );
+    const translationPosition = model.groups.find(
+      ({ name }) => name === "Translation cue",
+    )!.position;
+    const targetScale = constantScreenScale(
+      translationPosition,
+      camera,
+      viewport.height,
+      44,
+    );
+    const targets = createTranslationHitTargetRaycastLayout(
+      translationPosition,
+      targetScale,
+    );
+    const raycaster = new Raycaster();
+
+    expect(targets).toHaveLength(6);
+    const xPositive = targets.find(({ id }) => id === "translate-x-positive")!;
+    const zNegative = targets.find(({ id }) => id === "translate-z-negative")!;
+    expect(
+      new Vector3(
+        ...projectWorldPointToScreen(xPositive.position, camera, viewport),
+        0,
+      ).distanceTo(
+        new Vector3(
+          ...projectWorldPointToScreen(zNegative.position, camera, viewport),
+          0,
+        ),
+      ),
+    ).toBeLessThan(44);
+
+    const xPositiveScreen = projectWorldPointToScreen(
+      xPositive.position,
+      camera,
+      viewport,
+    );
+    const zNegativeScreen = projectWorldPointToScreen(
+      zNegative.position,
+      camera,
+      viewport,
+    );
+    raycaster.setFromCamera(
+      {
+        x: (xPositiveScreen[0] + zNegativeScreen[0]) / viewport.width - 1,
+        y: 1 - (xPositiveScreen[1] + zNegativeScreen[1]) / viewport.height,
+      },
+      camera,
+    );
+    expect(
+      raycaster.ray.distanceSqToPoint(new Vector3(...xPositive.position)),
+    ).toBeLessThan(xPositive.radius ** 2);
+    expect(
+      raycaster.ray.distanceSqToPoint(new Vector3(...zNegative.position)),
+    ).toBeLessThan(zNegative.radius ** 2);
+    const overlapWinner = selectTranslationHitTargetForRay(raycaster, targets)!;
+    expect(
+      shouldRaycastTranslationHitTarget(raycaster, targets, overlapWinner.id),
+    ).toBe(true);
+    expect(
+      shouldRaycastTranslationHitTarget(
+        raycaster,
+        targets,
+        overlapWinner.id === xPositive.id ? zNegative.id : xPositive.id,
+      ),
+    ).toBe(false);
+
+    targets.forEach((target) => {
+      const screen = projectWorldPointToScreen(
+        target.position,
+        camera,
+        viewport,
+      );
+      raycaster.setFromCamera(
+        {
+          x: (screen[0] / viewport.width) * 2 - 1,
+          y: 1 - (screen[1] / viewport.height) * 2,
+        },
+        camera,
+      );
+
+      expect(selectTranslationHitTargetForRay(raycaster, targets)).toBe(target);
+      const definition = C_ARM_MANIPULATOR_CONTROL_DEFINITIONS.find(
+        ({ id }) => id === target.controlId,
+      )!;
+      const next = applyCArmManipulatorDelta(
+        REFERENCE_C_ARM_POSE,
+        definition.parameter,
+        7,
+      );
+      Object.keys(next).forEach((field) => {
+        expect(next[field as keyof typeof next]).toBe(
+          field === definition.parameter ? 7 : 0,
+        );
+      });
     });
   });
 

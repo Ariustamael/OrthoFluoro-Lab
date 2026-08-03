@@ -135,16 +135,19 @@ export const C_ARM_CUE_GEOMETRY = Object.freeze({
 export interface CArmCueHitTargetLobe {
   readonly axis: Vec3;
   readonly controlId: CArmCueId;
+  readonly id: string;
   readonly position: Vec3;
   readonly radius: number;
 }
 
 const cueHitTarget = (
+  id: string,
   controlId: CArmCueId,
   axis: Vec3,
   position: Vec3,
   radius: number,
-): CArmCueHitTargetLobe => Object.freeze({ axis, controlId, position, radius });
+): CArmCueHitTargetLobe =>
+  Object.freeze({ axis, controlId, id, position, radius });
 
 const LINEAR_HIT_RADIUS = C_ARM_CUE_GEOMETRY.linear.hitRadius;
 const LINEAR_HIT_OFFSET = C_ARM_CUE_GEOMETRY.linear.hitOffset;
@@ -155,6 +158,7 @@ export const C_ARM_CUE_HIT_TARGET_LAYOUT = Object.freeze({
   orbit: Object.freeze([
     cueHitTarget(
       "orbit",
+      "orbit",
       [0, 0, 1],
       [0, 0, 0],
       C_ARM_CUE_GEOMETRY.circular.hitRadius,
@@ -163,6 +167,7 @@ export const C_ARM_CUE_HIT_TARGET_LAYOUT = Object.freeze({
   tilt: Object.freeze(
     ([-1, 1] as const).map((direction) =>
       cueHitTarget(
+        `tilt-${direction > 0 ? "positive" : "negative"}`,
         "tilt",
         [0, 1, 0],
         [0.78, direction * LINEAR_HIT_OFFSET, 0],
@@ -180,6 +185,7 @@ export const C_ARM_CUE_HIT_TARGET_LAYOUT = Object.freeze({
     ).flatMap(([controlId, axis]) =>
       ([-1, 1] as const).map((direction) =>
         cueHitTarget(
+          `${controlId}-${direction > 0 ? "positive" : "negative"}`,
           controlId,
           axis,
           [
@@ -202,6 +208,51 @@ export function cArmCueHitTargetContainsPoint(
     new Vector3(...target.position).distanceTo(new Vector3(...point)) <=
     target.radius
   );
+}
+
+export function createTranslationHitTargetRaycastLayout(
+  translationPosition: Vec3,
+  targetScale: number,
+): readonly CArmCueHitTargetLobe[] {
+  return Object.freeze(
+    C_ARM_CUE_HIT_TARGET_LAYOUT.translation.map((target) =>
+      Object.freeze({
+        ...target,
+        position: [
+          translationPosition[0] + target.position[0] * targetScale,
+          translationPosition[1] + target.position[1] * targetScale,
+          translationPosition[2] + target.position[2] * targetScale,
+        ] as Vec3,
+        radius: target.radius * targetScale,
+      }),
+    ),
+  );
+}
+
+export function selectTranslationHitTargetForRay(
+  raycaster: Raycaster,
+  targets: readonly CArmCueHitTargetLobe[],
+): CArmCueHitTargetLobe | null {
+  let winner: CArmCueHitTargetLobe | null = null;
+  let winnerDistance = Infinity;
+  targets.forEach((target) => {
+    const distance = raycaster.ray.distanceSqToPoint(
+      new Vector3(...target.position),
+    );
+    if (distance < winnerDistance) {
+      winner = target;
+      winnerDistance = distance;
+    }
+  });
+  return winner;
+}
+
+export function shouldRaycastTranslationHitTarget(
+  raycaster: Raycaster,
+  targets: readonly CArmCueHitTargetLobe[],
+  targetId: string,
+): boolean {
+  return selectTranslationHitTargetForRay(raycaster, targets)?.id === targetId;
 }
 
 export function cArmCueTargetMinimumExtent(
@@ -480,6 +531,7 @@ export function CArmManipulators({
   const floatingRef = useRef<Group>(null);
   const translationRef = useRef<Group>(null);
   const swivelRef = useRef<Group>(null);
+  const translationHitTargetRefs = useRef(new Map<string, Mesh>());
   const [activeId, setActiveId] = useState<CArmCueId | null>(null);
   const [hoveredId, setHoveredId] = useState<CArmCueId | null>(null);
   const dragControllerRef = useRef<CArmDragController | null>(null);
@@ -527,6 +579,37 @@ export function CArmManipulators({
     },
     [model],
   );
+  const setTranslationHitTargetRef = useCallback(
+    (id: string, mesh: Mesh | null) => {
+      if (mesh === null) translationHitTargetRefs.current.delete(id);
+      else translationHitTargetRefs.current.set(id, mesh);
+    },
+    [],
+  );
+  const translationHitTargetRaycast = useCallback(function (
+    this: Mesh,
+    raycaster: Raycaster,
+    intersections: Intersection[],
+  ) {
+    const targets = C_ARM_CUE_HIT_TARGET_LAYOUT.translation.flatMap(
+      (target) => {
+        const mesh = translationHitTargetRefs.current.get(target.id);
+        if (mesh === undefined) return [];
+        const position = tuple(mesh.getWorldPosition(new Vector3()));
+        return [{ ...target, position }];
+      },
+    );
+    if (
+      !shouldRaycastTranslationHitTarget(
+        raycaster,
+        targets,
+        this.userData.cArmCueHitTargetId as string,
+      )
+    ) {
+      return;
+    }
+    Mesh.prototype.raycast.call(this, raycaster, intersections);
+  }, []);
 
   const finishActiveDrag = useCallback(
     (
@@ -918,7 +1001,10 @@ export function CArmManipulators({
                   key={index}
                   name={`${definition.id} hit target`}
                   position={target.position}
+                  raycast={translationHitTargetRaycast}
+                  ref={(mesh) => setTranslationHitTargetRef(target.id, mesh)}
                   renderOrder={OVERLAY_RENDER_ORDER + 3}
+                  userData={{ cArmCueHitTargetId: target.id }}
                   {...handlersFor(definition)}
                 >
                   <sphereGeometry args={[target.radius, 10, 10]} />
