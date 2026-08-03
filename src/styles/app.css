@@ -468,7 +468,7 @@ button:hover {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   display: block;
-  min-block-size: 42rem;
+  block-size: 42rem;
   overflow: hidden;
 }
 
