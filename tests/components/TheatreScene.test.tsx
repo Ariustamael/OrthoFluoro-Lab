@@ -5,6 +5,7 @@ import {
   Color,
   OrthographicCamera,
   PerspectiveCamera,
+  Quaternion,
   Raycaster,
   Vector3,
 } from "three";
@@ -55,6 +56,7 @@ import {
 import { buildCArmGeometry } from "../../src/engine/geometry/cArmTransforms";
 import {
   REFERENCE_C_ARM_POSE,
+  type CArmGeometry,
   type CArmRigPreset,
   type Vec3,
 } from "../../src/engine/geometry/geometryTypes";
@@ -68,6 +70,13 @@ function expectArcAnchor(
   const theta = (degrees * Math.PI) / 180;
   const radius = local.arcRadius + preset.arcRadialThickness / 2 + offset;
   return [radius * Math.cos(theta), radius * Math.sin(theta), 0];
+}
+
+function transformCueAnchor(anchor: Vec3, geometry: CArmGeometry): Vec3 {
+  const point = new Vector3(...anchor)
+    .applyQuaternion(new Quaternion(...geometry.rigTransform.quaternion))
+    .add(new Vector3(...geometry.rigTransform.position));
+  return [point.x, point.y, point.z];
 }
 
 function colorLightness(color: string): number {
@@ -407,6 +416,15 @@ describe("six-DoF C-arm manipulator math", () => {
     );
     expect(visible.localAnchors.translation).toEqual(
       expectArcAnchor(local, preset, -135, 48),
+    );
+    expect(visible.groups[0]?.position).toEqual(
+      transformCueAnchor(visible.localAnchors.orbitTilt, geometry),
+    );
+    expect(visible.groups[1]?.position).toEqual(
+      transformCueAnchor(visible.localAnchors.swivel, geometry),
+    );
+    expect(visible.groups[2]?.position).toEqual(
+      transformCueAnchor(visible.localAnchors.translation, geometry),
     );
     expect(visible.groups.every(({ position }) => position)).toBe(true);
     expect(visible.groups[1]?.position).not.toEqual(geometry.mechanicalPivot);
