@@ -126,21 +126,90 @@ export const C_ARM_CUE_GEOMETRY = Object.freeze({
     arrowRadius: 0.03,
     glyphLength: 0.27,
     glyphRadius: 0.035,
-    hitLength: 0.6,
+    hitOffset: 0.71,
     hitRadius: 0.5,
-    hitShape: "capsule",
+    hitShape: "paired-spheres",
   }),
 } as const);
+
+export interface CArmCueHitTargetLobe {
+  readonly axis: Vec3;
+  readonly controlId: CArmCueId;
+  readonly position: Vec3;
+  readonly radius: number;
+}
+
+const cueHitTarget = (
+  controlId: CArmCueId,
+  axis: Vec3,
+  position: Vec3,
+  radius: number,
+): CArmCueHitTargetLobe => Object.freeze({ axis, controlId, position, radius });
+
+const LINEAR_HIT_RADIUS = C_ARM_CUE_GEOMETRY.linear.hitRadius;
+const LINEAR_HIT_OFFSET = C_ARM_CUE_GEOMETRY.linear.hitOffset;
+
+// These are the exact local positions consumed by the invisible hit meshes below.
+// Opposing lobes meet the visible arrowheads while each control stays independent.
+export const C_ARM_CUE_HIT_TARGET_LAYOUT = Object.freeze({
+  orbit: Object.freeze([
+    cueHitTarget(
+      "orbit",
+      [0, 0, 1],
+      [0, 0, 0],
+      C_ARM_CUE_GEOMETRY.circular.hitRadius,
+    ),
+  ]),
+  tilt: Object.freeze(
+    ([-1, 1] as const).map((direction) =>
+      cueHitTarget(
+        "tilt",
+        [0, 1, 0],
+        [0.78, direction * LINEAR_HIT_OFFSET, 0],
+        LINEAR_HIT_RADIUS,
+      ),
+    ),
+  ),
+  translation: Object.freeze(
+    (
+      [
+        ["translate-x", [1, 0, 0]],
+        ["translate-y", [0, 1, 0]],
+        ["translate-z", [0, 0, 1]],
+      ] as const
+    ).flatMap(([controlId, axis]) =>
+      ([-1, 1] as const).map((direction) =>
+        cueHitTarget(
+          controlId,
+          axis,
+          [
+            axis[0] * direction * LINEAR_HIT_OFFSET,
+            axis[1] * direction * LINEAR_HIT_OFFSET,
+            axis[2] * direction * LINEAR_HIT_OFFSET,
+          ],
+          LINEAR_HIT_RADIUS,
+        ),
+      ),
+    ),
+  ),
+});
+
+export function cArmCueHitTargetContainsPoint(
+  target: CArmCueHitTargetLobe,
+  point: Vec3,
+): boolean {
+  return (
+    new Vector3(...target.position).distanceTo(new Vector3(...point)) <=
+    target.radius
+  );
+}
 
 export function cArmCueTargetMinimumExtent(
   kind: keyof typeof C_ARM_CUE_GEOMETRY,
 ): number {
   if (kind === "circular") return C_ARM_CUE_GEOMETRY.circular.hitRadius * 2;
   const geometry = C_ARM_CUE_GEOMETRY.linear;
-  return Math.min(
-    geometry.hitRadius * 2,
-    geometry.hitLength + geometry.hitRadius * 2,
-  );
+  return geometry.hitRadius * 2;
 }
 
 export function cArmCueGlyphMaximumExtent(
@@ -277,6 +346,7 @@ export interface CArmDragControllerCallbacks {
 export interface CArmDragController {
   activeDrag: () => CArmManipulatorDrag | null;
   cancelKey: (key: string) => boolean;
+  clearHint: () => void;
   finish: (
     reason: CArmDragEndReason,
     pointerId?: number,
@@ -311,6 +381,7 @@ export function createCArmDragController(
       clear(drag, true);
       return true;
     },
+    clearHint: () => callbacks.onHintChange(null),
     finish: (_reason, pointerId, releaseCapture = true) => {
       const drag = active;
       if (
@@ -335,6 +406,13 @@ export function createCArmDragController(
   };
 }
 
+export function teardownCArmManipulatorInteraction(
+  controller: CArmDragController,
+  reason: CArmDragEndReason,
+): void {
+  if (!controller.finish(reason)) controller.clearHint();
+}
+
 interface CArmManipulatorsProps {
   geometry: CArmGeometry;
   local: CArmLocalGeometry;
@@ -353,6 +431,37 @@ const AXIS_ROTATIONS = {
   "translate-y": [0, 0, 0],
   "translate-z": [Math.PI / 2, 0, 0],
 } as const;
+
+const LINEAR_SCREEN_TANGENT_FALLBACKS = {
+  cranialCaudalDegrees: [0, 1],
+  translationX: [1, 0],
+  translationY: [0, 1],
+  translationZ: [Math.SQRT1_2, Math.SQRT1_2],
+} as const satisfies Partial<Record<keyof CArmPose, ScreenPoint>>;
+
+export function resolveCArmManipulatorScreenTangent(
+  definition: CArmManipulatorControlDefinition,
+  projectedTangent: ScreenPoint,
+): ScreenPoint {
+  if (Math.hypot(...projectedTangent) > 0) return projectedTangent;
+  return (
+    LINEAR_SCREEN_TANGENT_FALLBACKS[definition.parameter] ?? projectedTangent
+  );
+}
+
+export function cArmManipulatorScreenDragDelta(
+  definition: CArmManipulatorControlDefinition,
+  start: ScreenPoint,
+  current: ScreenPoint,
+  tangent: ScreenPoint,
+): number {
+  return (
+    screenTangentDelta(start, current, tangent) *
+    (definition.kind === "rotation"
+      ? ROTATION_DEGREES_PER_PIXEL
+      : TRANSLATION_MM_PER_PIXEL)
+  );
+}
 
 export function CArmManipulators({
   geometry,
@@ -435,20 +544,23 @@ export function CArmManipulators({
     window.addEventListener("blur", handleWindowBlur);
     return () => {
       window.removeEventListener("blur", handleWindowBlur);
-      finishActiveDrag(undefined, true, "mode-exit");
+      teardownCArmManipulatorInteraction(
+        dragControllerRef.current!,
+        "mode-exit",
+      );
     };
   }, [finishActiveDrag]);
 
   useEffect(() => {
     if (interactionMode !== "move-carm") {
-      finishActiveDrag(undefined, true, "mode-exit");
-    }
-    if (interactionMode !== "move-carm") {
+      teardownCArmManipulatorInteraction(
+        dragControllerRef.current!,
+        "mode-exit",
+      );
       setHoveredId(null);
       setActiveId(null);
-      onHintChange(null);
     }
-  }, [finishActiveDrag, interactionMode, onHintChange]);
+  }, [interactionMode]);
 
   useEffect(() => {
     const cancelActiveDrag = (event: KeyboardEvent) => {
@@ -538,7 +650,10 @@ export function CArmManipulators({
                 .position
             : model.groups.find(({ name }) => name === "Orbit and tilt cue")!
                 .position;
-        screenTangent = projectWorldAxisToScreen(axis, camera, size, origin);
+        screenTangent = resolveCArmManipulatorScreenTangent(
+          definition,
+          projectWorldAxisToScreen(axis, camera, size, origin),
+        );
       }
 
       dragControllerRef.current!.start({
@@ -563,14 +678,12 @@ export function CArmManipulators({
       const rawDelta =
         drag.definition.id === "swivel"
           ? signedScreenAngle(drag.center!, drag.startPointer, current)
-          : screenTangentDelta(
+          : cArmManipulatorScreenDragDelta(
+              drag.definition,
               drag.startPointer,
               current,
               drag.screenTangent!,
-            ) *
-            (drag.definition.kind === "rotation"
-              ? ROTATION_DEGREES_PER_PIXEL
-              : TRANSLATION_MM_PER_PIXEL);
+            );
       const delta = applyDragModifiers(rawDelta, drag.definition.kind, event);
       const nextPose = applyCArmManipulatorDelta(
         drag.startPose,
@@ -666,6 +779,7 @@ export function CArmManipulators({
       >
         <mesh
           name="Orbit hit target"
+          position={C_ARM_CUE_HIT_TARGET_LAYOUT.orbit[0]!.position}
           renderOrder={OVERLAY_RENDER_ORDER + 1}
           {...handlersFor(orbit)}
         >
@@ -724,27 +838,23 @@ export function CArmManipulators({
             </mesh>
           ))}
         </group>
-        <mesh
-          name="Tilt hit target"
-          position={[0.78, 0, 0]}
-          renderOrder={OVERLAY_RENDER_ORDER + 1}
-          {...handlersFor(tilt)}
-        >
-          <capsuleGeometry
-            args={[
-              C_ARM_CUE_GEOMETRY.linear.hitRadius,
-              C_ARM_CUE_GEOMETRY.linear.hitLength,
-              5,
-              10,
-            ]}
-          />
-          <meshBasicMaterial
-            depthTest={false}
-            depthWrite={false}
-            opacity={0}
-            transparent
-          />
-        </mesh>
+        {C_ARM_CUE_HIT_TARGET_LAYOUT.tilt.map((target, index) => (
+          <mesh
+            key={index}
+            name="Tilt hit target"
+            position={target.position}
+            renderOrder={OVERLAY_RENDER_ORDER + 1}
+            {...handlersFor(tilt)}
+          >
+            <sphereGeometry args={[target.radius, 10, 10]} />
+            <meshBasicMaterial
+              depthTest={false}
+              depthWrite={false}
+              opacity={0}
+              transparent
+            />
+          </mesh>
+        ))}
         <group position={[0.78, 0, 0]}>
           <mesh name="Tilt glyph" renderOrder={OVERLAY_RENDER_ORDER + 1}>
             <capsuleGeometry
@@ -800,33 +910,31 @@ export function CArmManipulators({
         ref={translationRef}
       >
         {translationDefinitions.map((definition) => (
-          <group
-            key={definition.id}
-            rotation={
-              AXIS_ROTATIONS[definition.id as keyof typeof AXIS_ROTATIONS]
-            }
-          >
-            <mesh
-              name={`${definition.id} hit target`}
-              renderOrder={OVERLAY_RENDER_ORDER + 3}
-              {...handlersFor(definition)}
+          <group key={definition.id}>
+            {C_ARM_CUE_HIT_TARGET_LAYOUT.translation
+              .filter((target) => target.controlId === definition.id)
+              .map((target, index) => (
+                <mesh
+                  key={index}
+                  name={`${definition.id} hit target`}
+                  position={target.position}
+                  renderOrder={OVERLAY_RENDER_ORDER + 3}
+                  {...handlersFor(definition)}
+                >
+                  <sphereGeometry args={[target.radius, 10, 10]} />
+                  <meshBasicMaterial
+                    depthTest={false}
+                    depthWrite={false}
+                    opacity={0}
+                    transparent
+                  />
+                </mesh>
+              ))}
+            <group
+              rotation={
+                AXIS_ROTATIONS[definition.id as keyof typeof AXIS_ROTATIONS]
+              }
             >
-              <capsuleGeometry
-                args={[
-                  C_ARM_CUE_GEOMETRY.linear.hitRadius,
-                  C_ARM_CUE_GEOMETRY.linear.hitLength,
-                  5,
-                  10,
-                ]}
-              />
-              <meshBasicMaterial
-                depthTest={false}
-                depthWrite={false}
-                opacity={0}
-                transparent
-              />
-            </mesh>
-            <group>
               <mesh
                 name={`${definition.id} glyph`}
                 renderOrder={OVERLAY_RENDER_ORDER + 3}

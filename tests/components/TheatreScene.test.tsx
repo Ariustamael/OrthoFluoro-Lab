@@ -21,13 +21,18 @@ import {
 } from "../../src/components/scene/cArmManipulatorMath";
 import {
   C_ARM_CUE_GEOMETRY,
+  C_ARM_CUE_HIT_TARGET_LAYOUT,
   C_ARM_MANIPULATOR_CONTROL_DEFINITIONS,
+  cArmManipulatorScreenDragDelta,
   cArmCueGlyphMaximumExtent,
+  cArmCueHitTargetContainsPoint,
   cArmCueTargetMinimumExtent,
   cueAppearance,
   createCArmDragController,
   createCArmManipulatorRenderModel,
   isCArmCancelKey,
+  resolveCArmManipulatorScreenTangent,
+  teardownCArmManipulatorInteraction,
 } from "../../src/components/scene/CArmManipulators";
 import {
   ACTIVE_FACE_INSET,
@@ -260,6 +265,96 @@ describe("six-DoF C-arm manipulator math", () => {
       expect(cArmCueGlyphMaximumExtent(cueKind)).toBeLessThanOrEqual(0.45);
     });
     expect(C_ARM_CUE_GEOMETRY.circular.hitShape).toBe("filled-disc");
+  });
+
+  it("keeps every edge-on linear cue draggable without changing another pose field", () => {
+    const start = { ...REFERENCE_C_ARM_POSE };
+    const linearControls = C_ARM_MANIPULATOR_CONTROL_DEFINITIONS.filter(
+      (definition) =>
+        definition.id === "tilt" || definition.kind === "translation",
+    );
+
+    linearControls.forEach((definition) => {
+      const tangent = resolveCArmManipulatorScreenTangent(definition, [0, 0]);
+      expect(Math.hypot(...tangent)).toBeGreaterThan(0);
+
+      const delta = cArmManipulatorScreenDragDelta(
+        definition,
+        [10, 10],
+        [10 + tangent[0] * 30, 10 + tangent[1] * 30],
+        tangent,
+      );
+      const next = applyCArmManipulatorDelta(
+        start,
+        definition.parameter,
+        delta,
+      );
+
+      expect(next[definition.parameter]).not.toBe(start[definition.parameter]);
+      (Object.keys(start) as (keyof typeof start)[]).forEach((parameter) => {
+        if (parameter !== definition.parameter) {
+          expect(next[parameter]).toBe(start[parameter]);
+        }
+      });
+    });
+  });
+
+  it("separates independent cue targets while covering each linear arrow tip", () => {
+    const clusters = [
+      [
+        ...C_ARM_CUE_HIT_TARGET_LAYOUT.orbit,
+        ...C_ARM_CUE_HIT_TARGET_LAYOUT.tilt,
+      ],
+      C_ARM_CUE_HIT_TARGET_LAYOUT.translation,
+    ];
+
+    clusters.forEach((targets) => {
+      targets.forEach((target, index) => {
+        targets.slice(index + 1).forEach((other) => {
+          if (target.controlId === other.controlId) return;
+          expect(
+            new Vector3(...target.position).distanceTo(
+              new Vector3(...other.position),
+            ),
+          ).toBeGreaterThanOrEqual(target.radius + other.radius);
+        });
+      });
+    });
+
+    C_ARM_CUE_HIT_TARGET_LAYOUT.translation.forEach((target) => {
+      const arrowTip = new Vector3(...target.axis)
+        .multiplyScalar(
+          Math.sign(
+            new Vector3(...target.position).dot(new Vector3(...target.axis)),
+          ) *
+            (C_ARM_CUE_GEOMETRY.linear.arrowOffset +
+              C_ARM_CUE_GEOMETRY.linear.arrowHeight / 2),
+        )
+        .toArray() as Vec3;
+      expect(cArmCueHitTargetContainsPoint(target, arrowTip)).toBe(true);
+      expect(
+        C_ARM_MANIPULATOR_CONTROL_DEFINITIONS.find(
+          (definition) => definition.id === target.controlId,
+        )?.kind,
+      ).toBe("translation");
+    });
+  });
+
+  it("clears a hover-only hint through the effect teardown contract", () => {
+    const callbacks = {
+      onActiveIdChange: vi.fn(),
+      onDragStateChange: vi.fn(),
+      onHintChange: vi.fn(),
+      setCArmPose: vi.fn(),
+    };
+    const controller = createCArmDragController(callbacks);
+
+    teardownCArmManipulatorInteraction(controller, "mode-exit");
+
+    expect(controller.activeDrag()).toBeNull();
+    expect(callbacks.onHintChange).toHaveBeenCalledExactlyOnceWith(null);
+    expect(callbacks.onActiveIdChange).not.toHaveBeenCalled();
+    expect(callbacks.onDragStateChange).not.toHaveBeenCalled();
   });
 
   it("clears actual direct-grab lifecycle effects and restores only on Escape", () => {
