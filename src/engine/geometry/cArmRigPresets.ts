@@ -4,11 +4,11 @@ const BASE_RIG = Object.freeze({
   sourceDetectorDistance: 1000,
   detectorWidth: 220,
   detectorHeight: 220,
-  detectorBackingThickness: 8,
-  arcRadialThickness: 32,
-  arcDepth: 24,
-  taperSweepDegrees: 12,
-  tongueRadialThickness: 8,
+  detectorBackingThickness: 18,
+  arcRadialThickness: 24,
+  arcDepth: 20,
+  taperSweepDegrees: 16,
+  tongueRadialThickness: 18,
 });
 
 export const C_ARM_RIG_PRESETS: Readonly<

@@ -5,6 +5,19 @@ import { C_ARM_RIG_PRESETS } from "../../src/engine/geometry/cArmRigPresets";
 import type { CArmRigPreset } from "../../src/engine/geometry/geometryTypes";
 
 describe("neutral C-arm rig geometry", () => {
+  it("uses the approved thin-arc and flat-panel display proportions", () => {
+    const preset = C_ARM_RIG_PRESETS.isocentric;
+
+    expect(preset.sourceDetectorDistance).toBe(1000);
+    expect(preset.detectorWidth).toBe(220);
+    expect(preset.detectorHeight).toBe(220);
+    expect(preset.detectorBackingThickness).toBe(18);
+    expect(preset.arcRadialThickness).toBe(24);
+    expect(preset.arcDepth).toBe(20);
+    expect(preset.taperSweepDegrees).toBe(16);
+    expect(preset.tongueRadialThickness).toBe(18);
+  });
+
   it("provides deeply immutable isocentric and non-isocentric presets", () => {
     expect(Object.isFrozen(C_ARM_RIG_PRESETS)).toBe(true);
     expect(Object.isFrozen(C_ARM_RIG_PRESETS.isocentric)).toBe(true);
