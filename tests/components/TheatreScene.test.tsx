@@ -411,7 +411,9 @@ describe("integrated C-arm renderer", () => {
       "C arc and detector",
       "Detector active face",
       "C arc highlight",
-      "X-ray source",
+      "Source root",
+      "Source collimator",
+      "Source aperture",
       "X-ray beam",
     ]);
     expect(
@@ -419,6 +421,13 @@ describe("integrated C-arm renderer", () => {
     ).toBe(resources.arcHighlightGeometry);
     expect(hidden.nodes.map(({ name }) => name)).toEqual(
       visible.nodes.slice(0, -1).map(({ name }) => name),
+    );
+    ["Source root", "Source collimator", "Source aperture"].forEach(
+      (name) => {
+        expect(visible.nodes.find((node) => node.name === name)?.position).toEqual(
+          resources.local.source,
+        );
+      },
     );
 
     disposeCArmRigResources(resources);
@@ -476,7 +485,7 @@ describe("integrated C-arm renderer", () => {
       buildCArmGeometry(pose, preset).rigTransform,
     );
     expect(
-      model.nodes.find(({ name }) => name === "X-ray source")?.position,
+      model.nodes.find(({ name }) => name === "Source aperture")?.position,
     ).toEqual(resources.local.source);
 
     disposeCArmRigResources(resources);

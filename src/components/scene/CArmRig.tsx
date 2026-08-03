@@ -13,6 +13,12 @@ import {
   type IntegratedRigMesh,
 } from "../../engine/geometry/cArmRigMesh";
 import { C_ARM_RIG_PRESETS } from "../../engine/geometry/cArmRigPresets";
+import {
+  SOURCE_APERTURE_RADIUS,
+  SOURCE_BLOCK_SIZE,
+  SOURCE_ROOT_LENGTH,
+  deriveCArmSourceDisplay,
+} from "../../engine/geometry/cArmSourceDisplay";
 import { buildCArmGeometry } from "../../engine/geometry/cArmTransforms";
 import type {
   CArmGeometry,
@@ -122,7 +128,9 @@ export type CArmRigNodeName =
   | "C arc and detector"
   | "Detector active face"
   | "C arc highlight"
-  | "X-ray source"
+  | "Source root"
+  | "Source collimator"
+  | "Source aperture"
   | "X-ray beam";
 
 export interface CArmRigNodeModel {
@@ -233,6 +241,7 @@ export function createCArmRigRenderModel(
   }
 
   const geometry = buildCArmGeometry(pose, preset);
+  const sourceDisplay = deriveCArmSourceDisplay(resources.local);
   const nodes: CArmRigNodeModel[] = [
     {
       geometry: resources.integrated.geometry,
@@ -247,8 +256,16 @@ export function createCArmRigRenderModel(
       name: "C arc highlight",
     },
     {
-      name: "X-ray source",
-      position: resources.local.source,
+      name: "Source root",
+      position: sourceDisplay.aperturePosition,
+    },
+    {
+      name: "Source collimator",
+      position: sourceDisplay.aperturePosition,
+    },
+    {
+      name: "Source aperture",
+      position: sourceDisplay.aperturePosition,
     },
   ];
   if (showBeam) {
@@ -277,6 +294,10 @@ export function CArmRig({
   const showBeam = useSimulationStore((state) => state.showBeam);
   const preset = C_ARM_RIG_PRESETS[cArmMode];
   const resources = useCArmRigResources(preset);
+  const sourceDisplay = useMemo(
+    () => deriveCArmSourceDisplay(resources.local),
+    [resources.local],
+  );
   const model = useMemo(
     () => createCArmRigRenderModel(cArmPose, preset, resources, showBeam),
     [cArmPose, preset, resources, showBeam],
@@ -316,15 +337,40 @@ export function CArmRig({
           <lineBasicMaterial color="#72b5d2" transparent opacity={0.48} />
         </line>
 
-        <mesh name="X-ray source" position={resources.local.source}>
-          <sphereGeometry args={[14, 24, 16]} />
-          <meshStandardMaterial
-            color="#ffb14a"
-            emissive="#8b3f0c"
-            emissiveIntensity={0.7}
-            roughness={0.36}
-          />
-        </mesh>
+        <group name="X-ray source" position={sourceDisplay.aperturePosition}>
+          <mesh
+            name="Source root"
+            position={[
+              sourceDisplay.rootPosition[0] -
+                sourceDisplay.aperturePosition[0],
+              0,
+              0,
+            ]}
+            rotation={[0, 0, Math.PI / 2]}
+          >
+            <cylinderGeometry args={[20, 14, SOURCE_ROOT_LENGTH, 4]} />
+            <meshStandardMaterial {...C_ARM_INTEGRATED_MATERIAL} />
+          </mesh>
+          <mesh
+            name="Source collimator"
+            position={[0, -SOURCE_BLOCK_SIZE[1] / 2, 0]}
+          >
+            <boxGeometry args={SOURCE_BLOCK_SIZE} />
+            <meshStandardMaterial
+              color="#315f78"
+              metalness={0.16}
+              roughness={0.64}
+            />
+          </mesh>
+          <mesh
+            name="Source aperture"
+            position={[0, 0.35, 0]}
+            rotation={[-Math.PI / 2, 0, 0]}
+          >
+            <circleGeometry args={[SOURCE_APERTURE_RADIUS, 24]} />
+            <meshBasicMaterial color="#ffb14a" side={DoubleSide} />
+          </mesh>
+        </group>
 
         {showBeam ? (
           <mesh name="X-ray beam">
