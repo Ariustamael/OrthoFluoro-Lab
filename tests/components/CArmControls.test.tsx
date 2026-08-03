@@ -158,7 +158,8 @@ describe("CArmControls", () => {
     const expectedGroups = [
       {
         controls: ["Cranial/caudal angle", "Orbit angle"],
-        name: "Floating orbit and tilt handle",
+        cueName: "Orbit and tilt cue",
+        legend: "Orbit and tilt",
       },
       {
         controls: [
@@ -166,16 +167,19 @@ describe("CArmControls", () => {
           "Vertical translation value",
           "Longitudinal translation value",
         ],
-        name: "Translation handle",
+        cueName: "Translation cue",
+        legend: "Position",
       },
       {
         controls: ["Swivel angle"],
-        name: "Swivel ring",
+        cueName: "Wig-wag cue",
+        legend: "Wig-wag / swivel",
       },
     ] as const;
 
-    expectedGroups.forEach(({ controls, name }) => {
-      const group = screen.getByRole("group", { name });
+    expectedGroups.forEach(({ controls, cueName, legend }) => {
+      expect(screen.getByText(legend, { selector: "legend" })).toBeVisible();
+      const group = screen.getByRole("group", { name: cueName });
       expect(group).toBeVisible();
       expect(within(group).getAllByRole("spinbutton")).toHaveLength(
         controls.length,

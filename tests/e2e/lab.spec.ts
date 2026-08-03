@@ -71,16 +71,16 @@ test("@desktop learner completes the linked C-arm simulator journey", async ({
   await moveCArm.click();
   await expect(moveCArm).toHaveAttribute("aria-pressed", "true");
   const companionSemantics = [
-    ["Floating orbit and tilt handle", ["Orbit angle", "Cranial/caudal angle"]],
+    ["Orbit and tilt cue", ["Orbit angle", "Cranial/caudal angle"]],
     [
-      "Translation handle",
+      "Translation cue",
       [
         "Lateral translation value",
         "Vertical translation value",
         "Longitudinal translation value",
       ],
     ],
-    ["Swivel ring", ["Swivel angle"]],
+    ["Wig-wag cue", ["Swivel angle"]],
   ] as const;
   for (const [manipulatorName, controlLabels] of companionSemantics) {
     await test.step(`${manipulatorName} is exposed with its companion controls`, async () => {
@@ -107,6 +107,27 @@ test("@desktop learner completes the linked C-arm simulator journey", async ({
       "0",
     );
   }
+});
+
+test("@desktop geometry review exposes the three reference views", async ({
+  page,
+}) => {
+  await page.goto("/lab/c-arm-review");
+  await expect(
+    page.getByRole("heading", { level: 1, name: "C-arm geometry review" }),
+  ).toBeVisible();
+  for (const name of ["Side", "Detector-facing", "Oblique"]) {
+    const button = page.getByRole("button", { name });
+    await button.click();
+    await expect(button).toHaveAttribute("aria-pressed", "true");
+  }
+
+  const beamToggle = page.getByRole("button", { name: "Beam off" });
+  await beamToggle.click();
+  await expect(page.getByRole("button", { name: "Beam on" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
 });
 
 test("@desktop production shell remains usable offline", async ({

@@ -84,16 +84,19 @@ const CONTROLS: readonly ControlDefinition[] = [
 
 const CONTROL_GROUPS = [
   {
+    ariaLabel: "Translation cue",
     controls: CONTROLS.slice(0, 3),
-    legend: "Translation handle",
+    legend: "Position",
   },
   {
+    ariaLabel: "Wig-wag cue",
     controls: CONTROLS.slice(3, 4),
-    legend: "Swivel ring",
+    legend: "Wig-wag / swivel",
   },
   {
+    ariaLabel: "Orbit and tilt cue",
     controls: CONTROLS.slice(4),
-    legend: "Floating orbit and tilt handle",
+    legend: "Orbit and tilt",
   },
 ] as const;
 
@@ -262,8 +265,12 @@ export function CArmControls() {
       </dl>
 
       <div className="c-arm-controls__parameters">
-        {CONTROL_GROUPS.map(({ controls, legend }) => (
-          <fieldset className="c-arm-controls__parameter-group" key={legend}>
+        {CONTROL_GROUPS.map(({ ariaLabel, controls, legend }) => (
+          <fieldset
+            aria-label={ariaLabel}
+            className="c-arm-controls__parameter-group"
+            key={legend}
+          >
             <legend>{legend}</legend>
             <div className="c-arm-controls__parameter-fields">
               {controls.map((control) => {
