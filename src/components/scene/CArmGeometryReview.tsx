@@ -37,20 +37,21 @@ interface CArmGeometryReviewProps {
 
 export function CArmGeometryReview({ view }: CArmGeometryReviewProps) {
   return (
-    <Canvas
-      camera={{ far: 8000, fov: 42, near: 1, position: reviewCamera(view).position }}
-      className="c-arm-review__canvas"
-    >
-      <ReviewCamera view={view} />
-      <color args={["#07131f"]} attach="background" />
-      <ambientLight intensity={0.75} />
-      <directionalLight intensity={1.6} position={[700, 1000, 600]} />
-      <CArmRig
-        modeOverride="isocentric"
-        poseOverride={REFERENCE_C_ARM_POSE}
-        showBeamOverride={false}
-        showManipulators={false}
-      />
-    </Canvas>
+    <div className="c-arm-review__canvas">
+      <Canvas
+        camera={{ far: 8000, fov: 42, near: 1, position: reviewCamera(view).position }}
+      >
+        <ReviewCamera view={view} />
+        <color args={["#07131f"]} attach="background" />
+        <ambientLight intensity={0.75} />
+        <directionalLight intensity={1.6} position={[700, 1000, 600]} />
+        <CArmRig
+          modeOverride="isocentric"
+          poseOverride={REFERENCE_C_ARM_POSE}
+          showBeamOverride={false}
+          showManipulators={false}
+        />
+      </Canvas>
+    </div>
   );
 }

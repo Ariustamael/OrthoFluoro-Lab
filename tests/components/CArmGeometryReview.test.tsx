@@ -1,10 +1,19 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { render, screen } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import {
+  CArmGeometryReview,
   C_ARM_REVIEW_CAMERAS,
   reviewCamera,
 } from "../../src/components/scene/CArmGeometryReview";
+
+vi.mock("@react-three/fiber", () => ({
+  Canvas: ({ className }: { className?: string }) => (
+    <div className={className} data-testid="r3f-canvas" />
+  ),
+  useThree: vi.fn(),
+}));
 
 const appCss = readFileSync(join(process.cwd(), "src/styles/app.css"), "utf8");
 
@@ -37,5 +46,17 @@ describe("C-arm geometry review cameras", () => {
     expect(canvasRule?.groups?.declarations).toMatch(
       /(?:^|\r?\n)\s*(?:block-size|height)\s*:/,
     );
+  });
+
+  it("contains the R3F canvas surface inside the sized review canvas container", () => {
+    render(<CArmGeometryReview view="side" />);
+
+    const reviewCanvasContainer = document.querySelector(
+      ".c-arm-review__canvas",
+    );
+    const canvasSurface = screen.getByTestId("r3f-canvas");
+
+    expect(reviewCanvasContainer).not.toBe(canvasSurface);
+    expect(reviewCanvasContainer).toContainElement(canvasSurface);
   });
 });
