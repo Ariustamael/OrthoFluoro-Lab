@@ -123,6 +123,10 @@ function isEffectivelyVisible(mesh: Mesh, root: Scene): boolean {
 }
 
 export class LayeredThicknessProjectionRenderer implements ProjectionRenderer<AnatomyProjectionInput> {
+  get contextCanvas(): HTMLCanvasElement {
+    return this.canvas;
+  }
+
   readonly accumulationContract = Object.freeze({
     backSurfaceSign: 1 as const,
     blending: "additive" as const,

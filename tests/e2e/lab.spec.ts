@@ -18,6 +18,17 @@ async function poseValues(page: Page): Promise<string[]> {
   );
 }
 
+async function projectionImageSource(page: Page): Promise<string> {
+  const image = page
+    .getByRole("region", { name: "Simulated X-ray view" })
+    .locator("img.projection-view__surface");
+  await expect(image).toBeVisible();
+  const source = await image.getAttribute("src");
+  expect(source).toMatch(/^data:image\/(png|svg\+xml)/);
+  expect(source!.length).toBeGreaterThan(100);
+  return source!;
+}
+
 test.beforeEach(async ({ page }) => {
   const errors: string[] = [];
   page.on("console", (message) => {
@@ -43,12 +54,33 @@ test("@desktop learner completes the linked C-arm simulator journey", async ({
     page.getByRole("region", { name: "Simulated X-ray view" }),
   ).toBeVisible();
 
+  const projectionRegion = page.getByRole("region", {
+    name: "Simulated X-ray view",
+  });
+  await expect(projectionRegion).toHaveAttribute(
+    "data-projection-strategy",
+    /^(layered-mesh-thickness|mesh-silhouette)$/,
+  );
+  if (
+    (await projectionRegion.getAttribute("data-projection-strategy")) ===
+    "mesh-silhouette"
+  ) {
+    await expect(
+      page.getByRole("status", { name: "Projection method" }),
+    ).toContainText("Simplified silhouette projection");
+  }
+  const initialProjection = await projectionImageSource(page);
+
   const orbit = page.getByRole("spinbutton", { name: "Orbit angle" });
   const projectionStatus = page.getByRole("status", {
     name: "Projection status",
   });
   await orbit.fill("30");
   await orbit.press("Enter");
+  await expect
+    .poll(() => projectionImageSource(page))
+    .not.toBe(initialProjection);
+  const orbitProjection = await projectionImageSource(page);
   await expect(projectionStatus).toContainText("Orbit 30.0°");
 
   const beamToggle = page.getByRole("checkbox", { name: "Show X-ray beam" });
@@ -113,10 +145,17 @@ test("@desktop learner completes the linked C-arm simulator journey", async ({
   await expect(anatomyDisclosure).toHaveAttribute("aria-expanded", "true");
   const anatomy = page.getByRole("group", { name: "Anatomy" });
   await anatomy.getByRole("radio", { name: "Left leg only" }).check();
+  await expect
+    .poll(() => projectionImageSource(page))
+    .not.toBe(orbitProjection);
+  const singleLegProjection = await projectionImageSource(page);
   const leftRotation = anatomy.getByRole("slider", {
     name: "Left leg internal or external rotation",
   });
   await leftRotation.fill("30");
+  await expect
+    .poll(() => projectionImageSource(page))
+    .not.toBe(singleLegProjection);
   await leftRotation.press("ArrowRight");
   await expect(leftRotation).toHaveValue("31");
   await leftRotation.press("ArrowLeft");
@@ -149,6 +188,26 @@ test("@desktop learner completes the linked C-arm simulator journey", async ({
       "0",
     );
   }
+});
+
+test("@desktop detector distinguishes AP, oblique, and lateral geometry", async ({
+  page,
+}) => {
+  await page.getByRole("button", { name: "AP view" }).click();
+  const apProjection = await projectionImageSource(page);
+
+  const orbit = page.getByRole("spinbutton", { name: "Orbit angle" });
+  await orbit.fill("135");
+  await orbit.press("Enter");
+  await expect.poll(() => projectionImageSource(page)).not.toBe(apProjection);
+  const obliqueProjection = await projectionImageSource(page);
+
+  await page.getByRole("button", { name: "Lateral view" }).click();
+  await expect
+    .poll(() => projectionImageSource(page))
+    .not.toBe(obliqueProjection);
+  const lateralProjection = await projectionImageSource(page);
+  expect(lateralProjection).not.toBe(apProjection);
 });
 
 test("@desktop geometry review exposes the three reference views", async ({

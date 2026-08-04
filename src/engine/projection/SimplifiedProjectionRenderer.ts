@@ -1,12 +1,8 @@
-import { Euler, MathUtils, Quaternion, Vector3 } from "three";
+import { Quaternion, Vector3 } from "three";
 import { projectPointToDetector } from "../geometry/projectionMath";
+import type { DetectorPoint, Vec3 } from "../geometry/geometryTypes";
 import type {
-  DetectorPoint,
-  ObjectPose,
-  Vec3,
-} from "../geometry/geometryTypes";
-import type {
-  ProjectionInput,
+  ProjectionFrameInput,
   ProjectionOutput,
   ProjectionRenderer,
 } from "./rendererTypes";
@@ -24,17 +20,10 @@ interface ObjectTransform {
 const toTuple = (vector: Vector3): Vec3 =>
   [vector.x, vector.y, vector.z] as const;
 
-function buildObjectTransform(objectPose: ObjectPose): ObjectTransform {
-  const [x, y, z] = objectPose.rotationDegrees;
+function buildObjectTransform(): ObjectTransform {
   return {
-    position: new Vector3(...objectPose.position),
-    rotation: new Quaternion().setFromEuler(
-      new Euler(
-        MathUtils.degToRad(x),
-        MathUtils.degToRad(y),
-        MathUtils.degToRad(z),
-      ),
-    ),
+    position: new Vector3(),
+    rotation: new Quaternion(),
   };
 }
 
@@ -61,7 +50,7 @@ function detectorPointToPixel(
 
 function projectedLocalPoint(
   local: Vec3,
-  input: ProjectionInput,
+  input: ProjectionFrameInput,
   transform: ObjectTransform,
   width: number,
   height: number,
@@ -102,7 +91,7 @@ function projectionLine(
 function projectedCrossSectionDiameter(
   center: Vec3,
   radius: number,
-  input: ProjectionInput,
+  input: ProjectionFrameInput,
   transform: ObjectTransform,
   width: number,
   height: number,
@@ -146,14 +135,14 @@ function detectorDetailLines(width: number, height: number): string {
   }).join("");
 }
 
-function createSimplifiedSvg(input: ProjectionInput): {
+function createSimplifiedSvg(input: ProjectionFrameInput): {
   svg: string;
   width: number;
   height: number;
 } {
   const width = Math.max(1, Math.round(input.width));
   const height = Math.max(1, Math.round(input.height));
-  const transform = buildObjectTransform(input.objectPose);
+  const transform = buildObjectTransform();
   const point = (local: Vec3) =>
     projectedLocalPoint(local, input, transform, width, height);
 
@@ -202,10 +191,10 @@ function createSimplifiedSvg(input: ProjectionInput): {
   return { height, svg, width };
 }
 
-export class SimplifiedProjectionRenderer implements ProjectionRenderer {
+export class SimplifiedProjectionRenderer implements ProjectionRenderer<ProjectionFrameInput> {
   private disposed = false;
 
-  async render(input: ProjectionInput): Promise<ProjectionOutput> {
+  async render(input: ProjectionFrameInput): Promise<ProjectionOutput> {
     if (this.disposed) {
       throw new Error("Cannot render with a disposed projection renderer");
     }

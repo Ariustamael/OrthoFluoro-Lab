@@ -29,7 +29,6 @@ import {
   type CArmPose,
   type DetectorPlane,
   type DetectorPoint,
-  type ObjectPose,
 } from "../../src/engine/geometry/geometryTypes";
 import { projectPointToDetector } from "../../src/engine/geometry/projectionMath";
 
@@ -263,9 +262,7 @@ describe("authoritative C-arm world geometry", () => {
         geometry.rigTransform.quaternion[2],
       ),
     ).toBeLessThan(1);
-    expect(
-      Math.hypot(...geometry.rigTransform.quaternion),
-    ).toBeCloseTo(1, 8);
+    expect(Math.hypot(...geometry.rigTransform.quaternion)).toBeCloseTo(1, 8);
     expect(geometry.sourceDetectorDistance).toBe(1000);
     expect(geometry.detector).toMatchObject({ width: 220, height: 220 });
     expect(geometry.referenceCentre).toEqual(geometry.isocentre);
@@ -383,7 +380,6 @@ describe("anatomical reference views", () => {
 describe("geometry value-object contracts", () => {
   it("exposes readonly fields", () => {
     expectTypeOf<CArmPose>().branded.toEqualTypeOf<Readonly<CArmPose>>();
-    expectTypeOf<ObjectPose>().branded.toEqualTypeOf<Readonly<ObjectPose>>();
     expectTypeOf<DetectorPlane>().branded.toEqualTypeOf<
       Readonly<DetectorPlane>
     >();

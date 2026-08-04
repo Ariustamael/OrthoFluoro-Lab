@@ -19,6 +19,10 @@ import {
 } from "./projectionRendererSupport";
 
 export class MeshSilhouetteProjectionRenderer implements ProjectionRenderer<AnatomyProjectionInput> {
+  get contextCanvas(): HTMLCanvasElement {
+    return this.canvas;
+  }
+
   private readonly canvas: HTMLCanvasElement;
   private readonly renderer: ProjectionWebGLRenderer;
   private readonly silhouetteMaterial = new MeshBasicMaterial({

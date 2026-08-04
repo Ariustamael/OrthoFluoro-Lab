@@ -16,7 +16,6 @@ beforeEach(() => {
       rootRotationDegrees: [...REFERENCE_HIP_ANATOMY_POSE.rootRotationDegrees],
     },
     interactionMode: "inspect",
-    objectPose: { position: [0, 0, 0], rotationDegrees: [0, 0, 0] },
     quality: "medium",
     showBeam: true,
   });

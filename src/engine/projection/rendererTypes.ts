@@ -4,16 +4,12 @@ import type {
   HipAnatomyGroup,
   HipAnatomyPose,
 } from "../../anatomy/anatomyTypes";
-import type { CArmGeometry, ObjectPose } from "../geometry/geometryTypes";
+import type { CArmGeometry } from "../geometry/geometryTypes";
 
 export interface ProjectionFrameInput {
   readonly geometry: CArmGeometry;
   readonly width: number;
   readonly height: number;
-}
-
-export interface ProjectionInput extends ProjectionFrameInput {
-  readonly objectPose: ObjectPose;
 }
 
 export interface AnatomyProjectionResource {
@@ -54,8 +50,9 @@ export interface ProjectionMetadata {
 }
 
 export interface ProjectionRenderer<
-  TInput extends ProjectionFrameInput = ProjectionInput,
+  TInput extends ProjectionFrameInput = ProjectionFrameInput,
 > {
+  readonly contextCanvas?: HTMLCanvasElement;
   render(input: TInput): Promise<ProjectionOutput>;
   dispose(): void;
 }

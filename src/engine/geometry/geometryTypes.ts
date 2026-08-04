@@ -24,11 +24,6 @@ export interface CArmRigPreset {
   readonly mechanicalPivotOffset: Vec3;
 }
 
-export interface ObjectPose {
-  readonly position: Vec3;
-  readonly rotationDegrees: Vec3;
-}
-
 export interface DetectorPlane {
   readonly center: Vec3;
   readonly normal: Vec3;

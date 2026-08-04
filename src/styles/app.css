@@ -634,6 +634,17 @@ button:hover {
   color: var(--text-muted);
 }
 
+.projection-view__method-status {
+  color: color-mix(in srgb, var(--text-muted) 82%, transparent);
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+
+.projection-view__method-status strong {
+  color: var(--text-muted);
+  font-weight: 650;
+}
+
 .projection-view__detector {
   align-self: center;
   background: #020508;

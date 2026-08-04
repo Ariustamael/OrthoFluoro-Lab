@@ -14,7 +14,6 @@ import { useSimulationStore } from "../../src/state/simulationStore";
 beforeEach(() => {
   useSimulationStore.setState({
     cArmPose: { ...REFERENCE_C_ARM_POSE },
-    objectPose: { position: [0, 0, 0], rotationDegrees: [0, 0, 0] },
     hipAnatomyPose: {
       ...REFERENCE_HIP_ANATOMY_POSE,
       rootPosition: [...REFERENCE_HIP_ANATOMY_POSE.rootPosition],
@@ -137,7 +136,8 @@ describe("simulation store", () => {
   });
 
   it("updates rig display state and resets the complete geometry", () => {
-    useSimulationStore.getState().setObjectRotation([10, 20, 30]);
+    useSimulationStore.getState().setAnatomyVisibility("right-only");
+    useSimulationStore.getState().setSelectedHipRotation(30);
     useSimulationStore.getState().setCArmParameter("orbitDegrees", 25);
     useSimulationStore.getState().setCArmMode("non-isocentric");
     useSimulationStore.getState().setShowBeam(false);
@@ -146,10 +146,9 @@ describe("simulation store", () => {
     expect(useSimulationStore.getState().cArmPose).toEqual(
       REFERENCE_C_ARM_POSE,
     );
-    expect(useSimulationStore.getState().objectPose).toEqual({
-      position: [0, 0, 0],
-      rotationDegrees: [0, 0, 0],
-    });
+    expect(useSimulationStore.getState().hipAnatomyPose).toEqual(
+      REFERENCE_HIP_ANATOMY_POSE,
+    );
     expect(useSimulationStore.getState()).toMatchObject({
       cArmMode: "isocentric",
       showBeam: true,
@@ -390,18 +389,24 @@ describe("CArmControls", () => {
 
   it("preserves the positioned anatomy when applying C-arm view presets", async () => {
     const user = userEvent.setup();
-    const positionedObject = {
-      position: [25, -10, 40] as const,
-      rotationDegrees: [10, 20, 30] as const,
+    const positionedAnatomy = {
+      ...REFERENCE_HIP_ANATOMY_POSE,
+      leftHipRotationDegrees: 22,
+      rootPosition: [25, -10, 40] as const,
+      rootRotationDegrees: [10, 20, 30] as const,
     };
-    useSimulationStore.setState({ objectPose: positionedObject });
+    useSimulationStore.setState({ hipAnatomyPose: positionedAnatomy });
     render(<CArmControls />);
 
     await user.click(screen.getByRole("button", { name: "AP view" }));
-    expect(useSimulationStore.getState().objectPose).toEqual(positionedObject);
+    expect(useSimulationStore.getState().hipAnatomyPose).toEqual(
+      positionedAnatomy,
+    );
 
     await user.click(screen.getByRole("button", { name: "Lateral view" }));
-    expect(useSimulationStore.getState().objectPose).toEqual(positionedObject);
+    expect(useSimulationStore.getState().hipAnatomyPose).toEqual(
+      positionedAnatomy,
+    );
   });
 
   it("resets the six-DoF pose, rig mode, and beam visibility", async () => {

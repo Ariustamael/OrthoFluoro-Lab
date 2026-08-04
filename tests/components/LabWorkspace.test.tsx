@@ -26,7 +26,7 @@ import { buildCArmGeometry } from "../../src/engine/geometry/cArmTransforms";
 import { REFERENCE_C_ARM_POSE } from "../../src/engine/geometry/geometryTypes";
 import { SimplifiedProjectionRenderer } from "../../src/engine/projection/SimplifiedProjectionRenderer";
 import type {
-  ProjectionInput,
+  ProjectionFrameInput,
   ProjectionOutput,
   ProjectionRenderer,
 } from "../../src/engine/projection/rendererTypes";
@@ -95,6 +95,12 @@ vi.mock("../../src/anatomy/AnatomyAssetProvider", () => ({
   AnatomyAssetProvider: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="anatomy-asset-provider">{children}</div>
   ),
+  useAnatomyAsset: () => ({
+    error: new Error("Fixture anatomy unavailable"),
+    resource: null,
+    retry: vi.fn(),
+    status: "error",
+  }),
 }));
 
 vi.mock(
@@ -113,7 +119,6 @@ beforeEach(() => {
     cArmPose: { ...REFERENCE_C_ARM_POSE },
     cArmMode: "isocentric",
     showBeam: true,
-    objectPose: { position: [0, 0, 0], rotationDegrees: [0, 0, 0] },
     interactionMode: "inspect",
     quality: "medium",
   });
@@ -516,10 +521,9 @@ describe("detector rendering contracts", () => {
 });
 
 describe("replaceable projection renderer", () => {
-  const projectionInput: ProjectionInput = {
+  const projectionInput: ProjectionFrameInput = {
     geometry: buildCArmGeometry(REFERENCE_C_ARM_POSE),
     height: 400,
-    objectPose: { position: [0, 0, 0], rotationDegrees: [0, 0, 0] },
     width: 400,
   };
 
@@ -578,22 +582,16 @@ describe("replaceable projection renderer", () => {
     );
   });
 
-  it("changes the detector artifact with geometry and object pose", async () => {
+  it("changes the detector artifact with authoritative C-arm geometry", async () => {
     const renderer = new SimplifiedProjectionRenderer();
     const reference = await renderer.render(projectionInput);
-    const rotated = await renderer.render({
-      ...projectionInput,
-      objectPose: {
-        ...projectionInput.objectPose,
-        rotationDegrees: [0, 30, 0],
-      },
-    });
     const translated = await renderer.render({
       ...projectionInput,
-      objectPose: {
-        ...projectionInput.objectPose,
-        position: [35, 0, 20],
-      },
+      geometry: buildCArmGeometry({
+        ...REFERENCE_C_ARM_POSE,
+        translationX: 35,
+        translationZ: 20,
+      }),
     });
     const magnified = await renderer.render({
       ...projectionInput,
@@ -603,7 +601,6 @@ describe("replaceable projection renderer", () => {
       }),
     });
 
-    expect(rotated.artifact.dataUrl).not.toBe(reference.artifact.dataUrl);
     expect(translated.artifact.dataUrl).not.toBe(reference.artifact.dataUrl);
     expect(magnified.artifact.dataUrl).not.toBe(reference.artifact.dataUrl);
     const decodedReference = decodeSvg(reference);
@@ -698,7 +695,6 @@ describe("replaceable projection renderer", () => {
             REFERENCE_C_ARM_POSE,
             C_ARM_RIG_PRESETS.isocentric,
           ),
-          objectPose: { position: [0, 0, 0], rotationDegrees: [0, 0, 0] },
         }),
       );
     });
@@ -756,14 +752,12 @@ describe("replaceable projection renderer", () => {
           C_ARM_RIG_PRESETS["non-isocentric"],
         ),
         height: 400,
-        objectPose: { position: [0, 0, 0], rotationDegrees: [0, 0, 0] },
         width: 400,
       });
     });
     expect(renderer.render).toHaveBeenNthCalledWith(1, {
       geometry: buildCArmGeometry(positionedPose, C_ARM_RIG_PRESETS.isocentric),
       height: 400,
-      objectPose: { position: [0, 0, 0], rotationDegrees: [0, 0, 0] },
       width: 400,
     });
   });
@@ -842,9 +836,7 @@ describe("replaceable projection renderer", () => {
     );
 
     act(() => {
-      useSimulationStore.setState({
-        objectPose: { position: [10, 0, 0], rotationDegrees: [0, 0, 0] },
-      });
+      useSimulationStore.getState().setCArmParameter("translationX", 10);
     });
     await waitFor(() => expect(renderer.render).toHaveBeenCalledTimes(2));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
@@ -877,9 +869,7 @@ describe("replaceable projection renderer", () => {
     await waitFor(() => expect(renderer.render).toHaveBeenCalledOnce());
 
     act(() => {
-      useSimulationStore.setState({
-        objectPose: { position: [15, 0, 0], rotationDegrees: [0, 0, 0] },
-      });
+      useSimulationStore.getState().setCArmParameter("translationX", 15);
     });
     await waitFor(() => expect(renderer.render).toHaveBeenCalledTimes(2));
     await act(async () =>

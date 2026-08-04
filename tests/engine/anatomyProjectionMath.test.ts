@@ -4,7 +4,6 @@ import type {
   AnatomyProjectionInput,
   AnatomyProjectionResource,
   ProjectionFrameInput,
-  ProjectionInput,
   ProjectionRenderer,
 } from "../../src/engine/projection/rendererTypes";
 import {
@@ -43,10 +42,11 @@ function expectTupleClose(
 }
 
 describe("anatomy projection contracts", () => {
-  it("extends the frame input without removing legacy objectPose", () => {
-    expectTypeOf<ProjectionInput>().toExtend<ProjectionFrameInput>();
+  it("extends the generic frame input with anatomy-only projection state", () => {
     expectTypeOf<AnatomyProjectionInput>().toExtend<ProjectionFrameInput>();
-    expectTypeOf<ProjectionInput["objectPose"]>().not.toBeNever();
+    expectTypeOf<ProjectionRenderer>().toEqualTypeOf<
+      ProjectionRenderer<ProjectionFrameInput>
+    >();
     expectTypeOf<ProjectionRenderer<AnatomyProjectionInput>>().toHaveProperty(
       "render",
     );

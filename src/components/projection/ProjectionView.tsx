@@ -1,13 +1,26 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useAnatomyAsset } from "../../anatomy/AnatomyAssetProvider";
 import { C_ARM_RIG_PRESETS } from "../../engine/geometry/cArmRigPresets";
 import { buildCArmGeometry } from "../../engine/geometry/cArmTransforms";
 import { magnitude, subtract } from "../../engine/geometry/coordinateSystems";
 import { magnification } from "../../engine/geometry/projectionMath";
+import {
+  createLayeredThicknessProjectionRenderer,
+  LayeredProjectionCapabilityError,
+} from "../../engine/projection/LayeredThicknessProjectionRenderer";
+import { createMeshSilhouetteProjectionRenderer } from "../../engine/projection/MeshSilhouetteProjectionRenderer";
+import {
+  selectProjectionCapability,
+  type ProjectionCapability,
+  type ProjectionCapabilityReason,
+  type ProjectionWebGLContext,
+} from "../../engine/projection/projectionCapabilities";
 import { createSimplifiedProjectionRenderer } from "../../engine/projection/SimplifiedProjectionRenderer";
 import type {
-  ProjectionInput,
+  AnatomyProjectionInput,
+  ProjectionFrameInput,
   ProjectionOutput,
   ProjectionRenderer,
 } from "../../engine/projection/rendererTypes";
@@ -137,8 +150,48 @@ function DetectorOverlay({
   );
 }
 
+type AnatomyRenderer = ProjectionRenderer<AnatomyProjectionInput>;
+type FrameRenderer = ProjectionRenderer<ProjectionFrameInput>;
+type RendererStrategy = "layered" | "silhouette" | "simplified";
+
+export interface ProjectionRendererFactories {
+  readonly createLayered: () => AnatomyRenderer;
+  readonly createSilhouette: () => AnatomyRenderer;
+  readonly createSimplified: () => FrameRenderer;
+}
+
+const DEFAULT_RENDERER_FACTORIES: ProjectionRendererFactories = {
+  createLayered: createLayeredThicknessProjectionRenderer,
+  createSilhouette: createMeshSilhouetteProjectionRenderer,
+  createSimplified: createSimplifiedProjectionRenderer,
+};
+
+export function detectBrowserProjectionCapability(): ProjectionCapability {
+  if (typeof document === "undefined") {
+    return {
+      precision: null,
+      reason: "context-unavailable",
+      strategy: "mesh-silhouette",
+    };
+  }
+  try {
+    const context = document
+      .createElement("canvas")
+      .getContext("webgl2") as ProjectionWebGLContext | null;
+    return selectProjectionCapability(context);
+  } catch {
+    return {
+      precision: null,
+      reason: "context-unavailable",
+      strategy: "mesh-silhouette",
+    };
+  }
+}
+
 export interface ProjectionViewProps {
-  createRenderer?: () => ProjectionRenderer;
+  readonly createRenderer?: () => FrameRenderer;
+  readonly detectCapability?: () => ProjectionCapability;
+  readonly rendererFactories?: ProjectionRendererFactories;
 }
 
 type ProjectionState =
@@ -146,12 +199,89 @@ type ProjectionState =
   | { readonly status: "ready"; readonly output: ProjectionOutput }
   | { readonly status: "error"; readonly message: string };
 
+interface ActiveRenderer {
+  readonly renderer: AnatomyRenderer | FrameRenderer;
+  readonly strategy: RendererStrategy;
+  readonly reason: string | null;
+}
+
+interface ForcedSilhouette {
+  readonly reason: string;
+}
+
+const CAPABILITY_REASON_LABELS: Readonly<
+  Record<ProjectionCapabilityReason, string>
+> = {
+  "context-unavailable": "WebGL context unavailable",
+  "float-color-buffer-unavailable": "float color buffer unavailable",
+  "webgl2-required": "WebGL 2 required",
+};
+
+function failureMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Detector rendering failed";
+}
+
+function disposeRendererOnce(
+  activeRenderer: ActiveRenderer,
+  disposedRenderers: WeakSet<object>,
+): void {
+  if (disposedRenderers.has(activeRenderer.renderer)) return;
+  disposedRenderers.add(activeRenderer.renderer);
+  activeRenderer.renderer.dispose();
+}
+
+function renderProjection(
+  activeRenderer: ActiveRenderer,
+  frameInput: ProjectionFrameInput,
+  anatomyInput: AnatomyProjectionInput | null,
+): Promise<ProjectionOutput> {
+  if (activeRenderer.strategy === "simplified") {
+    return (activeRenderer.renderer as FrameRenderer).render(frameInput);
+  }
+  if (anatomyInput === null) {
+    return Promise.reject(
+      new Error("Anatomy is unavailable for mesh projection"),
+    );
+  }
+  return (activeRenderer.renderer as AnatomyRenderer).render(anatomyInput);
+}
+
+function projectionMethodStatus(
+  activeRenderer: ActiveRenderer | null,
+  output: ProjectionOutput | null,
+): { readonly label: string; readonly reason: string } | null {
+  const partialCount = output?.metadata?.partialSilhouetteMeshCount ?? 0;
+  if (partialCount > 0) {
+    return {
+      label: "Simplified silhouette projection",
+      reason: `${partialCount} open ${partialCount === 1 ? "mesh uses" : "meshes use"} silhouette rendering`,
+    };
+  }
+  if (activeRenderer?.strategy === "silhouette") {
+    return {
+      label: "Simplified silhouette projection",
+      reason: activeRenderer.reason ?? "layered thickness unavailable",
+    };
+  }
+  if (activeRenderer?.strategy === "simplified") {
+    return {
+      label: "Anatomy unavailable",
+      reason: "procedural projection shown",
+    };
+  }
+  return null;
+}
+
 export function ProjectionView({
-  createRenderer = createSimplifiedProjectionRenderer,
+  createRenderer,
+  detectCapability = detectBrowserProjectionCapability,
+  rendererFactories = DEFAULT_RENDERER_FACTORIES,
 }: ProjectionViewProps) {
+  const anatomy = useAnatomyAsset();
+  const retryAnatomy = anatomy.retry;
   const cArmPose = useSimulationStore((state) => state.cArmPose);
   const cArmMode = useSimulationStore((state) => state.cArmMode);
-  const objectPose = useSimulationStore((state) => state.objectPose);
+  const hipAnatomyPose = useSimulationStore((state) => state.hipAnatomyPose);
   const quality = useSimulationStore((state) => state.quality);
   const isInteracting = usePointerInteraction();
   const preset = C_ARM_RIG_PRESETS[cArmMode];
@@ -161,23 +291,73 @@ export function ProjectionView({
   );
   const renderDimensions = detectorRenderDimensions(quality, isInteracting);
   const displayDimensions = detectorDisplayDimensions();
-  const rendererRef = useRef<ProjectionRenderer | null>(null);
+  const rendererRef = useRef<ActiveRenderer | null>(null);
+  const disposedRenderersRef = useRef(new WeakSet<object>());
   const requestIdRef = useRef(0);
-  const [renderer, setRenderer] = useState<ProjectionRenderer | null>(null);
+  const contextLostRef = useRef(false);
+  const [activeRenderer, setActiveRenderer] = useState<ActiveRenderer | null>(
+    null,
+  );
+  const [forcedSilhouette, setForcedSilhouette] =
+    useState<ForcedSilhouette | null>(null);
+  const [recoveryRevision, setRecoveryRevision] = useState(0);
   const [projectionState, setProjectionState] = useState<ProjectionState>({
     status: "pending",
   });
-  const projectionInput = useMemo<ProjectionInput>(
+  const effectiveFactories = useMemo<ProjectionRendererFactories>(
+    () =>
+      createRenderer === undefined
+        ? rendererFactories
+        : { ...rendererFactories, createSimplified: createRenderer },
+    [createRenderer, rendererFactories],
+  );
+  const capability = useMemo(() => {
+    void recoveryRevision;
+    return anatomy.status === "ready" && anatomy.resource !== null
+      ? detectCapability()
+      : null;
+  }, [anatomy.resource, anatomy.status, detectCapability, recoveryRevision]);
+  const desiredStrategy: RendererStrategy | null =
+    anatomy.status === "error"
+      ? "simplified"
+      : anatomy.status !== "ready" || anatomy.resource === null
+        ? null
+        : forcedSilhouette !== null ||
+            capability?.strategy === "mesh-silhouette"
+          ? "silhouette"
+          : "layered";
+  const desiredReason =
+    desiredStrategy === "silhouette"
+      ? forcedSilhouette !== null
+        ? forcedSilhouette.reason
+        : capability?.strategy === "mesh-silhouette"
+          ? CAPABILITY_REASON_LABELS[capability.reason]
+          : null
+      : desiredStrategy === "simplified"
+        ? (anatomy.error?.message ?? "anatomy unavailable")
+        : null;
+
+  const frameInput = useMemo<ProjectionFrameInput>(
     () => ({
       geometry,
       height: renderDimensions.height,
-      objectPose,
       width: renderDimensions.width,
     }),
-    [geometry, objectPose, renderDimensions.height, renderDimensions.width],
+    [geometry, renderDimensions.height, renderDimensions.width],
+  );
+  const anatomyInput = useMemo<AnatomyProjectionInput | null>(
+    () =>
+      anatomy.status === "ready" && anatomy.resource !== null
+        ? {
+            ...frameInput,
+            anatomy: anatomy.resource,
+            anatomyPose: hipAnatomyPose,
+          }
+        : null,
+    [anatomy.resource, anatomy.status, frameInput, hipAnatomyPose],
   );
   const sourceObjectDistance = magnitude(
-    subtract(objectPose.position, geometry.source),
+    subtract(geometry.isocentre, geometry.source),
   );
   const projectionMagnification = magnification(
     geometry.sourceDetectorDistance,
@@ -185,73 +365,181 @@ export function ProjectionView({
   );
 
   useEffect(() => {
-    let active = true;
-    const nextRenderer = createRenderer();
+    let mounted = true;
+    const disposedRenderers = disposedRenderersRef.current;
+    if (desiredStrategy === null) {
+      queueMicrotask(() => {
+        if (!mounted) return;
+        rendererRef.current = null;
+        setActiveRenderer(null);
+        setProjectionState({ status: "pending" });
+      });
+      return () => {
+        mounted = false;
+      };
+    }
+
+    let nextRenderer: ActiveRenderer;
+    try {
+      const renderer =
+        desiredStrategy === "layered"
+          ? effectiveFactories.createLayered()
+          : desiredStrategy === "silhouette"
+            ? effectiveFactories.createSilhouette()
+            : effectiveFactories.createSimplified();
+      nextRenderer = {
+        reason: desiredReason,
+        renderer,
+        strategy: desiredStrategy,
+      };
+    } catch (error: unknown) {
+      queueMicrotask(() => {
+        if (!mounted) return;
+        if (
+          desiredStrategy === "layered" &&
+          anatomy.status === "ready" &&
+          anatomy.resource !== null
+        ) {
+          setForcedSilhouette({
+            reason: failureMessage(error),
+          });
+        } else {
+          setProjectionState({
+            message: failureMessage(error),
+            status: "error",
+          });
+        }
+      });
+      return () => {
+        mounted = false;
+      };
+    }
+
     rendererRef.current = nextRenderer;
     queueMicrotask(() => {
-      if (active && rendererRef.current === nextRenderer) {
-        setProjectionState({ status: "pending" });
-        setRenderer(nextRenderer);
-      }
+      if (!mounted || rendererRef.current !== nextRenderer) return;
+      setProjectionState({ status: "pending" });
+      setActiveRenderer(nextRenderer);
     });
     return () => {
-      active = false;
+      mounted = false;
       requestIdRef.current += 1;
       if (rendererRef.current === nextRenderer) rendererRef.current = null;
-      nextRenderer.dispose();
+      disposeRendererOnce(nextRenderer, disposedRenderers);
     };
-  }, [createRenderer]);
+  }, [
+    anatomy.resource,
+    anatomy.status,
+    desiredReason,
+    desiredStrategy,
+    recoveryRevision,
+    effectiveFactories,
+  ]);
 
   useEffect(() => {
-    if (renderer === null || rendererRef.current !== renderer) return;
+    if (activeRenderer === null || rendererRef.current !== activeRenderer)
+      return;
+    const canvas = activeRenderer.renderer.contextCanvas;
+    if (canvas === undefined) return;
+    const handleContextLost = (event: Event) => {
+      event.preventDefault();
+      if (rendererRef.current !== activeRenderer) return;
+      contextLostRef.current = true;
+      requestIdRef.current += 1;
+      disposeRendererOnce(activeRenderer, disposedRenderersRef.current);
+      setProjectionState({ status: "pending" });
+    };
+    const handleContextRestored = () => {
+      if (rendererRef.current !== activeRenderer || !contextLostRef.current) {
+        return;
+      }
+      contextLostRef.current = false;
+      retryAnatomy();
+      setRecoveryRevision((revision) => revision + 1);
+    };
+    canvas.addEventListener("webglcontextlost", handleContextLost);
+    canvas.addEventListener("webglcontextrestored", handleContextRestored);
+    return () => {
+      canvas.removeEventListener("webglcontextlost", handleContextLost);
+      canvas.removeEventListener("webglcontextrestored", handleContextRestored);
+    };
+  }, [activeRenderer, retryAnatomy]);
+
+  useEffect(() => {
+    if (
+      activeRenderer === null ||
+      rendererRef.current !== activeRenderer ||
+      contextLostRef.current
+    ) {
+      return;
+    }
     let active = true;
     queueMicrotask(() => {
-      if (!active || rendererRef.current !== renderer) return;
+      if (
+        !active ||
+        rendererRef.current !== activeRenderer ||
+        contextLostRef.current
+      ) {
+        return;
+      }
       const requestId = requestIdRef.current + 1;
       requestIdRef.current = requestId;
       setProjectionState({ status: "pending" });
-      void renderer.render(projectionInput).then(
+      void renderProjection(activeRenderer, frameInput, anatomyInput).then(
         (output) => {
           if (
             active &&
             requestIdRef.current === requestId &&
-            rendererRef.current === renderer
+            rendererRef.current === activeRenderer &&
+            !contextLostRef.current
           ) {
             setProjectionState({ output, status: "ready" });
           }
         },
         (error: unknown) => {
           if (
-            active &&
-            requestIdRef.current === requestId &&
-            rendererRef.current === renderer
+            !active ||
+            requestIdRef.current !== requestId ||
+            rendererRef.current !== activeRenderer
           ) {
-            setProjectionState({
-              message:
-                error instanceof Error
-                  ? error.message
-                  : "Detector rendering failed",
-              status: "error",
-            });
+            return;
           }
+          if (activeRenderer.strategy === "layered" && anatomyInput !== null) {
+            const reason =
+              error instanceof LayeredProjectionCapabilityError
+                ? CAPABILITY_REASON_LABELS[error.capability.reason]
+                : `layered thickness failed: ${failureMessage(error)}`;
+            setForcedSilhouette({
+              reason,
+            });
+            return;
+          }
+          setProjectionState({
+            message: failureMessage(error),
+            status: "error",
+          });
         },
       );
     });
     return () => {
       active = false;
     };
-  }, [projectionInput, renderer]);
+  }, [activeRenderer, anatomyInput, frameInput]);
 
   const renderScale = effectiveDetectorRenderScale(quality, isInteracting);
   const projectionOutput =
     projectionState.status === "ready" ? projectionState.output : null;
   const description =
     projectionOutput?.description ?? "Preparing detector projection…";
+  const methodStatus = projectionMethodStatus(activeRenderer, projectionOutput);
 
   return (
     <section
       aria-labelledby="simulated-xray-heading"
       className="projection-view"
+      data-projection-precision={
+        projectionOutput?.metadata?.precision ?? undefined
+      }
       data-projection-strategy={projectionOutput?.strategyId}
       data-render-scale={renderScale}
     >
@@ -259,6 +547,16 @@ export function ProjectionView({
       <header className="projection-view__header">
         <h2 id="simulated-xray-heading">Simulated X-ray view</h2>
         <p className="projection-view__education-label">{description}</p>
+        {methodStatus === null ? null : (
+          <p
+            aria-label="Projection method"
+            className="projection-view__method-status"
+            role="status"
+          >
+            <strong>{methodStatus.label}</strong>
+            <span> · {methodStatus.reason}</span>
+          </p>
+        )}
       </header>
       <div
         aria-busy={projectionState.status === "pending"}
@@ -280,10 +578,10 @@ export function ProjectionView({
             {/* A strategy-owned data URL cannot use framework image optimization. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              alt={projectionOutput.description}
+              alt={projectionState.output.description}
               className="projection-view__surface"
               height={displayDimensions.height}
-              src={projectionOutput.artifact.dataUrl}
+              src={projectionState.output.artifact.dataUrl}
               style={{
                 blockSize: "100%",
                 inlineSize: "100%",
@@ -292,8 +590,8 @@ export function ProjectionView({
               width={displayDimensions.width}
             />
             <DetectorOverlay
-              artifactHeight={projectionOutput.artifact.height}
-              artifactWidth={projectionOutput.artifact.width}
+              artifactHeight={projectionState.output.artifact.height}
+              artifactWidth={projectionState.output.artifact.width}
             />
           </>
         )}

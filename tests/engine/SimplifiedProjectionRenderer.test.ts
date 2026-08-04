@@ -9,7 +9,6 @@ describe("SimplifiedProjectionRenderer", () => {
     const output = await renderer.render({
       geometry: buildCArmGeometry(REFERENCE_C_ARM_POSE),
       height: 64,
-      objectPose: { position: [0, 0, 0], rotationDegrees: [0, 0, 0] },
       width: 64,
     });
 

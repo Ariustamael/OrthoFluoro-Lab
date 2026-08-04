@@ -14,8 +14,6 @@ import {
   REFERENCE_C_ARM_POSE,
   type CArmKinematicMode,
   type CArmPose,
-  type ObjectPose,
-  type Vec3,
 } from "../engine/geometry/geometryTypes";
 
 export type InteractionMode = "inspect" | "move-carm";
@@ -25,7 +23,6 @@ export interface SimulationState {
   cArmPose: CArmPose;
   cArmMode: CArmKinematicMode;
   showBeam: boolean;
-  objectPose: ObjectPose;
   hipAnatomyPose: HipAnatomyPose;
   interactionMode: InteractionMode;
   quality: QualityPreset;
@@ -41,7 +38,6 @@ export interface SimulationState {
   ) => void;
   setCArmMode: (mode: CArmKinematicMode) => void;
   setShowBeam: (show: boolean) => void;
-  setObjectRotation: (rotationDegrees: Vec3) => void;
   setAnatomyVisibility: (visibility: AnatomyVisibility) => void;
   setSelectedAnatomySide: (side: AnatomySide) => void;
   setSelectedHipRotation: (degrees: number) => void;
@@ -50,11 +46,6 @@ export interface SimulationState {
   setQuality: (quality: QualityPreset) => void;
   resetGeometry: () => void;
 }
-
-const REFERENCE_OBJECT_POSE: Readonly<ObjectPose> = Object.freeze({
-  position: [0, 0, 0] as const,
-  rotationDegrees: [0, 0, 0] as const,
-});
 
 function createReferenceHipAnatomyPose(): HipAnatomyPose {
   return {
@@ -78,7 +69,6 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   cArmPose: { ...REFERENCE_C_ARM_POSE },
   cArmMode: "isocentric",
   showBeam: true,
-  objectPose: { ...REFERENCE_OBJECT_POSE },
   hipAnatomyPose: createReferenceHipAnatomyPose(),
   interactionMode: "inspect",
   quality: "medium",
@@ -105,14 +95,6 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   },
   setShowBeam: (showBeam) => {
     set({ showBeam });
-  },
-  setObjectRotation: (rotationDegrees) => {
-    set((state) => ({
-      objectPose: {
-        ...state.objectPose,
-        rotationDegrees: [...rotationDegrees] as Vec3,
-      },
-    }));
   },
   setAnatomyVisibility: (visibility) => {
     set((state) => ({
@@ -169,10 +151,6 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       cArmPose: { ...REFERENCE_C_ARM_POSE },
       cArmMode: "isocentric",
       showBeam: true,
-      objectPose: {
-        position: [...REFERENCE_OBJECT_POSE.position] as Vec3,
-        rotationDegrees: [...REFERENCE_OBJECT_POSE.rotationDegrees] as Vec3,
-      },
       hipAnatomyPose: createReferenceHipAnatomyPose(),
     });
   },
