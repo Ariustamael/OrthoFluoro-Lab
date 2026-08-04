@@ -1,4 +1,11 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rename as renamePathOnDisk,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
@@ -186,5 +193,101 @@ describe("staged anatomy publication", () => {
     expect(
       Object.values(promoted).every((bytes) => bytes.startsWith("staged:")),
     ).toBe(true);
+  });
+
+  it("restores both previous destinations when the second staged directory promotion fails", async () => {
+    const root = await temporaryRoot();
+    const destinationPublicRoot = join(root, "public");
+    const stagingRepositoryRoot = join(root, "staging");
+    const stagedPublicRoot = join(stagingRepositoryRoot, "public");
+    await writeAssetSet(destinationPublicRoot, "existing");
+    await writeAssetSet(stagedPublicRoot, "staged");
+    const before = await readAssetSet(destinationPublicRoot);
+    let stagedPromotionCount = 0;
+
+    const renamePath = async (source: string, destination: string) => {
+      if (source.startsWith(stagedPublicRoot)) {
+        stagedPromotionCount += 1;
+        if (stagedPromotionCount === 2) {
+          throw new Error("injected second-directory publication failure");
+        }
+      }
+      await renamePathOnDisk(source, destination);
+    };
+
+    await expect(
+      validateAndPromoteStagedAssetSet({
+        stagingRepositoryRoot,
+        destinationPublicRoot,
+        validateStagedRoot: async () => ({ errors: [] }),
+        renamePath,
+      }),
+    ).rejects.toThrow(/second-directory publication failure/i);
+
+    expect(stagedPromotionCount).toBe(2);
+    expect(await readAssetSet(destinationPublicRoot)).toEqual(before);
+  });
+
+  it("preserves an incomplete rollback backup and exposes both failures and its path", async () => {
+    const root = await temporaryRoot();
+    const destinationPublicRoot = join(root, "public");
+    const stagingRepositoryRoot = join(root, "staging");
+    const stagedPublicRoot = join(stagingRepositoryRoot, "public");
+    await writeAssetSet(destinationPublicRoot, "existing");
+    await writeAssetSet(stagedPublicRoot, "staged");
+    const publicationFailure = new Error("injected publication failure");
+    const restorationFailure = new Error(
+      "injected anatomy restoration failure",
+    );
+
+    const renamePath = async (source: string, destination: string) => {
+      if (
+        source === join(stagedPublicRoot, "draco") &&
+        destination === join(destinationPublicRoot, "draco")
+      ) {
+        throw publicationFailure;
+      }
+      if (
+        source.includes(".orthofluoro-anatomy-backup-") &&
+        source.endsWith("anatomy") &&
+        destination === join(destinationPublicRoot, "anatomy")
+      ) {
+        throw restorationFailure;
+      }
+      await renamePathOnDisk(source, destination);
+    };
+
+    let thrown: unknown;
+    try {
+      await validateAndPromoteStagedAssetSet({
+        stagingRepositoryRoot,
+        destinationPublicRoot,
+        validateStagedRoot: async () => ({ errors: [] }),
+        renamePath,
+      });
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toMatchObject({
+      publicationError: publicationFailure,
+      rollbackErrors: [restorationFailure],
+      backupRoot: expect.stringContaining(".orthofluoro-anatomy-backup-"),
+    });
+    expect((thrown as Error).message).toMatch(/publication failure/i);
+    expect((thrown as Error).message).toMatch(/restoration failure/i);
+    const backupRoot = (thrown as Error & { backupRoot: string }).backupRoot;
+    expect(
+      await readFile(
+        join(backupRoot, "anatomy", "open3dmodel-hip-lower-limbs.glb"),
+        "utf8",
+      ),
+    ).toBe("existing:anatomy/open3dmodel-hip-lower-limbs.glb");
+    expect(
+      await readFile(
+        join(destinationPublicRoot, "draco", "draco_decoder.wasm"),
+        "utf8",
+      ),
+    ).toBe("existing:draco/draco_decoder.wasm");
   });
 });

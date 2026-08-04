@@ -41,6 +41,13 @@ validator has a narrower trust boundary: it proves that current artifact bytes
 match the recorded first-build, second-build, and committed hashes, but it does
 not itself rerun generation.
 
+Publication keeps the previous `anatomy` and `draco` directories in a temporary
+backup until both staged directories are promoted. A failed publication rolls
+both directories back. If any restoration step also fails, the pipeline keeps
+the surviving backup instead of deleting recovery evidence and reports the
+original publication error, every rollback error, and the preserved backup
+path for manual recovery.
+
 The build retains bone meshes only, maps source metres and axes to application
 millimetres (`x` patient-left, `y` anterior, `z` headward), repairs winding,
 derives the missing left anatomy by reflection, replaces materials, removes T12

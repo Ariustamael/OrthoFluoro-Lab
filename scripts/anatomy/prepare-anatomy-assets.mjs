@@ -683,6 +683,7 @@ async function pathExists(path) {
 async function promoteStagedDirectories(
   stagedPublicRoot,
   destinationPublicRoot,
+  { renamePath = rename } = {},
 ) {
   await mkdir(destinationPublicRoot, { recursive: true });
   const backupRoot = await mkdtemp(
@@ -691,34 +692,72 @@ async function promoteStagedDirectories(
   const directoryNames = ["anatomy", "draco"];
   const backedUp = [];
   const promoted = [];
+  let backupCanBeRemoved = false;
   try {
     for (const name of directoryNames) {
       const destination = join(destinationPublicRoot, name);
       if (await pathExists(destination)) {
-        await rename(destination, join(backupRoot, name));
+        await renamePath(destination, join(backupRoot, name));
         backedUp.push(name);
       }
     }
     for (const name of directoryNames) {
-      await rename(
+      await renamePath(
         join(stagedPublicRoot, name),
         join(destinationPublicRoot, name),
       );
       promoted.push(name);
     }
-  } catch (error) {
-    for (const name of promoted.reverse()) {
-      await rm(join(destinationPublicRoot, name), {
-        recursive: true,
-        force: true,
+    backupCanBeRemoved = true;
+  } catch (publicationError) {
+    const rollbackErrors = [];
+    for (const name of [...promoted].reverse()) {
+      try {
+        await rm(join(destinationPublicRoot, name), {
+          recursive: true,
+          force: true,
+        });
+      } catch (error) {
+        rollbackErrors.push(error);
+      }
+    }
+    for (const name of [...backedUp].reverse()) {
+      try {
+        await renamePath(
+          join(backupRoot, name),
+          join(destinationPublicRoot, name),
+        );
+      } catch (error) {
+        rollbackErrors.push(error);
+      }
+    }
+    if (rollbackErrors.length) {
+      throw new AnatomyPublicationRollbackError({
+        publicationError,
+        rollbackErrors,
+        backupRoot,
       });
     }
-    for (const name of backedUp.reverse()) {
-      await rename(join(backupRoot, name), join(destinationPublicRoot, name));
-    }
-    throw error;
+    backupCanBeRemoved = true;
+    throw publicationError;
   } finally {
-    await rm(backupRoot, { recursive: true, force: true });
+    if (backupCanBeRemoved) {
+      await rm(backupRoot, { recursive: true, force: true });
+    }
+  }
+}
+
+export class AnatomyPublicationRollbackError extends AggregateError {
+  constructor({ publicationError, rollbackErrors, backupRoot }) {
+    super(
+      [publicationError, ...rollbackErrors],
+      `Anatomy publication failure: ${publicationError instanceof Error ? publicationError.message : String(publicationError)}. Rollback restoration failure: ${rollbackErrors.map((error) => (error instanceof Error ? error.message : String(error))).join("; ")}. Preserved backup: ${backupRoot}`,
+      { cause: publicationError },
+    );
+    this.name = "AnatomyPublicationRollbackError";
+    this.publicationError = publicationError;
+    this.rollbackErrors = rollbackErrors;
+    this.backupRoot = backupRoot;
   }
 }
 
@@ -727,6 +766,7 @@ export async function validateAndPromoteStagedAssetSet({
   destinationPublicRoot,
   validateStagedRoot = validateCommittedAnatomy,
   beforePromotion = async () => {},
+  renamePath = rename,
 }) {
   const report = await validateStagedRoot(stagingRepositoryRoot);
   if (!report || !Array.isArray(report.errors) || report.errors.length > 0) {
@@ -738,6 +778,7 @@ export async function validateAndPromoteStagedAssetSet({
   await promoteStagedDirectories(
     join(stagingRepositoryRoot, "public"),
     destinationPublicRoot,
+    { renamePath },
   );
   return report;
 }

@@ -388,7 +388,10 @@ and encoder. It must:
     pivots;
 16. run the independent validator against the complete staged tree and only
     then promote the anatomy, Draco, licence, and provenance files together to
-    their existing `public/anatomy` and `public/draco` paths.
+    their existing `public/anatomy` and `public/draco` paths. Keep both previous
+    directories in a rollback backup until promotion completes; if restoration
+    is incomplete, preserve that backup and report the publication error,
+    rollback errors, and manual-recovery path.
 
 Do not silently refetch after a checksum failure. Do not infer anatomy groups
 from array order; use exact source names and fail on a missing or duplicate
