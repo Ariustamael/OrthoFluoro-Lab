@@ -15,6 +15,7 @@ import {
   useSimulationStore,
   type QualityPreset,
 } from "../../state/simulationStore";
+import { AnatomyPoseStatus } from "../controls/AnatomyPoseStatus";
 
 const DETECTOR_RENDER_SCALE: Readonly<Record<QualityPreset, number>> = {
   low: 0.6,
@@ -254,6 +255,7 @@ export function ProjectionView({
       data-projection-strategy={projectionOutput?.strategyId}
       data-render-scale={renderScale}
     >
+      <AnatomyPoseStatus label="Projection anatomy status" />
       <header className="projection-view__header">
         <h2 id="simulated-xray-heading">Simulated X-ray view</h2>
         <p className="projection-view__education-label">{description}</p>

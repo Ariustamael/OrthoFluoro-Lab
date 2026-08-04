@@ -97,6 +97,48 @@ test("@desktop learner completes the linked C-arm simulator journey", async ({
     });
   }
 
+  const tilt = page.getByRole("spinbutton", {
+    name: "Cranial/caudal angle",
+  });
+  await tilt.fill("14");
+  await tilt.press("Enter");
+  const orbitBeforeAnatomyReset = await orbit.inputValue();
+  const tiltBeforeAnatomyReset = await tilt.inputValue();
+
+  const anatomyDisclosure = page.getByRole("button", {
+    name: "Anatomy",
+    exact: true,
+  });
+  await anatomyDisclosure.click();
+  await expect(anatomyDisclosure).toHaveAttribute("aria-expanded", "true");
+  const anatomy = page.getByRole("group", { name: "Anatomy" });
+  await anatomy.getByRole("radio", { name: "Left leg only" }).check();
+  const leftRotation = anatomy.getByRole("slider", {
+    name: "Left leg internal or external rotation",
+  });
+  await leftRotation.fill("30");
+  await leftRotation.press("ArrowRight");
+  await expect(leftRotation).toHaveValue("31");
+  await leftRotation.press("ArrowLeft");
+  await expect(leftRotation).toHaveValue("30");
+
+  for (const statusName of ["3D anatomy status", "Projection anatomy status"]) {
+    const anatomyStatus = page.getByRole("status", {
+      name: statusName,
+      exact: true,
+    });
+    await expect(anatomyStatus).toContainText("left-only");
+    await expect(anatomyStatus).toContainText("Left leg rotation +30°");
+  }
+
+  await anatomy.getByRole("button", { name: "Reset anatomy" }).click();
+  await expect(leftRotation).toHaveValue("0");
+  await expect(
+    page.getByRole("status", { name: "3D anatomy status" }),
+  ).toContainText("bilateral");
+  await expect(orbit).toHaveValue(orbitBeforeAnatomyReset);
+  await expect(tilt).toHaveValue(tiltBeforeAnatomyReset);
+
   await page.getByRole("button", { name: "Reset geometry" }).click();
   await expect(
     page.getByRole("button", { name: "Isocentric", exact: true }),

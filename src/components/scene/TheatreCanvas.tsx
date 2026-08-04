@@ -10,6 +10,7 @@ import {
 } from "react";
 import { WebGLRenderer } from "three";
 import { ProjectionView } from "../projection/ProjectionView";
+import { AnatomyPoseStatus } from "../controls/AnatomyPoseStatus";
 import {
   useSimulationStore,
   type QualityPreset,
@@ -163,6 +164,7 @@ function TheatreViewport() {
 
   return (
     <section aria-label="3D theatre" className="theatre-canvas">
+      <AnatomyPoseStatus label="3D anatomy status" />
       <CArmCueHintOverlay hint={cueHint} />
       {graphicsStatus === "checking" ? (
         <p role="status">Starting 3D view…</p>

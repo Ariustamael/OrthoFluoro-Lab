@@ -18,9 +18,7 @@ beforeEach(() => {
     hipAnatomyPose: {
       ...REFERENCE_HIP_ANATOMY_POSE,
       rootPosition: [...REFERENCE_HIP_ANATOMY_POSE.rootPosition],
-      rootRotationDegrees: [
-        ...REFERENCE_HIP_ANATOMY_POSE.rootRotationDegrees,
-      ],
+      rootRotationDegrees: [...REFERENCE_HIP_ANATOMY_POSE.rootRotationDegrees],
     },
     cArmMode: "isocentric",
     showBeam: true,
@@ -191,11 +189,9 @@ describe("CArmControls", () => {
     expect(useSimulationStore.getState().cArmPose.orbitDegrees).toBe(180);
   });
 
-  it("renders exactly the six rigid-body controls and no legacy controls", () => {
+  it("keeps the six rigid-body sliders primary and removes legacy XYZ anatomy controls", () => {
     render(<CArmControls />);
 
-    const sliders = screen.getAllByRole("slider");
-    expect(sliders).toHaveLength(6);
     [
       "Lateral translation",
       "Vertical translation",
@@ -224,8 +220,16 @@ describe("CArmControls", () => {
     expect(
       screen.queryByLabelText("Detector-patient distance"),
     ).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Collimation width")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Collimation height")).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Collimation width"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Collimation height"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("spinbutton", { name: "Object rotation X" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Anatomy" })).toBeVisible();
   });
 
   it("groups exact controls by their matching physical manipulator", () => {
@@ -288,9 +292,10 @@ describe("CArmControls", () => {
     const nonIsocentric = screen.getByRole("button", {
       name: "Non-isocentric",
     });
-    expect(
-      screen.getByRole("button", { name: "Isocentric" }),
-    ).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Isocentric" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     await user.click(nonIsocentric);
     expect(useSimulationStore.getState().cArmMode).toBe("non-isocentric");
     expect(useSimulationStore.getState().cArmPose.orbitDegrees).toBe(12);
@@ -407,12 +412,8 @@ describe("CArmControls", () => {
       target: { value: "45" },
     });
     fireEvent.blur(orbitInput);
-    await user.click(
-      screen.getByRole("button", { name: "Non-isocentric" }),
-    );
-    await user.click(
-      screen.getByRole("checkbox", { name: "Show X-ray beam" }),
-    );
+    await user.click(screen.getByRole("button", { name: "Non-isocentric" }));
+    await user.click(screen.getByRole("checkbox", { name: "Show X-ray beam" }));
 
     await user.click(screen.getByRole("button", { name: "Reset geometry" }));
 
@@ -424,29 +425,25 @@ describe("CArmControls", () => {
       cArmMode: "isocentric",
       showBeam: true,
     });
-    expect(
-      screen.getByRole("button", { name: "Isocentric" }),
-    ).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Isocentric" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
     expect(
       screen.getByRole("checkbox", { name: "Show X-ray beam" }),
     ).toBeChecked();
   });
 
-  it("rotates the procedural object independently and resets it", async () => {
+  it("globally resets the hip anatomy along with C-arm geometry", async () => {
     const user = userEvent.setup();
+    useSimulationStore.getState().setAnatomyVisibility("left-only");
+    useSimulationStore.getState().setSelectedHipRotation(20);
     render(<CArmControls />);
-    const rotation = screen.getByRole("spinbutton", {
-      name: "Object rotation X",
-    });
-
-    await user.clear(rotation);
-    await user.type(rotation, "20");
-    expect(useSimulationStore.getState().objectPose.rotationDegrees).toEqual([
-      20, 0, 0,
-    ]);
 
     await user.click(screen.getByRole("button", { name: "Reset geometry" }));
-    expect(rotation).toHaveValue(0);
+    expect(useSimulationStore.getState().hipAnatomyPose).toEqual(
+      REFERENCE_HIP_ANATOMY_POSE,
+    );
   });
 
   it("labels a simulated image capture without claiming a clinical image", async () => {
@@ -478,7 +475,7 @@ describe("CArmControls", () => {
 });
 
 describe("InteractionMode", () => {
-  it("exposes and updates the three interaction modes as pressed buttons", async () => {
+  it("exposes only inspection and C-arm manipulation modes", async () => {
     const user = userEvent.setup();
     render(<InteractionMode />);
 
@@ -492,7 +489,7 @@ describe("InteractionMode", () => {
     expect(useSimulationStore.getState().interactionMode).toBe("move-carm");
     expect(moveCArm).toHaveAttribute("aria-pressed", "true");
     expect(
-      screen.getByRole("button", { name: "Move anatomy" }),
-    ).toHaveAttribute("aria-pressed", "false");
+      screen.queryByRole("button", { name: "Move anatomy" }),
+    ).not.toBeInTheDocument();
   });
 });

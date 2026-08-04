@@ -734,11 +734,10 @@ describe("six-DoF C-arm manipulator math", () => {
     expect(visible.groups[2]?.position).not.toEqual(geometry.referenceCentre);
   });
 
-  it("suspends camera controls only for active rig drags and anatomy mode", () => {
+  it("suspends camera controls only for active rig drags", () => {
     expect(orbitControlsEnabled("inspect", false)).toBe(true);
     expect(orbitControlsEnabled("move-carm", false)).toBe(true);
     expect(orbitControlsEnabled("move-carm", true)).toBe(false);
-    expect(orbitControlsEnabled("move-anatomy", false)).toBe(false);
   });
 });
 

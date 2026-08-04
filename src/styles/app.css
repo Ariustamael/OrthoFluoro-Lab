@@ -845,35 +845,159 @@ button:hover {
   margin-block-end: var(--space-2);
 }
 
-.object-rotation-controls {
-  border: 1px solid var(--border);
-  border-radius: 0.45rem;
-  margin-block: var(--space-4);
-  padding: var(--space-3);
+.visually-hidden {
+  block-size: 1px;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  inline-size: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
 }
 
-.object-rotation-controls legend {
+.anatomy-controls {
+  border-block: 1px solid var(--border);
+  margin-block: var(--space-4);
+  padding-block: var(--space-1);
+}
+
+.anatomy-controls__summary {
+  background: transparent;
+  border: 0;
+  border-radius: 0.25rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 800;
+  inline-size: 100%;
+  letter-spacing: 0.1em;
+  min-block-size: var(--target-min);
+  padding: 0.85rem var(--space-1);
+  text-align: start;
+  text-transform: uppercase;
+}
+
+.anatomy-controls__summary[aria-expanded="true"] {
+  color: var(--text);
+}
+
+.anatomy-controls__group,
+.anatomy-controls__option-group {
+  border: 0;
+  margin: 0;
+  min-inline-size: 0;
+  padding: 0;
+}
+
+.anatomy-controls__group {
+  display: grid;
+  gap: var(--space-2);
+  inline-size: min(100%, 34rem);
+  padding: var(--space-1) var(--space-1) var(--space-2);
+}
+
+.anatomy-controls__instruction {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+.anatomy-controls__option-group legend,
+.anatomy-controls__rotation > label {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+}
+
+.anatomy-controls__segments {
+  display: inline-flex;
+  margin-block-start: var(--space-1);
+}
+
+.anatomy-controls__segments label {
+  position: relative;
+}
+
+.anatomy-controls__segments input {
+  block-size: 1px;
+  inline-size: 1px;
+  opacity: 0;
+  position: absolute;
+}
+
+.anatomy-controls__segments label > span:first-of-type {
+  align-items: center;
+  background: rgb(3 10 18 / 48%);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  display: inline-flex;
+  font-size: 0.78rem;
+  justify-content: center;
+  min-block-size: 2rem;
+  min-inline-size: 3.25rem;
+  padding-inline: var(--space-1);
+}
+
+.anatomy-controls__segments label + label > span:first-of-type {
+  border-inline-start: 0;
+}
+
+.anatomy-controls__segments label:first-child > span:first-of-type {
+  border-radius: 0.35rem 0 0 0.35rem;
+}
+
+.anatomy-controls__segments label:last-child > span:first-of-type {
+  border-radius: 0 0.35rem 0.35rem 0;
+}
+
+.anatomy-controls__segments input:checked + span {
+  background: var(--navy-800);
+  border-color: var(--cyan-500);
+  color: var(--cyan-300);
   font-weight: 750;
 }
-.object-rotation-controls > p {
-  color: var(--text-muted);
+
+.anatomy-controls__segments input:focus-visible + span {
+  box-shadow: var(--focus-ring);
+  position: relative;
+  z-index: 1;
 }
-.object-rotation-controls__fields {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-}
-.object-rotation-controls__fields label {
+
+.anatomy-controls__rotation {
   display: grid;
-  gap: var(--space-1);
+  gap: 0.2rem var(--space-1);
+  grid-template-columns: minmax(0, 1fr) auto;
 }
-.object-rotation-controls__fields input {
-  background: var(--navy-950);
-  border: 1px solid var(--border);
-  border-radius: 0.45rem;
-  inline-size: 7rem;
-  min-block-size: var(--target-min);
-  padding-inline: var(--space-2);
+
+.anatomy-controls__rotation output {
+  color: var(--cyan-300);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 750;
+}
+
+.anatomy-controls__rotation input {
+  accent-color: var(--cyan-500);
+  grid-column: 1 / -1;
+  inline-size: 100%;
+  min-block-size: 2rem;
+}
+
+.anatomy-controls__rotation-scale {
+  color: var(--text-muted);
+  display: flex;
+  font-size: 0.65rem;
+  grid-column: 1 / -1;
+  justify-content: space-between;
+}
+
+.anatomy-controls__reset {
+  font-size: 0.78rem;
+  justify-self: start;
+  min-block-size: 2rem;
+  padding: 0.3rem var(--space-2);
 }
 
 .c-arm-controls__actions {

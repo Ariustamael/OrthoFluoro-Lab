@@ -186,9 +186,12 @@ describe("responsive laboratory workspace", () => {
 
     render(<LabWorkspace />);
 
-    ["Inspect", "Move C-arm", "Move anatomy"].forEach((name) => {
+    ["Inspect", "Move C-arm"].forEach((name) => {
       expect(screen.getByRole("button", { name })).toHaveAccessibleName(name);
     });
+    expect(
+      screen.queryByRole("button", { name: "Move anatomy" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole("checkbox", { name: "Show X-ray beam" }),
     ).toHaveAccessibleName("Show X-ray beam");

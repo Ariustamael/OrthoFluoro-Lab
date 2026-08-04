@@ -18,7 +18,7 @@ import {
   type Vec3,
 } from "../engine/geometry/geometryTypes";
 
-export type InteractionMode = "inspect" | "move-carm" | "move-anatomy";
+export type InteractionMode = "inspect" | "move-carm";
 export type QualityPreset = "low" | "medium" | "high";
 
 export interface SimulationState {
@@ -45,6 +45,7 @@ export interface SimulationState {
   setAnatomyVisibility: (visibility: AnatomyVisibility) => void;
   setSelectedAnatomySide: (side: AnatomySide) => void;
   setSelectedHipRotation: (degrees: number) => void;
+  resetAnatomy: () => void;
   setInteractionMode: (mode: InteractionMode) => void;
   setQuality: (quality: QualityPreset) => void;
   resetGeometry: () => void;
@@ -153,6 +154,9 @@ export const useSimulationStore = create<SimulationState>((set) => ({
         },
       };
     });
+  },
+  resetAnatomy: () => {
+    set({ hipAnatomyPose: createReferenceHipAnatomyPose() });
   },
   setInteractionMode: (interactionMode) => {
     set({ interactionMode });

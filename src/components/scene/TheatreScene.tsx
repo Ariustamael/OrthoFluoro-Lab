@@ -23,10 +23,10 @@ const FLOOR_POSITION = [0, -700, 0] as const;
 const FLOOR_ROTATION = [-Math.PI / 2, 0, 0] as const;
 
 export function orbitControlsEnabled(
-  interactionMode: "inspect" | "move-carm" | "move-anatomy",
+  interactionMode: "inspect" | "move-carm",
   manipulatorActive: boolean,
 ): boolean {
-  return interactionMode !== "move-anatomy" && !manipulatorActive;
+  return !manipulatorActive;
 }
 
 function OperatingTable() {

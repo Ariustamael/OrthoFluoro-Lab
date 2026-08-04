@@ -9,10 +9,10 @@ import { C_ARM_RIG_PRESETS } from "../../engine/geometry/cArmRigPresets";
 import { C_ARM_POSE_BOUNDS } from "../../engine/geometry/cArmTransforms";
 import type { CArmPose } from "../../engine/geometry/geometryTypes";
 import { useSimulationStore } from "../../state/simulationStore";
+import { AnatomyControls } from "./AnatomyControls";
 import { InteractionMode } from "./InteractionMode";
 
 type CArmParameter = keyof CArmPose;
-const OBJECT_ROTATION_AXES = ["X", "Y", "Z"] as const;
 
 interface ControlDefinition {
   key: CArmParameter;
@@ -184,7 +184,6 @@ export function CArmControls() {
   const cArmPose = useSimulationStore((state) => state.cArmPose);
   const cArmMode = useSimulationStore((state) => state.cArmMode);
   const showBeam = useSimulationStore((state) => state.showBeam);
-  const objectPose = useSimulationStore((state) => state.objectPose);
   const setCArmPose = useSimulationStore((state) => state.setCArmPose);
   const setCArmParameter = useSimulationStore(
     (state) => state.setCArmParameter,
@@ -195,9 +194,6 @@ export function CArmControls() {
   const setCArmMode = useSimulationStore((state) => state.setCArmMode);
   const setShowBeam = useSimulationStore((state) => state.setShowBeam);
   const resetGeometry = useSimulationStore((state) => state.resetGeometry);
-  const setObjectRotation = useSimulationStore(
-    (state) => state.setObjectRotation,
-  );
   const [captureMessage, setCaptureMessage] = useState("");
   const preset = C_ARM_RIG_PRESETS[cArmMode];
 
@@ -329,39 +325,7 @@ export function CArmControls() {
         ))}
       </div>
 
-      <fieldset className="object-rotation-controls">
-        <legend>Object rotation</legend>
-        <p>Rotate the procedural teaching object independently of the C-arm.</p>
-        <div className="object-rotation-controls__fields">
-          {OBJECT_ROTATION_AXES.map((axis, index) => (
-            <label key={axis}>
-              <span>{axis} axis</span>
-              <span className="c-arm-control__exact">
-                <input
-                  aria-label={`Object rotation ${axis}`}
-                  max={180}
-                  min={-180}
-                  onChange={(event) => {
-                    const nextValue = event.currentTarget.valueAsNumber;
-                    if (!Number.isFinite(nextValue)) return;
-                    const rotation = [...objectPose.rotationDegrees] as [
-                      number,
-                      number,
-                      number,
-                    ];
-                    rotation[index] = Math.min(180, Math.max(-180, nextValue));
-                    setObjectRotation(rotation);
-                  }}
-                  step={1}
-                  type="number"
-                  value={objectPose.rotationDegrees[index]}
-                />
-                <span aria-hidden="true">°</span>
-              </span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <AnatomyControls />
 
       <div aria-label="Reference views" className="c-arm-controls__presets">
         <button onClick={() => setCArmPose(AP_C_ARM_POSE)} type="button">
