@@ -34,13 +34,21 @@ The source and derived identities are recorded in
 The build retains bone meshes only, maps source metres and axes to application
 millimetres (`x` patient-left, `y` anterior, `z` headward), repairs winding,
 derives the missing left anatomy by reflection, replaces materials, removes T12
-and L1-L5 from the detailed lower-limb model, and Draco-compresses the outputs.
+and L1-L5 from the detailed lower-limb model, centres detailed geometry on the
+bilateral femoral-head midpoint, and Draco-compresses the outputs.
 The derived files remain licensed under CC BY-SA 4.0 and must be redistributed
 with the same licence and attribution. They are educational anatomical models,
 not patient data, diagnostic devices, or validated 3D-printing assets.
 
-The local Draco decoder files under `public/draco/` are copied from the Three.js
-package used by this project and retain the Three.js MIT licence.
+The local Draco 1.5.7 decoder files under `public/draco/` are copied from the
+Three.js package used by this project but originate from the
+[Google Draco project][google-draco]. Draco is licensed under Apache License
+2.0, not the Three.js MIT licence. The exact authoritative licence text is
+bundled at `public/draco/LICENSE`; its SHA-256 is
+`D3709B0FB4B8A94BBB1D02B8A2E484F258B0D9C5C5A01F940391F3FE662CD1A4`.
+That upstream file also appends notices for ASCIIMathML.js (MIT) and Pygments
+documentation assets (public domain). Those documentation assets are not
+bundled here, but the authoritative notice text is preserved unchanged.
 
 Before adding any further mesh, image, icon set, font, scan, or teaching case,
 record its creator, source URL or agreement, exact licence, allowed
@@ -50,3 +58,4 @@ add patient-identifiable material.
 [open3dmodel]: https://anatomytool.org/open3dmodel
 [open3dmodel-create]: https://anatomytool.org/open3dmodel-create
 [cc-by-sa]: https://creativecommons.org/licenses/by-sa/4.0/
+[google-draco]: https://github.com/google/draco/tree/1.5.7

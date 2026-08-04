@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   appPointFromSource,
   appTriangleFromSource,
+  centerHipReference,
   fitSphere,
   mirrorPointAndTriangle,
   selectFemoralHeadCandidates,
@@ -129,6 +130,30 @@ describe("anatomy build rules", () => {
     expect(candidates).toEqual([
       [-30, 18, 880],
       [-50, 10, 870],
+    ]);
+  });
+
+  it("centres detailed anatomy on the bilateral hip-reference midpoint", () => {
+    const centred = centerHipReference(
+      {
+        left: [85, -5, 859],
+        right: [-85, -5, 859],
+      },
+      [
+        [-100, -20, 400],
+        [100, 20, 900],
+      ],
+    );
+
+    expect(centred.midpoint).toEqual([0, -5, 859]);
+    expect(centred.translation).toEqual([0, 5, -859]);
+    expect(centred.hipPivots).toEqual({
+      left: [85, 0, 0],
+      right: [-85, 0, 0],
+    });
+    expect(centred.points).toEqual([
+      [-100, -15, -459],
+      [100, 25, 41],
     ]);
   });
 

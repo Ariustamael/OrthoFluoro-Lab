@@ -1,8 +1,4 @@
-export const appPointFromSource = ([x, y, z]) => [
-  1000 * x,
-  1000 * z,
-  1000 * y,
-];
+export const appPointFromSource = ([x, y, z]) => [1000 * x, 1000 * z, 1000 * y];
 
 export function appTriangleFromSource(points, triangle, normals) {
   const mapped = {
@@ -44,6 +40,27 @@ export function selectFemoralHeadCandidates(points) {
   );
 }
 
+export function centerHipReference(hipPivots, points = []) {
+  const midpoint = [0, 1, 2].map(
+    (axis) => (hipPivots.left[axis] + hipPivots.right[axis]) / 2,
+  );
+  const translation = midpoint.map((coordinate) =>
+    coordinate === 0 ? 0 : -coordinate,
+  );
+  const translate = (point) =>
+    point.map((coordinate, axis) => coordinate + translation[axis]);
+
+  return {
+    midpoint,
+    translation,
+    hipPivots: {
+      left: translate(hipPivots.left),
+      right: translate(hipPivots.right),
+    },
+    points: points.map(translate),
+  };
+}
+
 export function fitSphere(points) {
   if (points.length < 4) {
     throw new Error("At least four points are required to fit a sphere");
@@ -52,14 +69,16 @@ export function fitSphere(points) {
   if (
     points.some(
       (point) =>
-        point.length !== 3 || point.some((coordinate) => !Number.isFinite(coordinate)),
+        point.length !== 3 ||
+        point.some((coordinate) => !Number.isFinite(coordinate)),
     )
   ) {
     throw new Error("Sphere points must contain three finite coordinates");
   }
 
   const origin = [0, 1, 2].map(
-    (axis) => points.reduce((sum, point) => sum + point[axis], 0) / points.length,
+    (axis) =>
+      points.reduce((sum, point) => sum + point[axis], 0) / points.length,
   );
   const centeredPoints = points.map(([x, y, z]) => [
     x - origin[0],
@@ -85,7 +104,9 @@ export function fitSphere(points) {
 
   const solution = solveLinearSystem(normalMatrix, normalVector);
   const localCenter = solution.slice(0, 3);
-  const center = localCenter.map((coordinate, axis) => coordinate + origin[axis]);
+  const center = localCenter.map(
+    (coordinate, axis) => coordinate + origin[axis],
+  );
   const radiusSquared =
     solution[3] +
     localCenter.reduce((sum, coordinate) => sum + coordinate ** 2, 0);
@@ -96,7 +117,9 @@ export function fitSphere(points) {
 
   const radius = Math.sqrt(radiusSquared);
   if (radius > inputSpan * 100) {
-    throw new Error("Sphere fit produced an implausible radius for the sample bounds");
+    throw new Error(
+      "Sphere fit produced an implausible radius for the sample bounds",
+    );
   }
 
   const rootMeanSquareResidual = Math.sqrt(
@@ -156,7 +179,10 @@ function ensureWellConditionedSpatialSamples(centeredPoints, inputSpan) {
   const trace = covariance[0][0] + covariance[1][1] + covariance[2][2];
   const normalizedDeterminant = determinant / (trace / 3) ** 3;
 
-  if (!Number.isFinite(normalizedDeterminant) || normalizedDeterminant <= 1e-10) {
+  if (
+    !Number.isFinite(normalizedDeterminant) ||
+    normalizedDeterminant <= 1e-10
+  ) {
     throw new Error("Sphere points are coplanar or ill-conditioned");
   }
 }

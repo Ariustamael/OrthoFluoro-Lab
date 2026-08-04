@@ -49,6 +49,7 @@ public/anatomy/open3dmodel-provenance.json
 public/draco/draco_decoder.js
 public/draco/draco_decoder.wasm
 public/draco/draco_wasm_wrapper.js
+public/draco/LICENSE
 docs/ASSET-LICENCES.md
 src/content/assets/anatomyAssets.ts
 src/anatomy/anatomyTypes.ts
@@ -131,24 +132,46 @@ describe("anatomy build rules", () => {
   });
 
   it("mirrors x and reverses winding", () => {
-    expect(mirrorPointAndTriangle([[-3, 2, 1], [0, 0, 0], [2, 1, 0]], [0, 1, 2]))
-      .toEqual({
-        points: [[3, 2, 1], [0, 0, 0], [-2, 1, 0]],
-        triangle: [0, 2, 1],
-      });
+    expect(
+      mirrorPointAndTriangle(
+        [
+          [-3, 2, 1],
+          [0, 0, 0],
+          [2, 1, 0],
+        ],
+        [0, 1, 2],
+      ),
+    ).toEqual({
+      points: [
+        [3, 2, 1],
+        [0, 0, 0],
+        [-2, 1, 0],
+      ],
+      triangle: [0, 2, 1],
+    });
   });
 
   it("fits a known sphere and selects only proximal-medial femur samples", () => {
     const sphere = [
-      [7, 20, 30], [-3, 20, 30], [2, 25, 30],
-      [2, 15, 30], [2, 20, 35], [2, 20, 25],
+      [7, 20, 30],
+      [-3, 20, 30],
+      [2, 25, 30],
+      [2, 15, 30],
+      [2, 20, 35],
+      [2, 20, 25],
     ] as const;
     expect(fitSphere(sphere)).toEqual({ center: [2, 20, 30], radius: 5 });
 
     const candidates = selectFemoralHeadCandidates([
-      [-148, -59, 432], [-100, 0, 850], [-30, 18, 880], [-50, 10, 870],
+      [-148, -59, 432],
+      [-100, 0, 850],
+      [-30, 18, 880],
+      [-50, 10, 870],
     ]);
-    expect(candidates).toEqual([[-30, 18, 880], [-50, 10, 870]]);
+    expect(candidates).toEqual([
+      [-30, 18, 880],
+      [-50, 10, 870],
+    ]);
   });
 });
 ```
@@ -175,23 +198,27 @@ Create `scripts/anatomy/source-registry.mjs` with these exact source records:
 export const SOURCE_ASSETS = Object.freeze([
   {
     id: "open3dmodel-overview-skeleton",
-    archiveUrl: "https://caskanatomy.info/open3dmodelfiles/overview-skeleton/overview-skeleton-glb.zip",
+    archiveUrl:
+      "https://caskanatomy.info/open3dmodelfiles/overview-skeleton/overview-skeleton-glb.zip",
     archiveFile: "overview-skeleton-glb.zip",
     archiveBytes: 3102294,
     sha256: "A6E0803EC66EC236979DDD35945FC2033FA7CDBCD0AB1B4FE06B47E848706364",
     member: "overview-skeleton.glb",
     memberBytes: 3422276,
-    memberSha256: "E83543ABB5C8DE013A4BDCBF2C0536AE1CE92980C7AA7951C6AA3DDEA804D10F",
+    memberSha256:
+      "E83543ABB5C8DE013A4BDCBF2C0536AE1CE92980C7AA7951C6AA3DDEA804D10F",
   },
   {
     id: "open3dmodel-lower-limb",
-    archiveUrl: "https://caskanatomy.info/open3dmodelfiles/lower-limb/lower-limb-glb.zip",
+    archiveUrl:
+      "https://caskanatomy.info/open3dmodelfiles/lower-limb/lower-limb-glb.zip",
     archiveFile: "lower-limb-glb.zip",
     archiveBytes: 5492015,
     sha256: "E080EBEF16B2A3F53C7F6005515FAC39EDD941FB0AEBC79FF4B9F59FFFF8D416",
     member: "lower-limb.glb",
     memberBytes: 6184984,
-    memberSha256: "5A889D5CAE00421885AAF1841E72364E5F215F0C29FB0116CA5E9844EC4C5FE7",
+    memberSha256:
+      "5A889D5CAE00421885AAF1841E72364E5F215F0C29FB0116CA5E9844EC4C5FE7",
   },
 ]);
 ```
@@ -212,9 +239,10 @@ export function selectFemoralHeadCandidates(points) {
   const axes = [0, 1, 2].map((axis) => points.map((point) => point[axis]));
   const min = axes.map((values) => Math.min(...values));
   const max = axes.map((values) => Math.max(...values));
-  return points.filter(([x, , z]) =>
-    z >= min[2] + 0.86 * (max[2] - min[2]) &&
-    x >= min[0] + 0.5 * (max[0] - min[0]),
+  return points.filter(
+    ([x, , z]) =>
+      z >= min[2] + 0.86 * (max[2] - min[2]) &&
+      x >= min[0] + 0.5 * (max[0] - min[0]),
   );
 }
 ```
@@ -249,12 +277,14 @@ git commit -m "build: lock anatomy source pipeline"
 - Create: `scripts/anatomy/prepare-anatomy-assets.mjs`
 - Create: `scripts/anatomy/validate-anatomy-assets.mjs`
 - Create: `tests/anatomy/anatomy-assets.test.ts`
+- Create: `tests/anatomy/anatomy-validation-rules.test.ts`
 - Create: `public/anatomy/open3dmodel-overview-skeleton.glb`
 - Create: `public/anatomy/open3dmodel-hip-lower-limbs.glb`
 - Create: `public/anatomy/open3dmodel-provenance.json`
 - Create: `public/draco/draco_decoder.js`
 - Create: `public/draco/draco_decoder.wasm`
 - Create: `public/draco/draco_wasm_wrapper.js`
+- Create: `public/draco/LICENSE`
 - Modify: `package.json`
 - Modify: `package-lock.json`
 - Modify: `docs/ASSET-LICENCES.md`
@@ -284,8 +314,15 @@ describe("committed anatomy assets", () => {
     const report = await validateCommittedAnatomy(process.cwd());
     expect(report.errors).toEqual([]);
     expect(report.hip.groups).toEqual([
-      "pelvis", "left-femur", "left-patella", "left-tibia-fibula", "left-foot",
-      "right-femur", "right-patella", "right-tibia-fibula", "right-foot",
+      "pelvis",
+      "left-femur",
+      "left-patella",
+      "left-tibia-fibula",
+      "left-foot",
+      "right-femur",
+      "right-patella",
+      "right-tibia-fibula",
+      "right-foot",
     ]);
     expect(report.hip.closedMeshCount).toBe(report.hip.meshCount);
     expect(report.hip.nonFiniteAccessorCount).toBe(0);
@@ -332,13 +369,17 @@ and encoder. It must:
 9. group the right femur, patella, tibia/fibula, and all remaining foot bones;
 10. derive the four left-leg groups by mirroring geometry and reversing winding;
 11. fit the right femoral-head pivot from proximal-medial vertices, mirror it
-    for the left pivot, and save both in root `extras.orthoFluoro`;
+    for the left pivot, subtract their bilateral midpoint from every detailed
+    position and both pivots, and save the centred pivots and applied transform
+    in root `extras.orthoFluoro`;
 12. assign stable semantic node names and `extras.anatomyGroup` values;
 13. preserve only opaque bone material, bake transforms, deduplicate, prune,
     Draco-compress, and write the two public GLBs;
-14. copy the three Draco decoder files from Three.js into `public/draco`;
+14. copy the three Draco decoder files from Three.js into `public/draco` and
+    bundle the pinned authoritative Google Draco 1.5.7 `LICENSE`;
 15. write provenance JSON containing source/download identities, source and
-    derived checksums, the CC BY-SA licence identifier, attribution URL,
+    first-build, second-build, committed and derived checksums, the CC BY-SA
+    licence identifier, attribution URL, Draco Apache-2.0 licence/checksums,
     transformation description, included/excluded groups, units, axes, and hip
     pivots.
 
@@ -414,10 +455,18 @@ Create tests proving:
 ```ts
 expect(visibleAnatomyGroups("bilateral")).toHaveLength(9);
 expect(visibleAnatomyGroups("left-only")).toEqual([
-  "pelvis", "left-femur", "left-patella", "left-tibia-fibula", "left-foot",
+  "pelvis",
+  "left-femur",
+  "left-patella",
+  "left-tibia-fibula",
+  "left-foot",
 ]);
 expect(visibleAnatomyGroups("right-only")).toEqual([
-  "pelvis", "right-femur", "right-patella", "right-tibia-fibula", "right-foot",
+  "pelvis",
+  "right-femur",
+  "right-patella",
+  "right-tibia-fibula",
+  "right-foot",
 ]);
 expect(effectiveSelectedSide("left-only", "right")).toBe("left");
 expect(clampHipRotation(70)).toBe(45);
@@ -635,8 +684,11 @@ Test accessible controls and state rather than CSS implementation:
 ```tsx
 expect(screen.getByRole("group", { name: "Anatomy" })).toBeVisible();
 expect(screen.getByRole("radio", { name: "Both legs" })).toBeChecked();
-expect(screen.getByRole("slider", { name: "Left leg internal or external rotation" }))
-  .toHaveAttribute("min", "-45");
+expect(
+  screen.getByRole("slider", {
+    name: "Left leg internal or external rotation",
+  }),
+).toHaveAttribute("min", "-45");
 ```
 
 Exercise Both/Left/Right visibility, selected side in bilateral mode, automatic
@@ -776,7 +828,9 @@ export interface AnatomyProjectionInput extends ProjectionFrameInput {
   readonly anatomyPose: HipAnatomyPose;
 }
 
-export interface ProjectionRenderer<TInput extends ProjectionFrameInput = ProjectionInput> {
+export interface ProjectionRenderer<
+  TInput extends ProjectionFrameInput = ProjectionInput,
+> {
   render(input: TInput): Promise<ProjectionOutput>;
   dispose(): void;
 }
@@ -801,8 +855,13 @@ In `layeredThicknessMath.ts`, implement test-only CPU ray intersections for
 triangles plus interval pairing and:
 
 ```ts
-export function attenuationFromThickness(thicknessMm: number, coefficientPerMm: number) {
-  return 1 - Math.exp(-Math.max(0, thicknessMm) * Math.max(0, coefficientPerMm));
+export function attenuationFromThickness(
+  thicknessMm: number,
+  coefficientPerMm: number,
+) {
+  return (
+    1 - Math.exp(-Math.max(0, thicknessMm) * Math.max(0, coefficientPerMm))
+  );
 }
 ```
 
@@ -947,7 +1006,7 @@ Mock the renderer factories and provider hook. Prove that:
 - missing float support chooses mesh silhouette and shows a compact
   `Silhouette` badge with the reason available to assistive technology;
 - anatomy load failure chooses the procedural fallback and shows `Anatomy
-  unavailable`;
+unavailable`;
 - the same `hipAnatomyPose` object reaches the theatre and projection paths;
 - rapid pose changes display only the newest render result;
 - switching strategy disposes the old renderer once;
@@ -1136,36 +1195,36 @@ git commit -m "docs: validate hip anatomy projection"
 ## Final acceptance checklist
 
 - [ ] Both source archives, extracted members, and derived GLBs have recorded
-  SHA-256 checksums and licence/attribution metadata.
+      SHA-256 checksums and licence/attribution metadata.
 - [ ] The committed hip artifact contains exactly the nine approved semantic
-  groups with corrected coordinate system, winding, closure, and mirrored left
-  anatomy.
+      groups with corrected coordinate system, winding, closure, and mirrored left
+      anatomy.
 - [ ] Whole skeleton is bundled for future orientation use but is not rendered
-  simultaneously with detailed hip anatomy in `/lab`.
+      simultaneously with detailed hip anatomy in `/lab`.
 - [ ] Pelvis remains visible in every mode; both complete legs can be shown,
-  hidden independently, and selected according to the approved rules.
+      hidden independently, and selected according to the approved rules.
 - [ ] Only the complete selected leg rotates internally/externally, within
-  ±45°, around a validated femoral-head pivot.
+      ±45°, around a validated femoral-head pivot.
 - [ ] The theatre and detector views consume the same serializable anatomy pose
-  and the same authoritative C-arm geometry.
+      and the same authoritative C-arm geometry.
 - [ ] Layered thickness accumulates across overlapping closed meshes; invalid
-  meshes and unsupported devices fall back visibly and without a blank view.
+      meshes and unsupported devices fall back visibly and without a blank view.
 - [ ] There are no runtime third-party anatomy or decoder fetches.
 - [ ] C-arm manipulation remains the primary visual and interaction focus.
 - [ ] Automated, offline, responsive, performance, and orthopaedic domain
-  review gates are recorded and passed.
+      review gates are recorded and passed.
 
 ## Specification coverage map
 
-| Approved specification area | Implemented and verified in |
-| --- | --- |
-| Source, licensing, redistribution, offline operation | Tasks 1, 2, and 9 |
-| Whole-skeleton plus detailed bilateral hip assets | Task 2 |
-| Semantic groups, handedness, bounds, closure, pivots | Tasks 1 and 2 |
-| Serializable state, visibility, selected side, ±45° rotation | Task 3 |
-| Shared loader ownership, caching, 3D rendering, load recovery | Task 4 |
-| C-arm-primary control hierarchy and accessibility | Task 5 |
-| Existing C-arm geometry authority and detector clipping | Task 6 |
-| Layered thickness, overlap, silhouette and partial-mesh fallback | Task 7 |
-| Synchronized viewports, interactive quality, stale-result safety, WebGL recovery | Task 8 |
-| Limitations, architecture, geometry, roadmap, E2E and domain review | Task 9 |
+| Approved specification area                                                      | Implemented and verified in |
+| -------------------------------------------------------------------------------- | --------------------------- |
+| Source, licensing, redistribution, offline operation                             | Tasks 1, 2, and 9           |
+| Whole-skeleton plus detailed bilateral hip assets                                | Task 2                      |
+| Semantic groups, handedness, bounds, closure, pivots                             | Tasks 1 and 2               |
+| Serializable state, visibility, selected side, ±45° rotation                     | Task 3                      |
+| Shared loader ownership, caching, 3D rendering, load recovery                    | Task 4                      |
+| C-arm-primary control hierarchy and accessibility                                | Task 5                      |
+| Existing C-arm geometry authority and detector clipping                          | Task 6                      |
+| Layered thickness, overlap, silhouette and partial-mesh fallback                 | Task 7                      |
+| Synchronized viewports, interactive quality, stale-result safety, WebGL recovery | Task 8                      |
+| Limitations, architecture, geometry, roadmap, E2E and domain review              | Task 9                      |

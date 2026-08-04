@@ -138,13 +138,11 @@ type HipAnatomyGroup =
   | "pelvis"
   | "left-femur"
   | "left-patella"
-  | "left-tibia"
-  | "left-fibula"
+  | "left-tibia-fibula"
   | "left-foot"
   | "right-femur"
   | "right-patella"
-  | "right-tibia"
-  | "right-fibula"
+  | "right-tibia-fibula"
   | "right-foot";
 ```
 
@@ -181,10 +179,7 @@ Layered thickness requires a consistently oriented, closed surface. Each
 semantic mesh receives one of these validation states:
 
 ```ts
-type ProjectionEligibility =
-  | "thickness"
-  | "silhouette-fallback"
-  | "excluded";
+type ProjectionEligibility = "thickness" | "silhouette-fallback" | "excluded";
 ```
 
 - `thickness`: the mesh is closed and passes known-ray thickness tests.
@@ -320,16 +315,12 @@ interface AnatomyProjectionInput extends ProjectionInput {
   anatomyPose: HipAnatomyPose;
 }
 
-interface ProjectionRenderer<
-  TInput extends ProjectionInput = ProjectionInput,
-> {
+interface ProjectionRenderer<TInput extends ProjectionInput = ProjectionInput> {
   render(input: TInput): Promise<ProjectionOutput>;
   dispose(): void;
 }
 
-class LayeredThicknessProjectionRenderer
-  implements ProjectionRenderer<AnatomyProjectionInput>
-{
+class LayeredThicknessProjectionRenderer implements ProjectionRenderer<AnatomyProjectionInput> {
   render(input: AnatomyProjectionInput): Promise<ProjectionOutput>;
   dispose(): void;
 }

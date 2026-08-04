@@ -43,6 +43,7 @@
     "Mapped source metres [x,y,z] to application millimetres [1000x,1000z,1000y]",
     "Reversed triangle winding after the handedness-changing axis swap and repaired source triangles against transformed normals",
     "Mirrored named right-side meshes across x=0 and reversed winding",
+    "Translated detailed hip/lower-limb positions by the negative bilateral femoral-head midpoint so the hip reference is the root origin",
     "Replaced source materials with one opaque neutral bone material",
     "Removed lower-limb T12 and L1-L5, deduplicated, pruned, and Draco-compressed"
   ],
@@ -87,14 +88,43 @@
     ]
   },
   "deterministicBuild": {
-    "verified": true,
+    "method": "first-build, second-build, and committed SHA-256 equality",
     "repetitions": 2
+  },
+  "dracoRuntime": {
+    "version": "1.5.7",
+    "license": {
+      "bytes": 13898,
+      "id": "Apache-2.0",
+      "sha256": "D3709B0FB4B8A94BBB1D02B8A2E484F258B0D9C5C5A01F940391F3FE662CD1A4",
+      "sourceUrl": "https://raw.githubusercontent.com/google/draco/1.5.7/LICENSE"
+    },
+    "files": {
+      "draco_decoder.js": {
+        "bytes": 512465,
+        "sha256": "8625489DA79A805F4F2A7D511C3E52D8B4085608A9D2A4D5F4F9DE5DB0AEA04F"
+      },
+      "draco_decoder.wasm": {
+        "bytes": 192420,
+        "sha256": "A680D927BED9CB864DDBD63521868891AF2BFBE755092761B4837487618DF8AC"
+      },
+      "draco_wasm_wrapper.js": {
+        "bytes": 58456,
+        "sha256": "8BB2952D2BA7D67E1414F8DF819410CB0434A666BE53F671FFF75F68843D76F6"
+      }
+    },
+    "additionalNotices": "The authoritative Draco LICENSE also contains notices for ASCIIMathML.js (MIT) and Pygments documentation assets (public domain)."
   },
   "artifacts": {
     "overview": {
       "path": "public/anatomy/open3dmodel-overview-skeleton.glb",
       "bytes": 2350404,
       "sha256": "3644EC72E8DE4634CCA598185ABB1BBCF523C08A52265726C9ECA14A53CC602F",
+      "buildHashes": {
+        "firstBuildSha256": "3644EC72E8DE4634CCA598185ABB1BBCF523C08A52265726C9ECA14A53CC602F",
+        "secondBuildSha256": "3644EC72E8DE4634CCA598185ABB1BBCF523C08A52265726C9ECA14A53CC602F",
+        "committedSha256": "3644EC72E8DE4634CCA598185ABB1BBCF523C08A52265726C9ECA14A53CC602F"
+      },
       "includedBoneCount": 232,
       "groupBounds": {
         "overview-midline": {
@@ -144,8 +174,13 @@
     },
     "hip": {
       "path": "public/anatomy/open3dmodel-hip-lower-limbs.glb",
-      "bytes": 481536,
-      "sha256": "385E6ED674BA978375049529F59C3A5940C4C7381572EB8D255B47796FE96964",
+      "bytes": 482140,
+      "sha256": "10D744127633B61B166478ADAAA007D15B71EE10D948CEDEADB92EBEC6437D72",
+      "buildHashes": {
+        "firstBuildSha256": "10D744127633B61B166478ADAAA007D15B71EE10D948CEDEADB92EBEC6437D72",
+        "secondBuildSha256": "10D744127633B61B166478ADAAA007D15B71EE10D948CEDEADB92EBEC6437D72",
+        "committedSha256": "10D744127633B61B166478ADAAA007D15B71EE10D948CEDEADB92EBEC6437D72"
+      },
       "includedBoneCount": 66,
       "groups": [
         "pelvis",
@@ -162,109 +197,109 @@
         "pelvis": {
           "min": [
             -134.83551025390625,
-            -95.31791687011719,
-            798.0076904296875
+            -90.03199768066406,
+            -61.02072525024414
           ],
           "max": [
             134.83551025390625,
-            55.67154312133789,
-            1011.3475341796875
+            60.95745849609375,
+            152.3191375732422
           ]
         },
         "left-femur": {
           "min": [
             32.30604553222656,
-            -58.99623107910156,
-            432.434326171875
+            -53.7103157043457,
+            -426.5940856933594
           ],
           "max": [
             148.18582153320312,
-            18.440664291381836,
-            883.9107055664062
+            23.726577758789062,
+            24.882322311401367
           ]
         },
         "left-patella": {
           "min": [
             62.749481201171875,
-            -5.400224208831787,
-            424.2987060546875
+            -0.1143096461892128,
+            -434.72967529296875
           ],
           "max": [
             105.79637908935547,
-            15.04987621307373,
-            464.7127990722656
+            20.335790634155273,
+            -394.3155822753906
           ]
         },
         "left-tibia-fibula": {
           "min": [
             37.58101272583008,
-            -60.39158248901367,
-            57.02009963989258
+            -55.10566711425781,
+            -802.00830078125
           ],
           "max": [
             124.24650573730469,
-            3.0646920204162598,
-            434.5637512207031
+            8.350606918334961,
+            -424.4646301269531
           ]
         },
         "left-foot": {
           "min": [
             51.622867584228516,
-            -93.58692169189453,
-            9.14124584197998
+            -88.30101013183594,
+            -849.8871459960938
           ],
           "max": [
             146.12411499023438,
-            137.06048583984375,
-            85.37771606445312
+            142.34640502929688,
+            -773.6506958007812
           ]
         },
         "right-femur": {
           "min": [
             -148.18582153320312,
-            -58.99623107910156,
-            432.434326171875
+            -53.7103157043457,
+            -426.5940856933594
           ],
           "max": [
             -32.30604553222656,
-            18.440664291381836,
-            883.9107055664062
+            23.726577758789062,
+            24.882322311401367
           ]
         },
         "right-patella": {
           "min": [
             -105.79637908935547,
-            -5.400224208831787,
-            424.2987060546875
+            -0.1143096461892128,
+            -434.72967529296875
           ],
           "max": [
             -62.749481201171875,
-            15.04987621307373,
-            464.7127990722656
+            20.335790634155273,
+            -394.3155822753906
           ]
         },
         "right-tibia-fibula": {
           "min": [
             -124.24650573730469,
-            -60.39158248901367,
-            57.02009963989258
+            -55.10566711425781,
+            -802.00830078125
           ],
           "max": [
             -37.58101272583008,
-            3.0646920204162598,
-            434.5637512207031
+            8.350606918334961,
+            -424.4646301269531
           ]
         },
         "right-foot": {
           "min": [
             -146.12411499023438,
-            -93.58692169189453,
-            9.14124584197998
+            -88.30101013183594,
+            -849.8871459960938
           ],
           "max": [
             -51.622867584228516,
-            137.06048583984375,
-            85.37771606445312
+            142.34640502929688,
+            -773.6506958007812
           ]
         }
       },
@@ -278,13 +313,42 @@
       "hipPivots": {
         "left": [
           85.58369749004112,
-          -5.285914477314503,
-          859.0283934018823
+          0,
+          0
         ],
         "right": [
           -85.58369749004112,
+          0,
+          0
+        ]
+      },
+      "referenceMidpoint": [
+        0,
+        0,
+        0
+      ],
+      "centeringTransform": {
+        "sourceHipPivotsAppMm": {
+          "left": [
+            85.58369749004112,
+            -5.285914477314503,
+            859.0283934018823
+          ],
+          "right": [
+            -85.58369749004112,
+            -5.285914477314503,
+            859.0283934018823
+          ]
+        },
+        "sourceHipMidpointAppMm": [
+          0,
           -5.285914477314503,
           859.0283934018823
+        ],
+        "appliedTranslationMm": [
+          0,
+          5.285914477314503,
+          -859.0283934018823
         ]
       }
     }

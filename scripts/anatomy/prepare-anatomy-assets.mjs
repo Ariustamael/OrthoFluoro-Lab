@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { cp, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,6 +12,7 @@ import { unzipSync } from "fflate";
 
 import {
   appPointFromSource,
+  centerHipReference,
   fitSphere,
   selectFemoralHeadCandidates,
 } from "./anatomy-build-logic.mjs";
@@ -30,6 +31,12 @@ const ATTRIBUTION =
   "Open3DModel - Skeleton by the Open3D project, George J.R. Maat (LUMC), Eungyeol Lee (LUMC) et al.; Open3DModel - Lower limb by the Open3D project, Jan Kooloos (RadboudUMC), Eungyeol Lee (LUMC) et al.; via AnatomyTOOL.org, CC BY-SA 4.0.";
 const PROJECT_URL = "https://anatomytool.org/open3dmodel";
 const SOURCE_PAGE_URL = "https://anatomytool.org/open3dmodel-create";
+const DRACO_LICENSE = Object.freeze({
+  bytes: 13_898,
+  id: "Apache-2.0",
+  sha256: "D3709B0FB4B8A94BBB1D02B8A2E484F258B0D9C5C5A01F940391F3FE662CD1A4",
+  sourceUrl: "https://raw.githubusercontent.com/google/draco/1.5.7/LICENSE",
+});
 
 export const HIP_GROUPS = Object.freeze([
   "pelvis",
@@ -104,7 +111,12 @@ function findUniqueNode(document, name) {
   return matches[0];
 }
 
-function transformVec3Array(array, mirrorX, normal) {
+function transformVec3Array(
+  array,
+  mirrorX,
+  normal,
+  positionOffset = [0, 0, 0],
+) {
   const output = new Float32Array(array.length);
   for (let index = 0; index < array.length; index += 3) {
     let mapped;
@@ -123,8 +135,9 @@ function transformVec3Array(array, mirrorX, normal) {
       ]);
     }
     output[index] = mirrorX ? -mapped[0] : mapped[0];
-    output[index + 1] = mapped[1];
-    output[index + 2] = mapped[2];
+    output[index] -= normal ? 0 : positionOffset[0];
+    output[index + 1] = mapped[1] - (normal ? 0 : positionOffset[1]);
+    output[index + 2] = mapped[2] - (normal ? 0 : positionOffset[2]);
   }
   return output;
 }
@@ -184,6 +197,7 @@ function addBoneNode({
   name,
   group,
   mirrorX,
+  positionOffset = [0, 0, 0],
 }) {
   const targetMesh = document.createMesh(name);
   const sourceMesh = sourceNode.getMesh();
@@ -200,6 +214,7 @@ function addBoneNode({
       sourcePosition.getArray(),
       mirrorX,
       false,
+      positionOffset,
     );
     const normals = transformVec3Array(sourceNormal.getArray(), mirrorX, true);
     const indices = repairTriangleWinding(
@@ -329,15 +344,23 @@ async function buildHipArtifact(sourceDocument, io) {
     });
   const candidates = selectFemoralHeadCandidates(femurPositions);
   const fitted = fitSphere(candidates);
-  const hipPivots = {
+  const sourceHipPivots = {
     left: [-fitted.center[0], fitted.center[1], fitted.center[2]],
     right: fitted.center,
   };
+  const centredReference = centerHipReference(sourceHipPivots);
+  const hipPivots = centredReference.hipPivots;
   const metadata = {
     artifact: "hip-lower-limbs",
     axes: { x: "patient-left", y: "anterior", z: "headward" },
     units: "millimetres",
     hipPivots,
+    referenceMidpoint: [0, 0, 0],
+    centeringTransform: {
+      sourceHipPivotsAppMm: sourceHipPivots,
+      sourceHipMidpointAppMm: centredReference.midpoint,
+      appliedTranslationMm: centredReference.translation,
+    },
   };
   const { document, root, buffer, material } = createTargetDocument(
     "Open3DModel Hip and Lower Limbs",
@@ -360,6 +383,7 @@ async function buildHipArtifact(sourceDocument, io) {
         name: sourceName,
         group: "pelvis",
         mirrorX: false,
+        positionOffset: centredReference.midpoint,
       });
       groupNodes.get("pelvis").push(rightNode);
       if (sourceName === "Hip bone.r") {
@@ -372,6 +396,7 @@ async function buildHipArtifact(sourceDocument, io) {
           name: "Hip bone.l",
           group: "pelvis",
           mirrorX: true,
+          positionOffset: centredReference.midpoint,
         });
         groupNodes.get("pelvis").push(leftNode);
       }
@@ -392,6 +417,7 @@ async function buildHipArtifact(sourceDocument, io) {
         name: derivedName,
         group: groupName,
         mirrorX: mirrored,
+        positionOffset: centredReference.midpoint,
       });
       groupNodes.get(groupName).push(node);
     }
@@ -518,6 +544,25 @@ async function downloadAndVerify(source, workingDirectory) {
   return memberPath;
 }
 
+async function downloadDracoLicense(workingDirectory) {
+  const response = await fetch(DRACO_LICENSE.sourceUrl, { redirect: "follow" });
+  if (!response.ok) {
+    throw new Error(
+      `Download failed for Google Draco LICENSE: HTTP ${response.status}`,
+    );
+  }
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  if (
+    bytes.byteLength !== DRACO_LICENSE.bytes ||
+    sha256(bytes) !== DRACO_LICENSE.sha256
+  ) {
+    throw new Error("Pinned Google Draco LICENSE identity mismatch");
+  }
+  const path = join(workingDirectory, "google-draco-1.5.7-LICENSE");
+  await writeFile(path, bytes);
+  return path;
+}
+
 async function createIO() {
   const decoder = await draco3d.createDecoderModule();
   const encoder = await draco3d.createEncoderModule();
@@ -548,6 +593,7 @@ export async function prepareAnatomyAssets({
         await downloadAndVerify(source, workingDirectory),
       );
     }
+    const dracoLicensePath = await downloadDracoLicense(workingDirectory);
     const io = await createIO();
     const overviewSource = await io.read(
       sourcePaths.get("open3dmodel-overview-skeleton"),
@@ -591,6 +637,18 @@ export async function prepareAnatomyAssets({
     const hipPath = join(anatomyDirectory, "open3dmodel-hip-lower-limbs.glb");
     await writeFile(overviewPath, overview.bytes);
     await writeFile(hipPath, hip.bytes);
+    const committedOverviewBytes = await readFile(overviewPath);
+    const committedHipBytes = await readFile(hipPath);
+    const overviewBuildHashes = {
+      firstBuildSha256: sha256(overview.bytes),
+      secondBuildSha256: sha256(overviewAgain.bytes),
+      committedSha256: sha256(committedOverviewBytes),
+    };
+    const hipBuildHashes = {
+      firstBuildSha256: sha256(hip.bytes),
+      secondBuildSha256: sha256(hipAgain.bytes),
+      committedSha256: sha256(committedHipBytes),
+    };
     for (const name of [
       "draco_decoder.js",
       "draco_decoder.wasm",
@@ -610,6 +668,19 @@ export async function prepareAnatomyAssets({
         ),
         join(dracoDirectory, name),
       );
+    }
+    await cp(dracoLicensePath, join(dracoDirectory, "LICENSE"));
+    const dracoFiles = {};
+    for (const name of [
+      "draco_decoder.js",
+      "draco_decoder.wasm",
+      "draco_wasm_wrapper.js",
+    ]) {
+      const bytes = await readFile(join(dracoDirectory, name));
+      dracoFiles[name] = {
+        bytes: bytes.byteLength,
+        sha256: sha256(bytes),
+      };
     }
 
     const provenance = {
@@ -633,6 +704,7 @@ export async function prepareAnatomyAssets({
         "Mapped source metres [x,y,z] to application millimetres [1000x,1000z,1000y]",
         "Reversed triangle winding after the handedness-changing axis swap and repaired source triangles against transformed normals",
         "Mirrored named right-side meshes across x=0 and reversed winding",
+        "Translated detailed hip/lower-limb positions by the negative bilateral femoral-head midpoint so the hip reference is the root origin",
         "Replaced source materials with one opaque neutral bone material",
         "Removed lower-limb T12 and L1-L5, deduplicated, pruned, and Draco-compressed",
       ],
@@ -655,12 +727,23 @@ export async function prepareAnatomyAssets({
           "Overlays",
         ],
       },
-      deterministicBuild: { verified: true, repetitions: 2 },
+      deterministicBuild: {
+        method: "first-build, second-build, and committed SHA-256 equality",
+        repetitions: 2,
+      },
+      dracoRuntime: {
+        version: "1.5.7",
+        license: DRACO_LICENSE,
+        files: dracoFiles,
+        additionalNotices:
+          "The authoritative Draco LICENSE also contains notices for ASCIIMathML.js (MIT) and Pygments documentation assets (public domain).",
+      },
       artifacts: {
         overview: {
           path: "public/anatomy/open3dmodel-overview-skeleton.glb",
           bytes: overview.bytes.byteLength,
           sha256: sha256(overview.bytes),
+          buildHashes: overviewBuildHashes,
           includedBoneCount: overview.includedBoneCount,
           groupBounds: overview.groupBounds,
           ...overview.metadata,
@@ -669,6 +752,7 @@ export async function prepareAnatomyAssets({
           path: "public/anatomy/open3dmodel-hip-lower-limbs.glb",
           bytes: hip.bytes.byteLength,
           sha256: sha256(hip.bytes),
+          buildHashes: hipBuildHashes,
           includedBoneCount: hip.includedBoneCount,
           groups: HIP_GROUPS,
           groupBounds: hip.groupBounds,
