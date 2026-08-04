@@ -46,6 +46,18 @@ describe("projection capability selection", () => {
     });
   });
 
+  it("uses renderable RGBA16F without requiring the 32-bit float blend extension", () => {
+    expect(
+      selectProjectionCapability(
+        context({ webgl2: true, halfFloatColor: true, floatBlend: false }),
+      ),
+    ).toEqual({
+      strategy: "layered-thickness",
+      precision: "float16",
+      reason: null,
+    });
+  });
+
   it("reports an unavailable context explicitly", () => {
     expect(selectProjectionCapability(null)).toEqual({
       strategy: "mesh-silhouette",
@@ -89,13 +101,13 @@ describe("projection capability selection", () => {
     });
   });
 
-  it("reports missing additive float blending after choosing a color tier", () => {
+  it("falls back from renderable RGBA32F to RGBA16F when 32-bit float blending is unavailable", () => {
     expect(
       selectProjectionCapability(context({ webgl2: true, floatColor: true })),
     ).toEqual({
-      strategy: "mesh-silhouette",
-      precision: null,
-      reason: "float-blend-unavailable",
+      strategy: "layered-thickness",
+      precision: "float16",
+      reason: null,
     });
   });
 });

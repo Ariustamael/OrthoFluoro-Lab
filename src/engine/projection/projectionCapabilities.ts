@@ -4,10 +4,7 @@ export interface ProjectionWebGLContext {
 }
 
 export type ProjectionCapabilityReason =
-  | "context-unavailable"
-  | "webgl2-required"
-  | "float-color-buffer-unavailable"
-  | "float-blend-unavailable";
+  "context-unavailable" | "webgl2-required" | "float-color-buffer-unavailable";
 
 export type ProjectionCapability =
   | {
@@ -49,24 +46,19 @@ export function selectProjectionCapability(
       reason: "webgl2-required",
     };
   }
-  const precision = extensionAvailable(context, "EXT_color_buffer_float")
-    ? "float32"
-    : extensionAvailable(context, "EXT_color_buffer_half_float")
-      ? "float16"
-      : null;
-  if (precision === null) {
+  const hasFloatColor = extensionAvailable(context, "EXT_color_buffer_float");
+  const hasHalfFloatColor =
+    hasFloatColor || extensionAvailable(context, "EXT_color_buffer_half_float");
+  if (!hasHalfFloatColor) {
     return {
       strategy: "mesh-silhouette",
       precision: null,
       reason: "float-color-buffer-unavailable",
     };
   }
-  if (!extensionAvailable(context, "EXT_float_blend")) {
-    return {
-      strategy: "mesh-silhouette",
-      precision: null,
-      reason: "float-blend-unavailable",
-    };
-  }
+  const precision =
+    hasFloatColor && extensionAvailable(context, "EXT_float_blend")
+      ? "float32"
+      : "float16";
   return { strategy: "layered-thickness", precision, reason: null };
 }

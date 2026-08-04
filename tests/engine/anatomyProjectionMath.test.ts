@@ -16,9 +16,11 @@ import {
 import { buildCArmGeometry } from "../../src/engine/geometry/cArmTransforms";
 import { detectorPointToWorld } from "../../src/engine/geometry/detectorGeometry";
 import {
+  add,
   dot,
   magnitude,
   normalize,
+  scale,
   subtract,
 } from "../../src/engine/geometry/coordinateSystems";
 import {
@@ -304,6 +306,78 @@ describe("detector-aligned off-axis projection", () => {
     const geometry = buildCArmGeometry(REFERENCE_C_ARM_POSE);
     expect(projectWorldPointToDetectorNdc(geometry, [0, -700, 0])).toBeNull();
     expect(projectWorldPointToDetectorNdc(geometry, [200, 0, 0])).toBeNull();
+  });
+
+  it("clips points outside the configured camera depth using one reusable projection", () => {
+    const geometry = buildCArmGeometry(REFERENCE_C_ARM_POSE);
+    const nearMm = 20;
+    const farMm = geometry.sourceDetectorDistance + 50;
+    const projection = createDetectorAlignedCamera(geometry, {
+      nearMm,
+      farMm,
+    });
+    const onCentreRay = (distanceMm: number) =>
+      add(projection.origin, scale(projection.forward, distanceMm));
+
+    expect(
+      projectWorldPointToDetectorNdc(projection, onCentreRay(nearMm + 1)),
+    ).not.toBeNull();
+    expect(
+      projectWorldPointToDetectorNdc(projection, onCentreRay(nearMm / 2)),
+    ).toBeNull();
+    expect(
+      projectWorldPointToDetectorNdc(projection, onCentreRay(farMm + 1)),
+    ).toBeNull();
+    expect(
+      projectWorldPointToDetectorNdc(projection, onCentreRay(-10)),
+    ).toBeNull();
+
+    const outsideDetector = detectorPointToWorld(
+      geometry.detector,
+      geometry.detector.width / 2 + 1,
+      0,
+    );
+    const outsideBeforeDetector = add(
+      geometry.source,
+      scale(subtract(outsideDetector, geometry.source), 0.5),
+    );
+    expect(
+      projectWorldPointToDetectorNdc(projection, outsideBeforeDetector),
+    ).toBeNull();
+  });
+
+  it.each([
+    ["non-unit U axis", { uAxis: [2, 0, 0] as const }],
+    ["non-unit V axis", { vAxis: [0, 0, 0.5] as const }],
+    [
+      "non-orthogonal U/V axes",
+      { vAxis: [Math.SQRT1_2, 0, Math.SQRT1_2] as const },
+    ],
+    ["reversed U/V handedness", { uAxis: [-1, 0, 0] as const }],
+    ["zero U axis", { uAxis: [0, 0, 0] as const }],
+  ])("rejects a detector with %s", (_label, detectorPatch) => {
+    const geometry = buildCArmGeometry(REFERENCE_C_ARM_POSE);
+    expect(() =>
+      createDetectorAlignedCamera({
+        ...geometry,
+        detector: { ...geometry.detector, ...detectorPatch },
+      }),
+    ).toThrow(/detector basis/i);
+  });
+
+  it.each([
+    ["non-unit normal", [0, 2, 0] as const],
+    ["reversed normal", [0, -1, 0] as const],
+    ["normal inconsistent with source-forward", [1, 0, 0] as const],
+    ["zero normal", [0, 0, 0] as const],
+  ])("rejects a detector with %s", (_label, normal) => {
+    const geometry = buildCArmGeometry(REFERENCE_C_ARM_POSE);
+    expect(() =>
+      createDetectorAlignedCamera({
+        ...geometry,
+        detector: { ...geometry.detector, normal },
+      }),
+    ).toThrow(/detector normal|detector basis/i);
   });
 
   it("rejects non-finite and degenerate detector geometry", () => {

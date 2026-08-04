@@ -116,6 +116,35 @@ describe("analytic layered thickness", () => {
     ).toBeCloseTo(40, 8);
   });
 
+  it("pairs complete surface intervals before clipping them to the sampled ray segment", () => {
+    const mesh = (minimumY: number, maximumY: number): ThicknessMesh => ({
+      group: "pelvis",
+      triangles: boxTriangles([-10, minimumY, -10], [10, maximumY, 10]),
+    });
+    const ray = { origin: [0, 0, 0], direction: [0, 1, 0] } as const;
+
+    expect(
+      rayThicknessThroughMeshes(ray, [mesh(990, 1_010)], {
+        maxDistanceMm: 1_000,
+      }),
+    ).toBeCloseTo(10, 8);
+    expect(
+      rayThicknessThroughMeshes(ray, [mesh(900, 950)], {
+        maxDistanceMm: 1_000,
+      }),
+    ).toBeCloseTo(50, 8);
+    expect(
+      rayThicknessThroughMeshes(ray, [mesh(1_010, 1_020)], {
+        maxDistanceMm: 1_000,
+      }),
+    ).toBe(0);
+    expect(
+      rayThicknessThroughMeshes(ray, [mesh(-10, 10)], {
+        maxDistanceMm: 1_000,
+      }),
+    ).toBeCloseTo(10, 8);
+  });
+
   it("contributes zero for hidden semantic groups", () => {
     expect(
       rayThicknessThroughMeshes(

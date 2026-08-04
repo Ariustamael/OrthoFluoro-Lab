@@ -48,17 +48,26 @@ function requirePositive(name: string, value: number): void {
   }
 }
 
-function validateDetectorBasis(right: Vec3, up: Vec3, forward: Vec3): void {
+function validateDetectorBasis(
+  right: Vec3,
+  up: Vec3,
+  normal: Vec3,
+  forward: Vec3,
+): void {
+  const hasUnitAxes = [right, up, normal].every(
+    (axis) => Math.abs(magnitude(axis) - 1) <= BASIS_TOLERANCE,
+  );
   const isOrthogonal =
     Math.abs(dot(right, up)) <= BASIS_TOLERANCE &&
     Math.abs(dot(right, forward)) <= BASIS_TOLERANCE &&
-    Math.abs(dot(up, forward)) <= BASIS_TOLERANCE;
+    Math.abs(dot(up, forward)) <= BASIS_TOLERANCE &&
+    Math.abs(dot(normal, forward) - 1) <= BASIS_TOLERANCE;
   const handedness = new Vector3(...right)
     .cross(new Vector3(...up))
-    .dot(new Vector3(...forward).negate());
-  if (!isOrthogonal || handedness < 1 - BASIS_TOLERANCE) {
+    .dot(new Vector3(...normal));
+  if (!hasUnitAxes || !isOrthogonal || handedness > -1 + BASIS_TOLERANCE) {
     throw new RangeError(
-      "Detector basis must be orthonormal and right-handed toward the source",
+      "Detector basis and normal must be unit, orthogonal, and consistently handed toward the source",
     );
   }
 }
@@ -71,22 +80,21 @@ export function createDetectorAlignedCamera(
   requireFiniteVector("Detector centre", geometry.detector.center);
   requireFiniteVector("Detector U basis", geometry.detector.uAxis);
   requireFiniteVector("Detector V basis", geometry.detector.vAxis);
+  requireFiniteVector("Detector normal", geometry.detector.normal);
   requirePositive("Detector width", geometry.detector.width);
   requirePositive("Detector height", geometry.detector.height);
 
   let forward: Vec3;
-  let right: Vec3;
-  let up: Vec3;
   try {
     forward = normalize(subtract(geometry.detector.center, geometry.source));
-    right = normalize(geometry.detector.uAxis);
-    up = normalize(geometry.detector.vAxis);
   } catch {
     throw new RangeError(
       "Detector basis and source direction must be non-zero",
     );
   }
-  validateDetectorBasis(right, up, forward);
+  const right = geometry.detector.uAxis;
+  const up = geometry.detector.vAxis;
+  validateDetectorBasis(right, up, geometry.detector.normal, forward);
 
   const sourceDetectorDistance = magnitude(
     subtract(geometry.detector.center, geometry.source),
@@ -176,11 +184,20 @@ export function projectDetectorPointToNdc(
   return [projected.x, projected.y, projected.z];
 }
 
+/**
+ * Projects a world point into detector NDC. Passing raw geometry allocates a
+ * camera and matrix; frame renderers should create one projection and reuse it.
+ */
 export function projectWorldPointToDetectorNdc(
-  geometry: CArmGeometry,
+  input: CArmGeometry | DetectorAlignedProjection,
   point: Vec3,
 ): Vec3 | null {
   if (!isFiniteVector(point)) return null;
+  const projection =
+    "viewProjectionMatrix" in input
+      ? input
+      : createDetectorAlignedProjection(input);
+  const geometry = projection.geometry;
   const detectorPoint = projectPointToDetector(
     geometry.source,
     point,
@@ -192,11 +209,14 @@ export function projectWorldPointToDetectorNdc(
   ) {
     return null;
   }
-  const projection = createDetectorAlignedProjection(geometry);
   const projected = new Vector3(...point).applyMatrix4(
     projection.viewProjectionMatrix,
   );
-  if (![projected.x, projected.y, projected.z].every(Number.isFinite)) {
+  if (
+    ![projected.x, projected.y, projected.z].every(Number.isFinite) ||
+    projected.z < -1 ||
+    projected.z > 1
+  ) {
     return null;
   }
   return [projected.x, projected.y, projected.z];

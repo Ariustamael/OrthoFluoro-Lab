@@ -29,6 +29,7 @@ export interface ThicknessMesh {
 
 export interface RayThicknessOptions {
   readonly visibleGroups?: ReadonlySet<HipAnatomyGroup>;
+  readonly minDistanceMm?: number;
   readonly maxDistanceMm?: number;
 }
 
@@ -73,9 +74,7 @@ function intersectRayTriangle(
   const v = dot(ray.direction, q) * inverseDeterminant;
   if (v < -1e-10 || u + v > 1 + 1e-10) return null;
   const distance = dot(edge2, q) * inverseDeterminant;
-  return Number.isFinite(distance) && distance > INTERSECTION_EPSILON_MM
-    ? distance
-    : null;
+  return Number.isFinite(distance) ? distance : null;
 }
 
 function uniqueSortedDistances(distances: readonly number[]): number[] {
@@ -93,19 +92,19 @@ function uniqueSortedDistances(distances: readonly number[]): number[] {
 function meshThickness(
   ray: ThicknessRay,
   mesh: ThicknessMesh,
+  minDistanceMm: number,
   maxDistanceMm: number,
 ): number {
   const distances = uniqueSortedDistances(
     mesh.triangles
       .map((triangle) => intersectRayTriangle(ray, triangle))
-      .filter(
-        (distance): distance is number =>
-          distance !== null && distance <= maxDistanceMm,
-      ),
+      .filter((distance): distance is number => distance !== null),
   );
   let thickness = 0;
   for (let index = 0; index + 1 < distances.length; index += 2) {
-    thickness += Math.max(0, distances[index + 1] - distances[index]);
+    const clippedEntry = Math.max(distances[index], minDistanceMm);
+    const clippedExit = Math.min(distances[index + 1], maxDistanceMm);
+    thickness += Math.max(0, clippedExit - clippedEntry);
   }
   return Number.isFinite(thickness) ? thickness : 0;
 }
@@ -125,13 +124,17 @@ export function rayThicknessThroughMeshes(
     return 0;
   }
   const requestedMaximum = options.maxDistanceMm ?? Number.POSITIVE_INFINITY;
+  const requestedMinimum = options.minDistanceMm ?? 0;
+  const minDistanceMm = Number.isFinite(requestedMinimum)
+    ? requestedMinimum
+    : 0;
   const maxDistanceMm =
     Number.isFinite(requestedMaximum) && requestedMaximum > 0
       ? requestedMaximum
       : requestedMaximum === Number.POSITIVE_INFINITY
         ? requestedMaximum
         : 0;
-  if (maxDistanceMm === 0) return 0;
+  if (maxDistanceMm <= minDistanceMm) return 0;
   const ray = { origin: inputRay.origin, direction };
 
   return meshes.reduce((total, mesh) => {
@@ -141,7 +144,7 @@ export function rayThicknessThroughMeshes(
     ) {
       return total;
     }
-    return total + meshThickness(ray, mesh, maxDistanceMm);
+    return total + meshThickness(ray, mesh, minDistanceMm, maxDistanceMm);
   }, 0);
 }
 
