@@ -36,7 +36,7 @@ clinical-accuracy claims. Do not fetch anatomy at runtime.
 
 ```text
 package.json
-pnpm-lock.yaml
+package-lock.json
 scripts/anatomy/source-registry.mjs
 scripts/anatomy/anatomy-build-logic.mjs
 scripts/anatomy/prepare-anatomy-assets.mjs
@@ -99,24 +99,11 @@ docs/validation/hip-anatomy-domain-review.md
 
 **Files:**
 
-- Modify: `package.json`
-- Modify: `pnpm-lock.yaml`
 - Create: `scripts/anatomy/source-registry.mjs`
 - Create: `scripts/anatomy/anatomy-build-logic.mjs`
 - Create: `tests/anatomy/anatomy-build-logic.test.ts`
 
-- [ ] **Step 1: Install the build-only glTF dependencies**
-
-Run:
-
-```powershell
-corepack pnpm add -D @gltf-transform/core @gltf-transform/extensions @gltf-transform/functions draco3dgltf fflate
-```
-
-Expected: `package.json` and `pnpm-lock.yaml` change; no runtime dependency is
-added.
-
-- [ ] **Step 2: Write failing tests for source integrity, coordinate mapping, mirroring, and femoral-head fitting**
+- [ ] **Step 1: Write failing tests for source integrity, coordinate mapping, mirroring, and femoral-head fitting**
 
 Create `tests/anatomy/anatomy-build-logic.test.ts` with focused tests for these
 exports:
@@ -170,17 +157,17 @@ Use the source-to-app mapping `[x, y, z] -> [1000*x, 1000*z, 1000*y]`.
 The axis swap changes handedness, so triangle winding and normals must be
 corrected during derivation.
 
-- [ ] **Step 3: Run the test and verify RED**
+- [ ] **Step 2: Run the test and verify RED**
 
 Run:
 
 ```powershell
-corepack pnpm test:unit -- tests/anatomy/anatomy-build-logic.test.ts
+npm.cmd run test:unit -- tests/anatomy/anatomy-build-logic.test.ts
 ```
 
 Expected: FAIL because the source registry and build helpers do not exist.
 
-- [ ] **Step 4: Implement the pinned registry and pure geometry helpers**
+- [ ] **Step 3: Implement the pinned registry and pure geometry helpers**
 
 Create `scripts/anatomy/source-registry.mjs` with these exact source records:
 
@@ -238,20 +225,20 @@ pivoting, finite-value checks, and a minimum of four non-coplanar points.
 Round only the test fixture result; retain full precision in generated asset
 metadata.
 
-- [ ] **Step 5: Run the focused test and verify GREEN**
+- [ ] **Step 4: Run the focused test and verify GREEN**
 
 Run:
 
 ```powershell
-corepack pnpm test:unit -- tests/anatomy/anatomy-build-logic.test.ts
+npm.cmd run test:unit -- tests/anatomy/anatomy-build-logic.test.ts
 ```
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit the source and build rules**
+- [ ] **Step 5: Commit the source and build rules**
 
 ```powershell
-git add package.json pnpm-lock.yaml scripts/anatomy/source-registry.mjs scripts/anatomy/anatomy-build-logic.mjs tests/anatomy/anatomy-build-logic.test.ts
+git add scripts/anatomy/source-registry.mjs scripts/anatomy/anatomy-build-logic.mjs tests/anatomy/anatomy-build-logic.test.ts
 git commit -m "build: lock anatomy source pipeline"
 ```
 
@@ -269,9 +256,21 @@ git commit -m "build: lock anatomy source pipeline"
 - Create: `public/draco/draco_decoder.wasm`
 - Create: `public/draco/draco_wasm_wrapper.js`
 - Modify: `package.json`
+- Modify: `package-lock.json`
 - Modify: `docs/ASSET-LICENCES.md`
 
-- [ ] **Step 1: Write the failing artifact validation test**
+- [ ] **Step 1: Install the build-only glTF dependencies**
+
+Run:
+
+```powershell
+npm.cmd install --save-dev @gltf-transform/core @gltf-transform/extensions @gltf-transform/functions draco3dgltf fflate
+```
+
+Expected: `package.json` and the tracked `package-lock.json` change; no runtime
+dependency is added and no second lockfile is created.
+
+- [ ] **Step 2: Write the failing artifact validation test**
 
 Create `tests/anatomy/anatomy-assets.test.ts` to execute the validator and
 assert its structured result:
@@ -296,17 +295,17 @@ describe("committed anatomy assets", () => {
 });
 ```
 
-- [ ] **Step 2: Run the artifact test and verify RED**
+- [ ] **Step 3: Run the artifact test and verify RED**
 
 Run:
 
 ```powershell
-corepack pnpm test:unit -- tests/anatomy/anatomy-assets.test.ts
+npm.cmd run test:unit -- tests/anatomy/anatomy-assets.test.ts
 ```
 
 Expected: FAIL because no committed artifact or validator exists.
 
-- [ ] **Step 3: Implement the reproducible preparation script**
+- [ ] **Step 4: Implement the reproducible preparation script**
 
 Add package scripts:
 
@@ -347,7 +346,7 @@ Do not silently refetch after a checksum failure. Do not infer anatomy groups
 from array order; use exact source names and fail on a missing or duplicate
 required name.
 
-- [ ] **Step 4: Implement the independent validator**
+- [ ] **Step 5: Implement the independent validator**
 
 `validate-anatomy-assets.mjs` must read committed files, not call the network,
 and fail non-zero when any of these checks fail:
@@ -369,20 +368,20 @@ and fail non-zero when any of these checks fail:
 Export `validateCommittedAnatomy(root)` for Vitest and print JSON only when the
 file is executed directly.
 
-- [ ] **Step 5: Generate the artifacts and verify GREEN**
+- [ ] **Step 6: Generate the artifacts and verify GREEN**
 
 Run:
 
 ```powershell
-corepack pnpm anatomy:prepare
-corepack pnpm anatomy:validate
-corepack pnpm test:unit -- tests/anatomy/anatomy-assets.test.ts
+npm.cmd run anatomy:prepare
+npm.cmd run anatomy:validate
+npm.cmd run test:unit -- tests/anatomy/anatomy-assets.test.ts
 ```
 
 Expected: all three commands succeed. The validator reports no errors, nine hip
 groups, finite mirrored hip pivots, and all included hip meshes closed.
 
-- [ ] **Step 6: Record redistribution and attribution**
+- [ ] **Step 7: Record redistribution and attribution**
 
 Replace the external-asset-empty statement in `docs/ASSET-LICENCES.md` with the
 Open3DModel/AnatomyTOOL project links, CC BY-SA licence and required attribution,
@@ -390,10 +389,10 @@ source archive identities, committed file paths, transformation summary, and a
 pointer to `public/anatomy/open3dmodel-provenance.json`. State that the derived
 files remain share-alike and are educational synthetic assets.
 
-- [ ] **Step 7: Commit the offline anatomy milestone**
+- [ ] **Step 8: Commit the offline anatomy milestone**
 
 ```powershell
-git add package.json scripts/anatomy tests/anatomy public/anatomy public/draco docs/ASSET-LICENCES.md
+git add package.json package-lock.json scripts/anatomy tests/anatomy public/anatomy public/draco docs/ASSET-LICENCES.md
 git commit -m "feat: add validated offline skeletal anatomy"
 ```
 
@@ -434,7 +433,7 @@ state, selected-side rules, independent left/right hip angles, clamping, and
 Run:
 
 ```powershell
-corepack pnpm test:unit -- tests/anatomy/anatomyTransforms.test.ts tests/components/CArmControls.test.tsx
+npm.cmd run test:unit -- tests/anatomy/anatomyTransforms.test.ts tests/components/CArmControls.test.tsx
 ```
 
 Expected: FAIL because anatomy types and state do not exist.
@@ -507,7 +506,7 @@ C-arm, beam, object-pose, and quality semantics.
 Run:
 
 ```powershell
-corepack pnpm test:unit -- tests/anatomy/anatomyTransforms.test.ts tests/components/CArmControls.test.tsx
+npm.cmd run test:unit -- tests/anatomy/anatomyTransforms.test.ts tests/components/CArmControls.test.tsx
 ```
 
 Expected: PASS.
@@ -553,7 +552,7 @@ Test that:
 Run:
 
 ```powershell
-corepack pnpm test:unit -- tests/anatomy/anatomyAssetLoader.test.ts tests/components/HipAnatomy.test.tsx tests/components/TheatreScene.test.tsx tests/components/LabWorkspace.test.tsx
+npm.cmd run test:unit -- tests/anatomy/anatomyAssetLoader.test.ts tests/components/HipAnatomy.test.tsx tests/components/TheatreScene.test.tsx tests/components/LabWorkspace.test.tsx
 ```
 
 Expected: FAIL because the loader, provider, and mesh component do not exist.
@@ -604,7 +603,7 @@ skeleton in `/lab`.
 Run:
 
 ```powershell
-corepack pnpm test:unit -- tests/anatomy/anatomyAssetLoader.test.ts tests/components/HipAnatomy.test.tsx tests/components/TheatreScene.test.tsx tests/components/LabWorkspace.test.tsx
+npm.cmd run test:unit -- tests/anatomy/anatomyAssetLoader.test.ts tests/components/HipAnatomy.test.tsx tests/components/TheatreScene.test.tsx tests/components/LabWorkspace.test.tsx
 ```
 
 Expected: PASS.
@@ -650,7 +649,7 @@ changed by local anatomy reset.
 Run:
 
 ```powershell
-corepack pnpm test:unit -- tests/components/AnatomyControls.test.tsx tests/components/CArmControls.test.tsx
+npm.cmd run test:unit -- tests/components/AnatomyControls.test.tsx tests/components/CArmControls.test.tsx
 ```
 
 Expected: FAIL because `AnatomyControls` is absent.
@@ -680,7 +679,7 @@ its existing tests in one green commit.
 Run:
 
 ```powershell
-corepack pnpm test:unit -- tests/components/AnatomyControls.test.tsx tests/components/CArmControls.test.tsx tests/components/TheatreScene.test.tsx
+npm.cmd run test:unit -- tests/components/AnatomyControls.test.tsx tests/components/CArmControls.test.tsx tests/components/TheatreScene.test.tsx
 ```
 
 Expected: PASS.
@@ -694,7 +693,7 @@ anatomy, and verify C-arm orbital/tilt values remain unchanged.
 Run:
 
 ```powershell
-corepack pnpm test:e2e
+npm.cmd run test:e2e
 ```
 
 Expected: PASS on desktop and mobile projects already configured by the suite.
@@ -746,7 +745,7 @@ Use deterministic analytic fixtures, not snapshots.
 Run:
 
 ```powershell
-corepack pnpm test:unit -- tests/engine/anatomyProjectionMath.test.ts tests/engine/layeredThicknessMath.test.ts tests/engine/projectionCapabilities.test.ts
+npm.cmd run test:unit -- tests/engine/anatomyProjectionMath.test.ts tests/engine/layeredThicknessMath.test.ts tests/engine/projectionCapabilities.test.ts
 ```
 
 Expected: FAIL because the modules and anatomy-aware input do not exist.
@@ -817,7 +816,7 @@ and tests.
 Run:
 
 ```powershell
-corepack pnpm test:unit -- tests/engine/anatomyProjectionMath.test.ts tests/engine/layeredThicknessMath.test.ts tests/engine/projectionCapabilities.test.ts
+npm.cmd run test:unit -- tests/engine/anatomyProjectionMath.test.ts tests/engine/layeredThicknessMath.test.ts tests/engine/projectionCapabilities.test.ts
 ```
 
 Expected: PASS.
@@ -864,7 +863,7 @@ Using a small closed cube fixture and mocked renderer/readback seams, test that:
 Run:
 
 ```powershell
-corepack pnpm test:unit -- tests/engine/MeshSilhouetteProjectionRenderer.test.ts tests/engine/LayeredThicknessProjectionRenderer.test.ts
+npm.cmd run test:unit -- tests/engine/MeshSilhouetteProjectionRenderer.test.ts tests/engine/LayeredThicknessProjectionRenderer.test.ts
 ```
 
 Expected: FAIL because the renderers do not exist.
@@ -916,7 +915,7 @@ after the thickness composite.
 Run:
 
 ```powershell
-corepack pnpm test:unit -- tests/engine/MeshSilhouetteProjectionRenderer.test.ts tests/engine/LayeredThicknessProjectionRenderer.test.ts tests/engine/SimplifiedProjectionRenderer.test.ts
+npm.cmd run test:unit -- tests/engine/MeshSilhouetteProjectionRenderer.test.ts tests/engine/LayeredThicknessProjectionRenderer.test.ts tests/engine/SimplifiedProjectionRenderer.test.ts
 ```
 
 Expected: PASS.
@@ -964,7 +963,7 @@ Mock the renderer factories and provider hook. Prove that:
 Run:
 
 ```powershell
-corepack pnpm test:unit -- tests/components/ProjectionView.test.tsx tests/components/LabWorkspace.test.tsx
+npm.cmd run test:unit -- tests/components/ProjectionView.test.tsx tests/components/LabWorkspace.test.tsx
 ```
 
 Expected: FAIL because `ProjectionView` is not anatomy-aware.
@@ -1014,8 +1013,8 @@ must not become a panel or modal.
 Run:
 
 ```powershell
-corepack pnpm test:unit -- tests/components/ProjectionView.test.tsx tests/components/LabWorkspace.test.tsx
-corepack pnpm test:e2e
+npm.cmd run test:unit -- tests/components/ProjectionView.test.tsx tests/components/LabWorkspace.test.tsx
+npm.cmd run test:e2e
 ```
 
 Expected: PASS. The E2E test verifies that moving the C-arm changes the image
@@ -1054,7 +1053,7 @@ Reject claims of clinical calibration, dose accuracy, or patient specificity.
 Run:
 
 ```powershell
-corepack pnpm run test:starter
+npm.cmd run test:starter
 ```
 
 Expected: FAIL because the About copy still describes procedural anatomy.
@@ -1081,11 +1080,11 @@ millimetre scaling, detector-aligned camera, and femoral-head pivot;
 Run each command separately and fix every failure before continuing:
 
 ```powershell
-corepack pnpm anatomy:validate
-corepack pnpm lint
-corepack pnpm test
-corepack pnpm test:e2e
-corepack pnpm build
+npm.cmd run anatomy:validate
+npm.cmd run lint
+npm.cmd test
+npm.cmd run test:e2e
+npm.cmd run build
 git diff --check
 ```
 
