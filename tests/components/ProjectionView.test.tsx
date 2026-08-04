@@ -130,7 +130,7 @@ describe("ProjectionView renderer orchestration", () => {
       );
 
       const image = await screen.findByRole("img", {
-        name: /Compatibility projection/,
+        name: /Compatibility anatomy silhouette/,
       });
       expect(image).toHaveAttribute(
         "src",
@@ -146,6 +146,36 @@ describe("ProjectionView renderer orchestration", () => {
       ).toHaveTextContent(reasonLabel);
     },
   );
+
+  it("updates the production compatibility image for visibility and hip rotation", async () => {
+    render(
+      <AnatomyAssetProvider acquireLease={readyLease}>
+        <ProjectionView
+          detectCapability={() => ({
+            precision: null,
+            reason: "webgl2-required",
+            strategy: "mesh-silhouette",
+          })}
+        />
+      </AnatomyAssetProvider>,
+    );
+
+    const image = await screen.findByRole("img", {
+      name: /Compatibility anatomy silhouette/,
+    });
+    const bilateralSource = image.getAttribute("src");
+
+    act(() => useSimulationStore.getState().setAnatomyVisibility("left-only"));
+    await waitFor(() =>
+      expect(image.getAttribute("src")).not.toBe(bilateralSource),
+    );
+    const leftOnlySource = image.getAttribute("src");
+
+    act(() => useSimulationStore.getState().setSelectedHipRotation(30));
+    await waitFor(() =>
+      expect(image.getAttribute("src")).not.toBe(leftOnlySource),
+    );
+  });
 
   it("releases the temporary WebGL capability probe context", () => {
     const loseContext = vi.fn();

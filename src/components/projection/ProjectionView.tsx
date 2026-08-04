@@ -159,7 +159,7 @@ type RendererStrategy =
   "compatibility" | "layered" | "silhouette" | "simplified";
 
 export interface ProjectionRendererFactories {
-  readonly createCompatibility?: (reason: string) => FrameRenderer;
+  readonly createCompatibility?: (reason: string) => AnatomyRenderer;
   readonly createLayered: () => AnatomyRenderer;
   readonly createSilhouette: () => AnatomyRenderer;
   readonly createSimplified: () => FrameRenderer;
@@ -255,9 +255,6 @@ function renderProjection(
   anatomyInput: AnatomyProjectionInput | null,
 ): Promise<ProjectionOutput> {
   if (activeRenderer.strategy === "simplified") {
-    return (activeRenderer.renderer as FrameRenderer).render(frameInput);
-  }
-  if (activeRenderer.strategy === "compatibility") {
     return (activeRenderer.renderer as FrameRenderer).render(frameInput);
   }
   if (anatomyInput === null) {
