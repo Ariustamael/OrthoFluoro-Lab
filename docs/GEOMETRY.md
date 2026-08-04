@@ -194,10 +194,12 @@ projection renderers use the same transform function and serializable pose.
 Mesh rendering derives a perspective camera from `CArmGeometry`, never from the
 display arc or detector backing. The camera origin is the authoritative source.
 Its forward direction points to detector centre, its image basis follows the
-authoritative detector `U` and `V` axes, and its asymmetric perspective frustum
-is the active detector rectangle scaled to the near plane. The detector plane
-therefore maps exactly to the output raster, including oblique and lateral-like
-C-arm poses.
+authoritative detector `U` and `V` axes, and its detector-aligned symmetric
+perspective frustum uses the active detector half-width and half-height scaled
+to the near plane. Because source and detector centre are collinear in the
+authoritative rig geometry, the left/right and bottom/top frustum bounds are
+equal and opposite. The detector plane therefore maps exactly to the output
+raster, including oblique and lateral-like C-arm poses.
 
 The layered renderer accumulates signed source-to-surface distance: front faces
 contribute negative distance and back faces contribute positive distance.

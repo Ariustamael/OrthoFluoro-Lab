@@ -11,7 +11,7 @@ so this feature must not be described as orthopaedically approved.
 ## Build under review
 
 - Technical implementation baseline commit:
-  `5e918ad1e8079250047b19be9f200234f13f8b5e`
+  `9c3c9cc8084806c76f2da000e4770c8d465b7849`
 - Review record date: 2026-08-05
 - Runtime assets: local Open3DModel hip/lower-limb and overview GLBs plus local
   Draco decoder; identities are recorded in
@@ -27,12 +27,12 @@ the documentation/copy changes in this review record:
 - anatomy validator: pass, zero errors, 66/66 detailed meshes closed and 232/232
   overview meshes closed;
 - lint: pass;
-- Vitest: 340 tests in 30 files pass;
+- Vitest: 343 tests in 30 files pass;
 - built-shell/content assertions: 4 pass;
-- Playwright, serial Chromium: 7 tests pass across desktop and mobile, including
+- Playwright, serial Chromium: 8 tests pass across desktop and mobile, including
   real WebGL detector pixels, linked anatomy/C-arm changes, AP-like/oblique/
   lateral-like distinction, offline operation, and single-heavy-surface mobile
-  behaviour;
+  behaviour, plus hydrated public About attribution and limitation copy;
 - production build: pass.
 
 | Review concern | Evidence available | Technical result | Domain status |
@@ -42,7 +42,7 @@ the documentation/copy changes in this review record:
 | Plausible hip pivot and intact whole-leg rotation | Pivots lie in the validated proximal femur regions at approximately `X = +/-85.584 mm`; shared transform tests rotate the complete semantic leg and retain the pelvis | Pass | Clinical plausibility pending |
 | Source, detector, beam, and anatomy share geometry | Geometry tests and linked-view component/E2E tests use the same `CArmGeometry`; beam visibility does not alter projection state | Pass | Visual centring review pending |
 | Overlap darkness and lateral-like thickness | Layered-renderer tests prove signed front/back accumulation and additive overlap; AP-like, oblique, and lateral-like E2E states produce distinct non-blank artifacts | Pass | Comparative expert visual review pending |
-| Fallbacks are labelled and non-blank | Component tests cover silhouette capability fallback, partial-mesh silhouette, anatomy-unavailable procedural fallback, context loss, and render failure | Pass | Desktop/mobile visual review pending |
+| Fallbacks are labelled and non-blank | Component tests cover the anatomy-derived CPU/SVG compatibility path for unavailable/WebGL 1 contexts, WebGL mesh silhouette for missing float colour targets, partial-mesh silhouette, and anatomy-unavailable procedural fallback. Context loss enters pending recovery and restoration recreates from the newest pose; layered render failure selects mesh silhouette. | Pass | Desktop/mobile visual review pending |
 | Controls remain subordinate | Component tests cover collapsed anatomy controls, compact disclosure, linked statuses, and C-arm interaction independence | Pass | Desktop/mobile visual hierarchy review pending |
 | Attribution and local runtime assets | Asset licence and provenance files include CC BY-SA attribution; built asset manifest includes local GLBs and Draco files; service worker rejects cross-origin runtime caching | Pass | No domain action required |
 

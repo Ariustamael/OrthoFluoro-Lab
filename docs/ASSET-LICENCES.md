@@ -4,7 +4,7 @@
 
 | Asset                            | Origin                                 | Licence                  | Notes                                  |
 | -------------------------------- | -------------------------------------- | ------------------------ | -------------------------------------- |
-| Synthetic detector projection   | Generated locally from the anatomy GLB | Project source licence   | Relative mesh thickness or silhouette  |
+| Synthetic detector output       | Generated at runtime from the anatomy GLB | Source anatomy: CC BY-SA 4.0; renderer code: project source licence | Relative mesh thickness or anatomy-derived silhouette |
 | Interface graphics and C-arm rig | Generated with HTML/CSS/Three.js code  | Project source licence   | No proprietary vendor design           |
 | Open3DModel overview skeleton    | [AnatomyTOOL Open3DModel][open3dmodel] | [CC BY-SA 4.0][cc-by-sa] | Locally derived skeletal-only GLB      |
 | Open3DModel hip and lower limbs  | [AnatomyTOOL Open3DModel][open3dmodel] | [CC BY-SA 4.0][cc-by-sa] | Locally derived bilateral skeletal GLB |
@@ -17,9 +17,12 @@ available through AnatomyTOOL. They were retrieved on 2026-08-04 from the
 
 The lab uses the transformed hip and lower-limb file as licensed synthetic
 skeletal anatomy. It derives an educational relative mesh-thickness image from
-that local geometry, with a labelled silhouette compatibility fallback. Neither
-rendering path is a fluoroscopy system, diagnostic image, patient model, or
-radiation-dose model.
+that local geometry. When layered GPU rendering is unavailable, it displays a
+labelled anatomy-derived silhouette: either the WebGL mesh path or the CPU/SVG
+compatibility path described in `docs/ARCHITECTURE.md`. The depicted anatomy
+remains attributable CC BY-SA material; the code that generates the output is
+covered by the project source licence. No rendering path is a fluoroscopy
+system, diagnostic image, patient model, or radiation-dose model.
 
 Required attribution:
 

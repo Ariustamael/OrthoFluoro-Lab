@@ -286,6 +286,36 @@ test("@desktop declared routes render distinct learning pages", async ({
   }
 });
 
+test("@desktop hydrated About page exposes anatomy attribution and boundaries", async ({
+  page,
+}) => {
+  await page.goto("/about");
+  const main = page.getByRole("main");
+
+  await expect(
+    main.getByRole("heading", { level: 1, name: "About OrthoFluoro Lab" }),
+  ).toBeVisible();
+  await expect(main).toContainText(
+    "licensed, transformed Open3DModel educational model",
+  );
+  await expect(main).toContainText("synthetic relative-thickness projection");
+  await expect(main).toContainText("George J.R. Maat (LUMC)");
+  await expect(main).toContainText("Jan Kooloos (RadboudUMC)");
+  await expect(
+    main.getByRole("link", { name: "AnatomyTOOL Open3DModel" }),
+  ).toHaveAttribute("href", "https://anatomytool.org/open3dmodel");
+  await expect(
+    main.getByRole("link", { name: "CC BY-SA 4.0" }),
+  ).toHaveAttribute(
+    "href",
+    "https://creativecommons.org/licenses/by-sa/4.0/",
+  );
+  await expect(main).toContainText(
+    "The bundled files are modified educational derivatives",
+  );
+  await expect(main).toContainText("not a fluoroscopy system");
+});
+
 test("@mobile learner mounts only the selected lab surface", async ({
   page,
 }) => {

@@ -51,9 +51,10 @@ hiding the visible beam does not change projection geometry.
   off-screen WebGL renderer, signed front/back accumulation targets, materials,
   and composite pass for relative mesh thickness.
 - `src/engine/projection/MeshSilhouetteProjectionRenderer.ts` renders the same
-  mesh geometry as a compatibility silhouette. The procedural
-  `SimplifiedProjectionRenderer.ts` is reserved for anatomy load failure, not
-  normal operation.
+  mesh geometry through WebGL when float colour accumulation is unavailable.
+  `SimplifiedProjectionRenderer.ts` also owns an anatomy-derived CPU/SVG
+  compatibility renderer for unavailable WebGL contexts or WebGL 1, while its
+  separate procedural renderer is reserved for anatomy load failure.
 - `src/state/simulationStore.ts` owns C-arm pose and mode, serializable hip
   anatomy pose and visibility, interaction mode, beam visibility, and graphics
   quality. Reset is a store transition, not component-local cleanup.
@@ -78,16 +79,21 @@ development/review surfaces, not primary learner navigation.
 ```text
 anatomy loading -> restrained loading state
 anatomy ready + WebGL 2 float colour support -> layered relative thickness
-anatomy ready + unsupported/lost layered context -> labelled mesh silhouette
+anatomy ready + WebGL 2 without float colour buffer -> labelled WebGL mesh silhouette
+anatomy ready + no WebGL context or WebGL 1 -> labelled CPU/SVG anatomy silhouette
 anatomy load error -> labelled procedural fallback + retry
 ```
 
 Float32 accumulation is selected when float blending is available; otherwise
-the layered renderer uses the supported float16 path. Open or otherwise
-ineligible meshes are overlaid as silhouettes and reported in renderer
-metadata. A permanent layered-renderer failure cannot leave the detector blank:
-`ProjectionView` invalidates stale work and selects the mesh silhouette without
-mutating anatomy or C-arm state.
+the layered renderer uses the supported float16 path. If neither float colour
+target is available, the WebGL mesh renderer draws the transformed anatomy as a
+silhouette. If a context cannot be created or only WebGL 1 is present, the
+CPU/SVG compatibility renderer projects the visible anatomy vertices with the
+same detector geometry and pose; it is not a generic procedural image. Open or
+otherwise ineligible meshes in a layered frame are overlaid as silhouettes and
+reported in renderer metadata. A permanent layered-renderer failure cannot
+leave the detector blank: `ProjectionView` invalidates stale work and selects
+the WebGL mesh silhouette without mutating anatomy or C-arm state.
 
 ## Resource lifetime and render invalidation
 
@@ -108,9 +114,12 @@ capped at `0.6`; the chosen quality scale returns after interaction.
 
 Projection rendering is asynchronous. Monotonic request identifiers and
 renderer identity checks prevent late results from replacing newer state. A
-WebGL context-loss event cancels current work; restoration recreates the
-renderer from current state. The image artifact owns detector pixels while the
-border and central crosshair remain presentation overlays.
+WebGL context-loss event cancels current work and leaves the detector in a
+pending recovery state; it does not immediately switch to silhouette. When the
+browser reports restoration, the provider/renderer lifecycle is restarted and
+the recreated renderer consumes the newest store pose. The image artifact owns
+detector pixels while the border and central crosshair remain presentation
+overlays.
 
 ## Resilience, mobile, and PWA
 

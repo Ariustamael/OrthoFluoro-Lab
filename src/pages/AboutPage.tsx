@@ -14,8 +14,9 @@ export function AboutPage() {
           The anatomy is a licensed, transformed Open3DModel educational model.
           C-arm geometry and anatomy state are linked, so changing either setup
           changes the same detector view. The primary image is a synthetic
-          relative-thickness projection; silhouette mode is a compatibility
-          fallback when layered rendering is unavailable.
+          relative-thickness projection. When layered rendering cannot run,
+          compatibility modes display anatomy-derived silhouettes without
+          thickness information.
         </p>
         <h2>What it does not model</h2>
         <p>
@@ -25,6 +26,29 @@ export function AboutPage() {
           exposure control, device calibration, or radiation dose. It is not
           patient-specific and must not be used for diagnosis, surgical
           navigation, planning, or procedural decision-making.
+        </p>
+        <h2>Anatomy source and licence</h2>
+        <p>
+          The source is the{" "}
+          <a href="https://anatomytool.org/open3dmodel">
+            AnatomyTOOL Open3DModel
+          </a>
+          . Open3DModel - Skeleton is by the Open3D project, George J.R. Maat
+          (LUMC), Eungyeol Lee (LUMC) et al. Open3DModel - Lower limb is by the
+          Open3D project, Jan Kooloos (RadboudUMC), Eungyeol Lee (LUMC) et al.
+          The models are shared under{" "}
+          <a href="https://creativecommons.org/licenses/by-sa/4.0/">
+            CC BY-SA 4.0
+          </a>
+          .
+        </p>
+        <p>
+          The bundled files are modified educational derivatives: skeletal
+          meshes were retained, source axes and metres were converted to the
+          lab&apos;s millimetre coordinate system, missing left-side anatomy was
+          mirrored, materials were replaced, and the hip model was centred and
+          compressed. The derivatives remain subject to the same attribution
+          and share-alike terms.
         </p>
         <h2>Privacy</h2>
         <p>

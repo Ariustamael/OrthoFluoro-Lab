@@ -59,12 +59,20 @@ test("describes the licensed skeletal model and bounded synthetic projection", a
 
   assert.match(aboutPage, /licensed, transformed Open3DModel/i);
   assert.match(aboutPage, /synthetic\s+relative-thickness projection/i);
-  assert.match(aboutPage, /silhouette mode is a compatibility\s+fallback/i);
+  assert.match(
+    aboutPage,
+    /compatibility modes display anatomy-derived\s+silhouettes/i,
+  );
   assert.match(aboutPage, /C-arm geometry and anatomy state are linked/i);
   assert.match(aboutPage, /not a fluoroscopy system/i);
   assert.match(aboutPage, /not[^.]*diagnostic image/i);
   assert.match(aboutPage, /not[^.]*dose model/i);
   assert.match(aboutPage, /not[^.]*patient-specific/is);
+  assert.match(aboutPage, /George J\.R\. Maat\s+\(LUMC\)/i);
+  assert.match(aboutPage, /Jan Kooloos \(RadboudUMC\)/i);
+  assert.match(aboutPage, /AnatomyTOOL Open3DModel/i);
+  assert.match(aboutPage, /CC BY-SA 4\.0/i);
+  assert.match(aboutPage, /modified educational derivatives/i);
   assert.match(homePage, /licensed synthetic skeletal anatomy/i);
 
   assert.doesNotMatch(
