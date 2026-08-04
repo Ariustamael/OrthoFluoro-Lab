@@ -43,6 +43,14 @@ export interface ProjectionOutput {
   readonly strategyId: string;
   readonly description: string;
   readonly artifact: ProjectionArtifact;
+  readonly metadata?: ProjectionMetadata;
+}
+
+export interface ProjectionMetadata {
+  readonly badge: string;
+  readonly precision?: "float32" | "float16" | null;
+  readonly reason?: string;
+  readonly partialSilhouetteMeshCount?: number;
 }
 
 export interface ProjectionRenderer<

@@ -5,6 +5,7 @@ import { CArmGeometryReviewPage } from "../pages/CArmGeometryReviewPage";
 import { HomePage } from "../pages/HomePage";
 import { LabPage } from "../pages/LabPage";
 import { PlaceholderPage } from "../pages/PlaceholderPage";
+import { ProjectionRendererSmokePage } from "../pages/ProjectionRendererSmokePage";
 import { SettingsPage } from "../pages/SettingsPage";
 
 export const appRoutes: RouteObject[] = [
@@ -14,6 +15,10 @@ export const appRoutes: RouteObject[] = [
       { index: true, element: <HomePage /> },
       { path: "lab", element: <LabPage /> },
       { path: "lab/c-arm-review", element: <CArmGeometryReviewPage /> },
+      {
+        path: "lab/projection-renderer-smoke",
+        element: <ProjectionRendererSmokePage />,
+      },
       {
         path: "guided",
         element: (

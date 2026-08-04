@@ -220,7 +220,11 @@ export class SimplifiedProjectionRenderer implements ProjectionRenderer {
         height,
         width,
       },
-      description: "Educational geometric visualisation",
+      description: "Procedural fallback — anatomy unavailable",
+      metadata: {
+        badge: "Procedural fallback",
+        reason: "anatomy-unavailable",
+      },
       strategyId: "simplified-procedural",
     };
   }

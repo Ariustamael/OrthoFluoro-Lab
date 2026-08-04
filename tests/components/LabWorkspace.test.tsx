@@ -401,7 +401,7 @@ describe("linked theatre and simplified projection", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      await screen.findByText("Educational geometric visualisation"),
+      await screen.findByText("Procedural fallback — anatomy unavailable"),
     ).toBeVisible();
     expect(
       await screen.findByRole("img", {
@@ -538,7 +538,7 @@ describe("replaceable projection renderer", () => {
         height: 400,
         width: 400,
       },
-      description: "Educational geometric visualisation",
+      description: "Procedural fallback — anatomy unavailable",
       strategyId: "simplified-procedural",
     });
   });
