@@ -13,7 +13,9 @@
     "test:unit": "vitest run",
     "test:starter": "npm run build && node --test tests/rendered-html.test.mjs",
     "test:e2e": "node scripts/run-e2e.mjs",
-    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
+    "anatomy:prepare": "node scripts/anatomy/prepare-anatomy-assets.mjs",
+    "anatomy:validate": "node scripts/anatomy/validate-anatomy-assets.mjs",
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern public/draco",
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
@@ -31,6 +33,9 @@
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",
+    "@gltf-transform/core": "^4.4.2",
+    "@gltf-transform/extensions": "^4.4.2",
+    "@gltf-transform/functions": "^4.4.2",
     "@playwright/test": "^1.61.1",
     "@tailwindcss/postcss": "4.2.1",
     "@testing-library/jest-dom": "^6.9.1",
@@ -42,9 +47,11 @@
     "@types/three": "^0.185.1",
     "@vitejs/plugin-react": "6.0.2",
     "@vitejs/plugin-rsc": "0.5.26",
+    "draco3dgltf": "^1.5.7",
     "drizzle-kit": "0.31.10",
     "eslint": "^9.39.4",
     "eslint-config-next": "16.2.6",
+    "fflate": "^0.8.3",
     "jsdom": "^29.1.1",
     "prettier": "^3.9.5",
     "react-server-dom-webpack": "19.2.6",
