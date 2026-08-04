@@ -490,9 +490,10 @@ expect(anatomyGroupLocalRotation("pelvis", pose)).toEqual([0, 0, 0]);
 
 Use a pose with non-zero root X/Y/Z rotation to prove that semantic-child hip
 rotation remains local `[0, 0, hipAngle]` rather than being added to any root
-Euler component. Assert the complete manifest value, exact checksums and source
-archive URLs, local runtime paths, deep immutability, and precise overview/hip
-group types.
+Euler component. Load the committed provenance JSON and cross-check the complete
+manifest value, source archive URLs/checksums, source member names/checksums,
+derived checksums, local runtime paths, deep immutability, and precise
+overview/hip group types. Do not duplicate provenance hashes in tests.
 
 Update the store test in `CArmControls.test.tsx` to assert the reference anatomy
 state, selected-side rules, independent left/right hip angles, clamping, and
@@ -551,12 +552,23 @@ record exposes only `HipAnatomyGroup[]`; neither group collection may widen to
 `string[]`. Each record owns its typed `id`, `name`, `region`, local `filePath`,
 `coordinateSystem: "orthofluoro-anatomical-v1"`,
 `millimetresPerUnit: 1`, precisely typed groups, locked source archive URL,
-source-member SHA-256, current derived SHA-256, `CC-BY-SA-4.0` licence, required
-attribution, local `/draco/` decoder path, and local provenance URL. Deep-freeze
-the manifest, both records, and both group arrays. The active hip lab references
-only `hip-lower-limbs`; the whole skeleton remains available for a later
-overview. Components consume `filePath`; they do not hard-code or alias a
-second model URL.
+source-archive SHA-256, source member filename, source-member SHA-256, current
+derived SHA-256, `CC-BY-SA-4.0` licence, required attribution, local `/draco/`
+decoder path, and local provenance URL. The source identity fields are explicit:
+
+```ts
+readonly sourceUrl: `https://${string}`;
+readonly sourceArchiveChecksum: string;
+readonly sourceMember: string;
+readonly sourceMemberChecksum: string;
+readonly derivedChecksum: string;
+```
+
+Do not expose an ambiguous `sourceChecksum`. Deep-freeze the manifest, both
+records, and both group arrays. The active hip lab references only
+`hip-lower-limbs`; the whole skeleton remains available for a later overview.
+Components consume `filePath`; they do not hard-code or alias a second model
+URL.
 
 - [ ] **Step 4: Implement pure visibility and joint transforms**
 

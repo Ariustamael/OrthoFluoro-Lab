@@ -196,19 +196,39 @@ The importer must not silently treat an open mesh as a closed volume.
 Create a typed anatomy manifest that owns provenance and runtime metadata:
 
 ```ts
-interface AnatomyAssetDefinition {
-  id: string;
-  name: string;
-  region: "whole-skeleton" | "hip-lower-limbs";
-  filePath: string;
-  coordinateSystem: "orthofluoro-anatomical-v1";
-  millimetresPerUnit: number;
-  groups: readonly HipAnatomyGroup[];
-  sourceUrl: string;
-  sourceChecksum: string;
-  derivedChecksum: string;
-  licence: string;
-  attribution: string;
+type AnatomyAssetId = "whole-skeleton" | "hip-lower-limbs";
+
+interface AnatomyAssetDefinition<
+  TId extends AnatomyAssetId,
+  TGroup extends string,
+> {
+  readonly id: TId;
+  readonly name: string;
+  readonly region: TId;
+  readonly filePath: `/anatomy/${string}.glb`;
+  readonly coordinateSystem: "orthofluoro-anatomical-v1";
+  readonly millimetresPerUnit: 1;
+  readonly groups: readonly TGroup[];
+  readonly sourceUrl: `https://${string}`;
+  readonly sourceArchiveChecksum: string;
+  readonly sourceMember: string;
+  readonly sourceMemberChecksum: string;
+  readonly derivedChecksum: string;
+  readonly licence: "CC-BY-SA-4.0";
+  readonly attribution: string;
+  readonly dracoDecoderPath: "/draco/";
+  readonly provenanceUrl: "/anatomy/open3dmodel-provenance.json";
+}
+
+interface AnatomyAssetManifest {
+  readonly "whole-skeleton": AnatomyAssetDefinition<
+    "whole-skeleton",
+    OverviewAnatomyGroup
+  >;
+  readonly "hip-lower-limbs": AnatomyAssetDefinition<
+    "hip-lower-limbs",
+    HipAnatomyGroup
+  >;
 }
 ```
 
@@ -426,7 +446,8 @@ without changing pose or C-arm geometry.
 
 Automated asset checks verify:
 
-- manifest path, checksum, licence, and attribution fields;
+- manifest path, source archive checksum, source member identity/checksum,
+  derived checksum, licence, and attribution fields;
 - millimetre scale and expected anatomical bounds;
 - coordinate handedness and documented axes;
 - semantic group completeness and left/right identity;

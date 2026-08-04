@@ -1,4 +1,5 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
+import provenance from "../../public/anatomy/open3dmodel-provenance.json";
 import {
   ACTIVE_HIP_ANATOMY_ASSET_ID,
   ANATOMY_ASSETS,
@@ -46,6 +47,12 @@ function expectDeeplyFrozen(value: unknown): void {
   if (value === null || typeof value !== "object") return;
   expect(Object.isFrozen(value)).toBe(true);
   Object.values(value).forEach(expectDeeplyFrozen);
+}
+
+function provenanceSource(id: string) {
+  const source = provenance.sources.find((candidate) => candidate.id === id);
+  if (!source) throw new Error(`Missing provenance source: ${id}`);
+  return source;
 }
 
 describe("hip anatomy visibility", () => {
@@ -177,6 +184,9 @@ describe("anatomy public contracts", () => {
   });
 
   it("publishes the complete approved runtime and provenance metadata", () => {
+    const overviewSource = provenanceSource("open3dmodel-overview-skeleton");
+    const hipSource = provenanceSource("open3dmodel-lower-limb");
+
     expect(ACTIVE_HIP_ANATOMY_ASSET_ID).toBe("hip-lower-limbs");
     expect(ANATOMY_ASSETS).toEqual({
       "whole-skeleton": {
@@ -187,15 +197,13 @@ describe("anatomy public contracts", () => {
         coordinateSystem: "orthofluoro-anatomical-v1",
         millimetresPerUnit: 1,
         groups: ["overview-midline", "overview-left", "overview-right"],
-        sourceUrl:
-          "https://caskanatomy.info/open3dmodelfiles/overview-skeleton/overview-skeleton-glb.zip",
-        sourceChecksum:
-          "E83543ABB5C8DE013A4BDCBF2C0536AE1CE92980C7AA7951C6AA3DDEA804D10F",
-        derivedChecksum:
-          "3644EC72E8DE4634CCA598185ABB1BBCF523C08A52265726C9ECA14A53CC602F",
-        licence: "CC-BY-SA-4.0",
-        attribution:
-          "Open3DModel - Skeleton by the Open3D project, George J.R. Maat (LUMC), Eungyeol Lee (LUMC) et al.; Open3DModel - Lower limb by the Open3D project, Jan Kooloos (RadboudUMC), Eungyeol Lee (LUMC) et al.; via AnatomyTOOL.org, CC BY-SA 4.0.",
+        sourceUrl: overviewSource.archiveUrl,
+        sourceArchiveChecksum: overviewSource.sha256,
+        sourceMember: overviewSource.member,
+        sourceMemberChecksum: overviewSource.memberSha256,
+        derivedChecksum: provenance.artifacts.overview.sha256,
+        licence: provenance.licence.id,
+        attribution: provenance.attribution,
         dracoDecoderPath: "/draco/",
         provenanceUrl: "/anatomy/open3dmodel-provenance.json",
       },
@@ -207,15 +215,13 @@ describe("anatomy public contracts", () => {
         coordinateSystem: "orthofluoro-anatomical-v1",
         millimetresPerUnit: 1,
         groups: EXPECTED_GROUPS,
-        sourceUrl:
-          "https://caskanatomy.info/open3dmodelfiles/lower-limb/lower-limb-glb.zip",
-        sourceChecksum:
-          "5A889D5CAE00421885AAF1841E72364E5F215F0C29FB0116CA5E9844EC4C5FE7",
-        derivedChecksum:
-          "10D744127633B61B166478ADAAA007D15B71EE10D948CEDEADB92EBEC6437D72",
-        licence: "CC-BY-SA-4.0",
-        attribution:
-          "Open3DModel - Skeleton by the Open3D project, George J.R. Maat (LUMC), Eungyeol Lee (LUMC) et al.; Open3DModel - Lower limb by the Open3D project, Jan Kooloos (RadboudUMC), Eungyeol Lee (LUMC) et al.; via AnatomyTOOL.org, CC BY-SA 4.0.",
+        sourceUrl: hipSource.archiveUrl,
+        sourceArchiveChecksum: hipSource.sha256,
+        sourceMember: hipSource.member,
+        sourceMemberChecksum: hipSource.memberSha256,
+        derivedChecksum: provenance.artifacts.hip.sha256,
+        licence: provenance.licence.id,
+        attribution: provenance.attribution,
         dracoDecoderPath: "/draco/",
         provenanceUrl: "/anatomy/open3dmodel-provenance.json",
       },
@@ -226,14 +232,36 @@ describe("anatomy public contracts", () => {
     expectDeeplyFrozen(ANATOMY_ASSETS);
   });
 
-  it("keeps runtime fetch paths local and checksums exact SHA-256 values", () => {
+  it("cross-checks archive and member byte streams against committed provenance", () => {
+    const cases = [
+      {
+        asset: ANATOMY_ASSETS["whole-skeleton"],
+        source: provenanceSource("open3dmodel-overview-skeleton"),
+      },
+      {
+        asset: ANATOMY_ASSETS["hip-lower-limbs"],
+        source: provenanceSource("open3dmodel-lower-limb"),
+      },
+    ] as const;
+
+    cases.forEach(({ asset, source }) => {
+      expect(asset.sourceUrl).toBe(source.archiveUrl);
+      expect(asset.sourceArchiveChecksum).toBe(source.sha256);
+      expect(asset.sourceMember).toBe(source.member);
+      expect(asset.sourceMemberChecksum).toBe(source.memberSha256);
+      expect(asset).not.toHaveProperty("sourceChecksum");
+    });
+  });
+
+  it("keeps runtime fetch paths local and every checksum in SHA-256 form", () => {
     Object.values(ANATOMY_ASSETS).forEach((asset) => {
       expect(asset.filePath).toMatch(/^\/anatomy\/.+\.glb$/);
       expect(asset.dracoDecoderPath).toBe("/draco/");
       expect(asset.provenanceUrl).toBe(
         "/anatomy/open3dmodel-provenance.json",
       );
-      expect(asset.sourceChecksum).toMatch(/^[A-F0-9]{64}$/);
+      expect(asset.sourceArchiveChecksum).toMatch(/^[A-F0-9]{64}$/);
+      expect(asset.sourceMemberChecksum).toMatch(/^[A-F0-9]{64}$/);
       expect(asset.derivedChecksum).toMatch(/^[A-F0-9]{64}$/);
     });
   });

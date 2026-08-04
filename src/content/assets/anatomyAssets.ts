@@ -22,7 +22,9 @@ export interface AnatomyAssetManifestEntry<
   readonly millimetresPerUnit: 1;
   readonly groups: readonly TGroup[];
   readonly sourceUrl: `https://${string}`;
-  readonly sourceChecksum: string;
+  readonly sourceArchiveChecksum: string;
+  readonly sourceMember: string;
+  readonly sourceMemberChecksum: string;
   readonly derivedChecksum: string;
   readonly licence: AnatomyLicence;
   readonly attribution: string;
@@ -67,7 +69,10 @@ export const ANATOMY_ASSETS: AnatomyAssetManifest = Object.freeze({
     groups: OVERVIEW_GROUPS,
     sourceUrl:
       "https://caskanatomy.info/open3dmodelfiles/overview-skeleton/overview-skeleton-glb.zip",
-    sourceChecksum:
+    sourceArchiveChecksum:
+      "A6E0803EC66EC236979DDD35945FC2033FA7CDBCD0AB1B4FE06B47E848706364",
+    sourceMember: "overview-skeleton.glb",
+    sourceMemberChecksum:
       "E83543ABB5C8DE013A4BDCBF2C0536AE1CE92980C7AA7951C6AA3DDEA804D10F",
     derivedChecksum:
       "3644EC72E8DE4634CCA598185ABB1BBCF523C08A52265726C9ECA14A53CC602F",
@@ -86,7 +91,10 @@ export const ANATOMY_ASSETS: AnatomyAssetManifest = Object.freeze({
     groups: HIP_GROUPS,
     sourceUrl:
       "https://caskanatomy.info/open3dmodelfiles/lower-limb/lower-limb-glb.zip",
-    sourceChecksum:
+    sourceArchiveChecksum:
+      "E080EBEF16B2A3F53C7F6005515FAC39EDD941FB0AEBC79FF4B9F59FFFF8D416",
+    sourceMember: "lower-limb.glb",
+    sourceMemberChecksum:
       "5A889D5CAE00421885AAF1841E72364E5F215F0C29FB0116CA5E9844EC4C5FE7",
     derivedChecksum:
       "10D744127633B61B166478ADAAA007D15B71EE10D948CEDEADB92EBEC6437D72",
