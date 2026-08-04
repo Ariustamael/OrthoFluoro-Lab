@@ -7,22 +7,24 @@ build. A client-side React Router tree owns the learning routes. The server
 renders a lightweight hydration shell; the browser then starts the router and
 mounts the requested page.
 
-The lab has one simulation state and one geometry pipeline:
+The lab has one serializable simulation state, one anatomy resource provider,
+and one authoritative C-arm geometry pipeline:
 
 ```text
-simulationStore pose + mode
-        │
-        ├─ preset ─ buildCArmGeometry ─ 3D rig transform + manipulators
-        │
-        └─ preset ─ buildCArmGeometry ─ ProjectionInput ─ renderer artifact
+simulationStore C-arm pose + mode
+        |-- preset -> buildCArmGeometry -> 3D rig + manipulators
+        `-- preset -> buildCArmGeometry -> detector-aligned projection camera
 
-simulationStore object pose + quality ────────────────────────┘
+AnatomyAssetProvider -> semantic local GLB --+-> HipAnatomy theatre scene
+simulationStore hip pose + visibility -------+
+geometry + anatomy + render quality ---------`-> ProjectionView artifact
 ```
 
-The two consumers call the same pure derivation. Source, detector plane, pivot,
-and SID are therefore never maintained as independent 3D and projection state.
-The scene-only `showBeam` flag is intentionally absent from `ProjectionView`,
-so hiding the beam does not invalidate or change projection geometry.
+Both viewports consume the same pure C-arm geometry derivation and serializable
+anatomy pose. Source, detector plane, mechanical pivot, SID, visibility, and hip
+rotation are not maintained as independent 3D and projection state. The
+scene-only `showBeam` flag is intentionally absent from `ProjectionView`, so
+hiding the visible beam does not change projection geometry.
 
 ## Boundaries and ownership
 
@@ -38,81 +40,87 @@ so hiding the beam does not invalidate or change projection geometry.
   `CArmGeometry`.
 - `src/engine/geometry/projectionMath.ts` owns ray-plane projection, detector
   bounds, and magnification.
-- `src/engine/projection/SimplifiedProjectionRenderer.ts` is the current
-  `ProjectionRenderer` strategy. It consumes `ProjectionInput.geometry`; a
-  future volumetric implementation can keep the same UI boundary.
-- `src/state/simulationStore.ts` owns C-arm pose and mode, object pose,
-  interaction mode, beam visibility, and graphics quality. Reset is a store
-  transition, not component-local cleanup.
+- `src/anatomy/AnatomyAssetProvider.tsx` owns a cached, reference-counted lease
+  for the hip/lower-limb GLB, and exposes loading, error, and retry state to both
+  viewports. Runtime decoding uses the bundled same-origin Draco decoder.
+- `src/anatomy/hipAnatomyScene.ts` creates semantic scene groups per viewport
+  while retaining shared provider geometry. It applies identical root,
+  visibility, and femoral-head-pivot transforms in the theatre and projection
+  paths.
+- `src/engine/projection/LayeredThicknessProjectionRenderer.ts` owns its
+  off-screen WebGL renderer, signed front/back accumulation targets, materials,
+  and composite pass for relative mesh thickness.
+- `src/engine/projection/MeshSilhouetteProjectionRenderer.ts` renders the same
+  mesh geometry as a compatibility silhouette. The procedural
+  `SimplifiedProjectionRenderer.ts` is reserved for anatomy load failure, not
+  normal operation.
+- `src/state/simulationStore.ts` owns C-arm pose and mode, serializable hip
+  anatomy pose and visibility, interaction mode, beam visibility, and graphics
+  quality. Reset is a store transition, not component-local cleanup.
 - `src/components/scene/CArmRig.tsx` renders the local resources under the
-  authoritative rigid transform. `CArmManipulators.tsx` derives its outer
-  control-spine anchors from the local circular arc, transforms those anchors
-  with the rig, and writes pose changes back to the store.
-- `src/components/scene/CArmGeometryReview.tsx` and the unlinked
-  `/lab/c-arm-review` route provide isolated side, detector-facing, and oblique
-  inspection views of the real rig. The review surface uses deterministic
-  camera presets and suppresses manipulators; it is a development/review
-  surface, not primary learner navigation.
+  authoritative rigid transform. `CArmManipulators.tsx` derives its outer cue
+  anchors from the local circular arc, transforms them with the rig, and writes
+  pose changes back to the store.
 - `src/components/scene/TheatreCanvas.tsx` owns the fixed cue-help DOM overlay.
-  It maps semantic cue IDs from the Three.js scene through `cArmCueHints.ts` and
-  renders the hint in the theatre corner, outside the Canvas rather than as a
-  world-space `Html` label.
-- `src/components/projection/ProjectionView.tsx` derives the same world
-  geometry, packages it with object pose and raster dimensions, and owns the
-  asynchronous renderer lifecycle.
-- `src/persistence/database.ts` defines local saved views, bookmarks, notes,
-  settings, and recent items. Only graphics quality is active in this phase.
+  It maps semantic cue IDs from the Three.js scene and keeps the hint outside
+  the canvas rather than attaching a large label to the model.
+- `src/components/projection/ProjectionView.tsx` combines the same world
+  geometry with the provider resource, anatomy pose, and raster dimensions,
+  selects a renderer, and owns its asynchronous lifecycle.
 
 `src/app/App.tsx` declares the route surface. Home, Lab, About, and Settings are
-functional; Guided, Library, Communication, and Saved routes clearly identify
-themselves as planned modules.
+functional; Guided, Library, Communication, and Saved routes identify planned
+modules. The unlinked `/lab/c-arm-review` and projection smoke routes are
+development/review surfaces, not primary learner navigation.
 
-## Display-only rig cues
+## Renderer fallback flow
 
-The display model deliberately remains schematic. `CArmRig.tsx` draws the
-source/collimator around the source supplied by the geometry engine, while
-`buildCArmGeometry` remains the shared authority for source, detector frame,
-active detector dimensions, and SID for both the scene and projection renderer.
+```text
+anatomy loading -> restrained loading state
+anatomy ready + WebGL 2 float colour support -> layered relative thickness
+anatomy ready + unsupported/lost layered context -> labelled mesh silhouette
+anatomy load error -> labelled procedural fallback + retry
+```
 
-`CArmManipulators.tsx` uses `localArcCueAnchor` with the outer arc radius
-(`local.arcRadius + preset.arcRadialThickness / 2`) plus a radial offset. The
-orbit-and-tilt anchor is at `-225 degrees` with a `36 mm` offset, wig-wag uses
-the actual local arc midpoint with the same `36 mm` offset, and translation is
-at `-135 degrees` with a `48 mm` offset. These local anchors are transformed by
-the authoritative rig transform, so the quiet cue spine follows the C-arm
-instead of being attached to the isocentre or a fixed screen position.
+Float32 accumulation is selected when float blending is available; otherwise
+the layered renderer uses the supported float16 path. Open or otherwise
+ineligible meshes are overlaid as silhouettes and reported in renderer
+metadata. A permanent layered-renderer failure cannot leave the detector blank:
+`ProjectionView` invalidates stale work and selects the mesh silhouette without
+mutating anatomy or C-arm state.
 
 ## Resource lifetime and render invalidation
 
 The physical rig shape is independent of pose and of the isocentric versus
-non-isocentric pivot. `useCArmRigResources` keys the local integrated mesh,
-active face, and beam by construction dimensions only. Pose changes update the
-containing Three.js group's position and quaternion; they do not rebuild static
-buffer geometry. Mode switches also reuse those resources while recomputing the
-pivot transform. Resources are disposed when their shape key changes or the rig
-unmounts.
+non-isocentric pivot. `useCArmRigResources` keys local mesh, active face, and
+beam resources by construction dimensions only. Pose and mode changes update
+the containing transform without rebuilding static buffer geometry. Resources
+are disposed when their shape key changes or the rig unmounts.
 
-`ProjectionView` memoizes world geometry from pose and preset, then memoizes the
-renderer input from geometry, object pose, and effective raster dimensions.
-Physical detector width and height remain part of geometry while the quality
-setting controls only pixel resolution. During direct pointer interaction,
-render scale is capped at `0.6`; the selected quality scale returns afterward.
+The anatomy loader caches one decoded source resource and releases it after the
+last lease. Each viewport owns its scene wrappers and presentation materials;
+projection renderers own and dispose their GPU targets and canvases.
+
+`ProjectionView` memoizes world geometry and effective raster dimensions.
+Physical detector dimensions remain authoritative while graphics quality
+controls only pixel resolution. During pointer interaction, render scale is
+capped at `0.6`; the chosen quality scale returns after interaction.
 
 Projection rendering is asynchronous. Monotonic request identifiers and
-renderer identity checks prevent late results from replacing newer state; the
-renderer is disposed on replacement or unmount. Its output artifact owns the
-image, while the detector border and central crosshair remain a presentation
-overlay.
+renderer identity checks prevent late results from replacing newer state. A
+WebGL context-loss event cancels current work; restoration recreates the
+renderer from current state. The image artifact owns detector pixels while the
+border and central crosshair remain presentation overlays.
 
 ## Resilience, mobile, and PWA
 
 WebGL initialization is checked before the canvas mounts and context loss has a
-recovery path. On desktop, the 3D theatre and projection remain linked and
-visible together. On mobile, the tab workspace mounts only the selected heavy
-surface, so an inactive WebGL canvas or detector renderer does not continue to
-consume resources. The application error boundary prevents a failed feature
-from leaving a blank page.
+recovery path. On desktop, the linked 3D and detector views remain visible
+together. On mobile, the tab workspace mounts only the selected heavy surface,
+so an inactive WebGL canvas or detector renderer does not consume resources.
+The application error boundary prevents a failed feature from leaving a blank
+page.
 
-The PWA precaches the versioned application shell. Runtime caching is restricted
-to same-origin `/models/` and `/content/` assets; there are no third-party API
-responses to cache.
+The PWA precaches the versioned application shell and local anatomy/Draco
+assets. Runtime caching is same-origin only; the built lab does not depend on a
+third-party anatomy service.

@@ -249,7 +249,7 @@ describe("real anatomy scene boundary", () => {
     );
 
     expect(source).toContain("<HipAnatomy");
-    expect(source).not.toContain("AnatomicalPlaceholder");
+    expect(source).not.toContain(["Anatomical", "Placeholder"].join(""));
     expect(source).not.toContain("AnatomyRotationHandle");
     expect(source).not.toContain("ANATOMY_ROTATION_HANDLE_DEFINITIONS");
   });

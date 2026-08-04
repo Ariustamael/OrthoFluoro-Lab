@@ -4,8 +4,7 @@
 
 | Asset                            | Origin                                 | Licence                  | Notes                                  |
 | -------------------------------- | -------------------------------------- | ------------------------ | -------------------------------------- |
-| Procedural 3D teaching object    | Generated in application code          | Project source licence   | No external file or patient data       |
-| Procedural detector texture      | Generated in application code          | Project source licence   | Deterministic SVG artifact             |
+| Synthetic detector projection   | Generated locally from the anatomy GLB | Project source licence   | Relative mesh thickness or silhouette  |
 | Interface graphics and C-arm rig | Generated with HTML/CSS/Three.js code  | Project source licence   | No proprietary vendor design           |
 | Open3DModel overview skeleton    | [AnatomyTOOL Open3DModel][open3dmodel] | [CC BY-SA 4.0][cc-by-sa] | Locally derived skeletal-only GLB      |
 | Open3DModel hip and lower limbs  | [AnatomyTOOL Open3DModel][open3dmodel] | [CC BY-SA 4.0][cc-by-sa] | Locally derived bilateral skeletal GLB |
@@ -15,6 +14,12 @@
 The committed files are derivatives of the Open3DModel selection models made
 available through AnatomyTOOL. They were retrieved on 2026-08-04 from the
 [Open3DModel source-files page][open3dmodel-create].
+
+The lab uses the transformed hip and lower-limb file as licensed synthetic
+skeletal anatomy. It derives an educational relative mesh-thickness image from
+that local geometry, with a labelled silhouette compatibility fallback. Neither
+rendering path is a fluoroscopy system, diagnostic image, patient model, or
+radiation-dose model.
 
 Required attribution:
 

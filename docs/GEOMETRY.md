@@ -156,3 +156,53 @@ Magnification is `SID / source-object distance`; both inputs must be finite and
 positive. Raster resolution is independent of the detector's physical
 `220 × 220` dimensions. Geometry tests use explicit floating-point tolerances,
 generally at least six decimal places.
+
+## Anatomy coordinates and hip pivots
+
+The Open3DModel source vertices are stored in metres. Asset preparation maps a
+source point `[x, y, z]` to application millimetres as:
+
+```text
+[x, y, z]source -> [1000 x, 1000 z, 1000 y]app
+```
+
+This gives the application axes `+X` patient-left, `+Y` anterior, and `+Z`
+headward at one millimetre per GLB unit. Swapping source Y and Z changes
+handedness, so preparation reverses triangle winding and repairs normals.
+Derived left-side bones are reflected across `X = 0` and have their winding
+reversed again. The independent asset validator checks finite indexed geometry,
+closed projection meshes, outward-consistent normals, expected bounds, and
+left/right mirroring.
+
+The right femoral-head centre is fitted from proximal-medial femur samples; the
+left centre is its mirrored counterpart. Their bilateral midpoint is subtracted
+from the detailed asset so the anatomy root reference is the midpoint. The
+committed pivots are approximately:
+
+```text
+left  = (+85.58369749, 0, 0) mm
+right = (-85.58369749, 0, 0) mm
+```
+
+Whole-leg internal/external rotation is a local Z rotation about the selected
+femoral-head pivot, clamped to `[-45 degrees, +45 degrees]`. Pelvis visibility
+and pose are independent of that child rotation. The 3D scene and both mesh
+projection renderers use the same transform function and serializable pose.
+
+## Detector-aligned mesh camera
+
+Mesh rendering derives a perspective camera from `CArmGeometry`, never from the
+display arc or detector backing. The camera origin is the authoritative source.
+Its forward direction points to detector centre, its image basis follows the
+authoritative detector `U` and `V` axes, and its asymmetric perspective frustum
+is the active detector rectangle scaled to the near plane. The detector plane
+therefore maps exactly to the output raster, including oblique and lateral-like
+C-arm poses.
+
+The layered renderer accumulates signed source-to-surface distance: front faces
+contribute negative distance and back faces contribute positive distance.
+Additive blending sums path length through each eligible closed mesh, so
+overlapping bones increase relative darkness. The result is a normalized
+educational relative-thickness image, not calibrated attenuation. Unsupported
+float accumulation uses the same camera and transformed meshes in silhouette
+mode.

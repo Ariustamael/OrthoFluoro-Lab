@@ -51,6 +51,28 @@ test("keeps the finished shell free of starter preview assets", async () => {
   );
 });
 
+test("describes the licensed skeletal model and bounded synthetic projection", async () => {
+  const [aboutPage, homePage] = await Promise.all([
+    readFile(new URL("../src/pages/AboutPage.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/pages/HomePage.tsx", import.meta.url), "utf8"),
+  ]);
+
+  assert.match(aboutPage, /licensed, transformed Open3DModel/i);
+  assert.match(aboutPage, /synthetic\s+relative-thickness projection/i);
+  assert.match(aboutPage, /silhouette mode is a compatibility\s+fallback/i);
+  assert.match(aboutPage, /C-arm geometry and anatomy state are linked/i);
+  assert.match(aboutPage, /not a fluoroscopy system/i);
+  assert.match(aboutPage, /not[^.]*diagnostic image/i);
+  assert.match(aboutPage, /not[^.]*dose model/i);
+  assert.match(aboutPage, /not[^.]*patient-specific/is);
+  assert.match(homePage, /licensed synthetic skeletal anatomy/i);
+
+  assert.doesNotMatch(
+    aboutPage,
+    /(?:is|provides|produces)\s+(?:a\s+)?(?:clinically calibrated|dose accurate|patient-specific)/i,
+  );
+});
+
 test("ships a same-origin offline shell from the deployed asset root", async () => {
   const [serviceWorker, manifest, assetManifest] = await Promise.all([
     readFile(

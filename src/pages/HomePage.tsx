@@ -11,7 +11,7 @@ const concepts = [
   ],
   [
     "Safe by design",
-    "Learn from procedural anatomy and explicit limitations without patient data.",
+    "Learn from licensed synthetic skeletal anatomy and explicit limitations without patient data.",
   ],
 ] as const;
 
