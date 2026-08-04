@@ -87,9 +87,11 @@
       "Overlays"
     ]
   },
-  "deterministicBuild": {
-    "method": "first-build, second-build, and committed SHA-256 equality",
-    "repetitions": 2
+  "generationVerification": {
+    "method": "Two independent generation passes from the same pinned downloaded inputs are compared byte-for-byte before publication",
+    "independentGenerationPasses": 2,
+    "byteComparisonRequiredBeforePublication": true,
+    "validatorTrustBoundary": "The independent validator checks that actual artifact bytes equal the recorded first-build, second-build, and committed hashes; it does not rerun generation"
   },
   "dracoRuntime": {
     "version": "1.5.7",

@@ -278,6 +278,7 @@ git commit -m "build: lock anatomy source pipeline"
 - Create: `scripts/anatomy/validate-anatomy-assets.mjs`
 - Create: `tests/anatomy/anatomy-assets.test.ts`
 - Create: `tests/anatomy/anatomy-validation-rules.test.ts`
+- Create: `tests/anatomy/anatomy-publication.test.ts`
 - Create: `public/anatomy/open3dmodel-overview-skeleton.glb`
 - Create: `public/anatomy/open3dmodel-hip-lower-limbs.glb`
 - Create: `public/anatomy/open3dmodel-provenance.json`
@@ -355,8 +356,11 @@ Implement `prepare-anatomy-assets.mjs` using `fetch`, `fflate`, and glTF
 Transform `NodeIO` registered with `ALL_EXTENSIONS` and the local Draco decoder
 and encoder. It must:
 
-1. download each registry archive into an OS temporary directory;
-2. reject a byte count or uppercase SHA-256 mismatch before extraction;
+1. download each registry archive into an OS temporary directory using an
+   `AbortController` timeout, required valid `Content-Length`, and accumulated
+   streaming byte ceiling tied to the pinned archive size;
+2. reject a streamed byte count or uppercase SHA-256 mismatch before
+   extraction;
 3. reject the member byte count or SHA-256 mismatch;
 4. convert source axes/metres to app axes/millimetres and repair winding;
 5. derive a complete overview skeleton by retaining midline bones, mirroring
@@ -374,14 +378,17 @@ and encoder. It must:
     in root `extras.orthoFluoro`;
 12. assign stable semantic node names and `extras.anatomyGroup` values;
 13. preserve only opaque bone material, bake transforms, deduplicate, prune,
-    Draco-compress, and write the two public GLBs;
-14. copy the three Draco decoder files from Three.js into `public/draco` and
-    bundle the pinned authoritative Google Draco 1.5.7 `LICENSE`;
-15. write provenance JSON containing source/download identities, source and
+    Draco-compress, and write the two GLBs into a temporary publication tree;
+14. copy the three Draco decoder files and pinned authoritative Google Draco
+    1.5.7 `LICENSE` into that staging tree;
+15. write staged provenance JSON containing source/download identities, source and
     first-build, second-build, committed and derived checksums, the CC BY-SA
     licence identifier, attribution URL, Draco Apache-2.0 licence/checksums,
     transformation description, included/excluded groups, units, axes, and hip
-    pivots.
+    pivots;
+16. run the independent validator against the complete staged tree and only
+    then promote the anatomy, Draco, licence, and provenance files together to
+    their existing `public/anatomy` and `public/draco` paths.
 
 Do not silently refetch after a checksum failure. Do not infer anatomy groups
 from array order; use exact source names and fail on a missing or duplicate
@@ -392,7 +399,8 @@ required name.
 `validate-anatomy-assets.mjs` must read committed files, not call the network,
 and fail non-zero when any of these checks fail:
 
-- provenance-derived hashes equal the committed GLB hashes;
+- actual GLB hashes equal the recorded first-build, second-build, and committed
+  hashes, reported explicitly as `recordedBuildHashesVerified`;
 - every position, normal, and index accessor is finite and in bounds;
 - semantic groups exactly match the expected group set;
 - left/right group bounds mirror within 0.5 mm;
@@ -400,14 +408,16 @@ and fail non-zero when any of these checks fail:
 - every projection mesh is indexed, closed, and has each undirected edge used
   exactly twice;
 - overall and per-group millimetre bounds fall within recorded expected ranges;
-- the derived outputs are byte-identical across two runs from the pinned input;
 - both hip pivots lie within the proximal femur bounds and mirror within
   0.5 mm;
 - the whole-skeleton artifact has a valid root, mirrored left/right bounds
   within tolerance, and no runtime URL dependency.
 
 Export `validateCommittedAnatomy(root)` for Vitest and print JSON only when the
-file is executed directly.
+file is executed directly. This validator does not rerun generation; the
+preparation command separately performs two independent generation passes from
+the pinned downloaded inputs and requires byte-identical output before staged
+validation and publication.
 
 - [ ] **Step 6: Generate the artifacts and verify GREEN**
 

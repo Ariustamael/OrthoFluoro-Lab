@@ -10,7 +10,7 @@ import {
   findDuplicateGeometryFingerprints,
   validateBoundsAgainstBaselines,
   validateCommittedAnatomy,
-  validateDeterministicHashes,
+  validateRecordedBuildHashes,
   validateLateralityEvidence,
   validatePivotCandidateRegion,
 } from "../../scripts/anatomy/validate-anatomy-assets.mjs";
@@ -48,7 +48,7 @@ afterEach(async () => {
 describe("independent anatomy validation rules", () => {
   it("requires first, second, committed, and actual hashes to agree", () => {
     expect(
-      validateDeterministicHashes(
+      validateRecordedBuildHashes(
         {
           firstBuildSha256: "A",
           secondBuildSha256: "A",
@@ -58,7 +58,7 @@ describe("independent anatomy validation rules", () => {
       ),
     ).toEqual([]);
     expect(
-      validateDeterministicHashes(
+      validateRecordedBuildHashes(
         {
           firstBuildSha256: "A",
           secondBuildSha256: "B",
@@ -130,7 +130,7 @@ describe("independent anatomy validation rules", () => {
     expect(computeSignedVolume(positions, inward)).toBeLessThan(0);
   });
 
-  it("rejects a provenance record whose deterministic hashes disagree", async () => {
+  it("rejects a provenance record whose recorded build hashes disagree", async () => {
     const root = await createCommittedAssetFixture();
     const provenancePath = join(
       root,

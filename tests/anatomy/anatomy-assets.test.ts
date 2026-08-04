@@ -1,3 +1,6 @@
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import { validateCommittedAnatomy } from "../../scripts/anatomy/validate-anatomy-assets.mjs";
@@ -26,7 +29,8 @@ describe("committed anatomy assets", () => {
     expect(report.overview.closedMeshCount).toBe(report.overview.meshCount);
     expect(report.overview.nonFiniteAccessorCount).toBe(0);
     expect(report.sourceIdentityVerified).toBe(true);
-    expect(report.deterministicHashesVerified).toBe(true);
+    expect(report.recordedBuildHashesVerified).toBe(true);
+    expect(report).not.toHaveProperty("deterministicHashesVerified");
     expect(report.dracoLicenseVerified).toBe(true);
     expect(report.hip.referenceMidpoint).toEqual([0, 0, 0]);
     expect(report.hip.hipPivots.left[1]).toBeCloseTo(0, 4);
@@ -41,5 +45,20 @@ describe("committed anatomy assets", () => {
     expect(report.overview.duplicateGeometryCount).toBe(0);
     expect(report.overview.negativeSignedVolumeCount).toBe(0);
     expect(report.overview.triangleCount).toBe(725_968);
+
+    const provenance = JSON.parse(
+      await readFile(
+        join(process.cwd(), "public", "anatomy", "open3dmodel-provenance.json"),
+        "utf8",
+      ),
+    );
+    expect(provenance).not.toHaveProperty("deterministicBuild");
+    expect(provenance.generationVerification).toMatchObject({
+      independentGenerationPasses: 2,
+      byteComparisonRequiredBeforePublication: true,
+    });
+    expect(provenance.generationVerification.validatorTrustBoundary).toMatch(
+      /recorded.*does not.*rerun generation/i,
+    );
   }, 15_000);
 });

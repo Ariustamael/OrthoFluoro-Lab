@@ -125,7 +125,7 @@ function sha256(bytes) {
   return createHash("sha256").update(bytes).digest("hex").toUpperCase();
 }
 
-export function validateDeterministicHashes(recorded, actualSha256) {
+export function validateRecordedBuildHashes(recorded, actualSha256) {
   const errors = [];
   if (recorded?.firstBuildSha256 !== actualSha256)
     errors.push("First-build hash differs from the committed artifact hash");
@@ -454,7 +454,7 @@ function hasIdentityWorldMatrix(node, tolerance = 1e-8) {
 
 export async function validateCommittedAnatomy(repositoryRoot) {
   const errors = [];
-  let deterministicHashesVerified = true;
+  let recordedBuildHashesVerified = true;
   const anatomyDirectory = join(repositoryRoot, "public", "anatomy");
   const provenance = JSON.parse(
     await readFile(
@@ -478,11 +478,11 @@ export async function validateCommittedAnatomy(repositoryRoot) {
       errors.push(`${name} byte count differs from provenance`);
     if (actualSha256 !== artifact.sha256)
       errors.push(`${name} checksum differs from provenance`);
-    const hashErrors = validateDeterministicHashes(
+    const hashErrors = validateRecordedBuildHashes(
       artifact.buildHashes,
       actualSha256,
     );
-    deterministicHashesVerified &&= hashErrors.length === 0;
+    recordedBuildHashesVerified &&= hashErrors.length === 0;
     errors.push(...hashErrors.map((error) => `${name}: ${error}`));
     const urls = externalRuntimeURLs(readGlbJSON(bytes));
     if (urls.length)
@@ -850,7 +850,7 @@ export async function validateCommittedAnatomy(repositoryRoot) {
   return {
     errors,
     sourceIdentityVerified,
-    deterministicHashesVerified,
+    recordedBuildHashesVerified,
     dracoLicenseVerified,
     hip: {
       groups: groupNames,

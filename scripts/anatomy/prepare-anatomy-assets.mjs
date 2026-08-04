@@ -1,5 +1,14 @@
 import { createHash } from "node:crypto";
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  cp,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,10 +26,12 @@ import {
   selectFemoralHeadCandidates,
 } from "./anatomy-build-logic.mjs";
 import { SOURCE_ASSETS } from "./source-registry.mjs";
+import { validateCommittedAnatomy } from "./validate-anatomy-assets.mjs";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const REPOSITORY_ROOT = resolve(SCRIPT_DIR, "../..");
 const DEFAULT_OUTPUT_ROOT = join(REPOSITORY_ROOT, "public");
+const DEFAULT_DOWNLOAD_TIMEOUT_MS = 30_000;
 const RETRIEVED_DATE = "2026-08-04";
 const LICENCE = Object.freeze({
   id: "CC-BY-SA-4.0",
@@ -511,20 +522,104 @@ async function buildOverviewArtifact(sourceDocument, io) {
   };
 }
 
-async function downloadAndVerify(source, workingDirectory) {
-  const response = await fetch(source.archiveUrl, { redirect: "follow" });
-  if (!response.ok) {
-    throw new Error(
-      `Download failed for ${source.id}: HTTP ${response.status}`,
-    );
+export async function fetchPinnedBytes(
+  { label, url, expectedBytes, expectedSha256 },
+  { fetchImpl = fetch, timeoutMs = DEFAULT_DOWNLOAD_TIMEOUT_MS } = {},
+) {
+  const controller = new AbortController();
+  let timedOut = false;
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+  try {
+    let response;
+    try {
+      response = await fetchImpl(url, {
+        redirect: "follow",
+        signal: controller.signal,
+      });
+    } catch (error) {
+      if (timedOut) {
+        throw new Error(`${label} download timed out after ${timeoutMs} ms`, {
+          cause: error,
+        });
+      }
+      throw error;
+    }
+    if (!response.ok) {
+      throw new Error(`Download failed for ${label}: HTTP ${response.status}`);
+    }
+    const contentLength = response.headers.get("content-length");
+    if (!contentLength || !/^\d+$/.test(contentLength)) {
+      throw new Error(`${label} has a missing or invalid Content-Length`);
+    }
+    const declaredBytes = Number(contentLength);
+    if (!Number.isSafeInteger(declaredBytes) || declaredBytes > expectedBytes) {
+      throw new Error(
+        `${label} Content-Length ${contentLength} exceeds the pinned ${expectedBytes}-byte ceiling`,
+      );
+    }
+    if (!response.body) throw new Error(`${label} response has no body`);
+
+    const chunks = [];
+    let receivedBytes = 0;
+    const reader = response.body.getReader();
+    while (true) {
+      let result;
+      try {
+        result = await reader.read();
+      } catch (error) {
+        if (timedOut) {
+          throw new Error(`${label} download timed out after ${timeoutMs} ms`, {
+            cause: error,
+          });
+        }
+        throw error;
+      }
+      if (result.done) break;
+      const chunk = result.value;
+      receivedBytes += chunk.byteLength;
+      if (receivedBytes > expectedBytes) {
+        controller.abort();
+        await reader.cancel().catch(() => {});
+        throw new Error(
+          `${label} streamed body exceeded the pinned ${expectedBytes} bytes`,
+        );
+      }
+      chunks.push(chunk);
+    }
+
+    const bytes = new Uint8Array(receivedBytes);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    if (
+      bytes.byteLength !== expectedBytes ||
+      sha256(bytes) !== expectedSha256
+    ) {
+      throw new Error(
+        `${label} identity mismatch: expected ${expectedBytes} bytes and SHA-256 ${expectedSha256}; received ${bytes.byteLength} bytes and SHA-256 ${sha256(bytes)}`,
+      );
+    }
+    return bytes;
+  } finally {
+    clearTimeout(timeout);
   }
-  const archive = new Uint8Array(await response.arrayBuffer());
-  if (
-    archive.byteLength !== source.archiveBytes ||
-    sha256(archive) !== source.sha256
-  ) {
-    throw new Error(`Pinned archive identity mismatch for ${source.id}`);
-  }
+}
+
+async function downloadAndVerify(source, workingDirectory, downloadOptions) {
+  const archive = await fetchPinnedBytes(
+    {
+      label: source.id,
+      url: source.archiveUrl,
+      expectedBytes: source.archiveBytes,
+      expectedSha256: source.sha256,
+    },
+    downloadOptions,
+  );
   await writeFile(join(workingDirectory, source.archiveFile), archive);
   const members = unzipSync(archive);
   const member = members[source.member];
@@ -544,20 +639,16 @@ async function downloadAndVerify(source, workingDirectory) {
   return memberPath;
 }
 
-async function downloadDracoLicense(workingDirectory) {
-  const response = await fetch(DRACO_LICENSE.sourceUrl, { redirect: "follow" });
-  if (!response.ok) {
-    throw new Error(
-      `Download failed for Google Draco LICENSE: HTTP ${response.status}`,
-    );
-  }
-  const bytes = new Uint8Array(await response.arrayBuffer());
-  if (
-    bytes.byteLength !== DRACO_LICENSE.bytes ||
-    sha256(bytes) !== DRACO_LICENSE.sha256
-  ) {
-    throw new Error("Pinned Google Draco LICENSE identity mismatch");
-  }
+async function downloadDracoLicense(workingDirectory, downloadOptions) {
+  const bytes = await fetchPinnedBytes(
+    {
+      label: "Google Draco LICENSE",
+      url: DRACO_LICENSE.sourceUrl,
+      expectedBytes: DRACO_LICENSE.bytes,
+      expectedSha256: DRACO_LICENSE.sha256,
+    },
+    downloadOptions,
+  );
   const path = join(workingDirectory, "google-draco-1.5.7-LICENSE");
   await writeFile(path, bytes);
   return path;
@@ -579,21 +670,104 @@ function byteIdentical(first, second) {
   );
 }
 
+async function pathExists(path) {
+  try {
+    await stat(path);
+    return true;
+  } catch (error) {
+    if (error?.code === "ENOENT") return false;
+    throw error;
+  }
+}
+
+async function promoteStagedDirectories(
+  stagedPublicRoot,
+  destinationPublicRoot,
+) {
+  await mkdir(destinationPublicRoot, { recursive: true });
+  const backupRoot = await mkdtemp(
+    join(dirname(destinationPublicRoot), ".orthofluoro-anatomy-backup-"),
+  );
+  const directoryNames = ["anatomy", "draco"];
+  const backedUp = [];
+  const promoted = [];
+  try {
+    for (const name of directoryNames) {
+      const destination = join(destinationPublicRoot, name);
+      if (await pathExists(destination)) {
+        await rename(destination, join(backupRoot, name));
+        backedUp.push(name);
+      }
+    }
+    for (const name of directoryNames) {
+      await rename(
+        join(stagedPublicRoot, name),
+        join(destinationPublicRoot, name),
+      );
+      promoted.push(name);
+    }
+  } catch (error) {
+    for (const name of promoted.reverse()) {
+      await rm(join(destinationPublicRoot, name), {
+        recursive: true,
+        force: true,
+      });
+    }
+    for (const name of backedUp.reverse()) {
+      await rename(join(backupRoot, name), join(destinationPublicRoot, name));
+    }
+    throw error;
+  } finally {
+    await rm(backupRoot, { recursive: true, force: true });
+  }
+}
+
+export async function validateAndPromoteStagedAssetSet({
+  stagingRepositoryRoot,
+  destinationPublicRoot,
+  validateStagedRoot = validateCommittedAnatomy,
+  beforePromotion = async () => {},
+}) {
+  const report = await validateStagedRoot(stagingRepositoryRoot);
+  if (!report || !Array.isArray(report.errors) || report.errors.length > 0) {
+    throw new Error(
+      `Staged anatomy validation failed: ${report?.errors?.join("; ") || "invalid validator report"}`,
+    );
+  }
+  await beforePromotion();
+  await promoteStagedDirectories(
+    join(stagingRepositoryRoot, "public"),
+    destinationPublicRoot,
+  );
+  return report;
+}
+
 export async function prepareAnatomyAssets({
   outputRoot = DEFAULT_OUTPUT_ROOT,
+  fetchImpl = fetch,
+  downloadTimeoutMs = DEFAULT_DOWNLOAD_TIMEOUT_MS,
+  beforePromotion,
 } = {}) {
   const workingDirectory = await mkdtemp(
     join(tmpdir(), "orthofluoro-anatomy-"),
   );
+  await mkdir(dirname(outputRoot), { recursive: true });
+  const stagingRepositoryRoot = await mkdtemp(
+    join(dirname(outputRoot), ".orthofluoro-anatomy-stage-"),
+  );
   try {
+    const downloadOptions = { fetchImpl, timeoutMs: downloadTimeoutMs };
     const sourcePaths = new Map();
     for (const source of SOURCE_ASSETS) {
       sourcePaths.set(
         source.id,
-        await downloadAndVerify(source, workingDirectory),
+        await downloadAndVerify(source, workingDirectory, downloadOptions),
       );
     }
-    const dracoLicensePath = await downloadDracoLicense(workingDirectory);
+    const dracoLicensePath = await downloadDracoLicense(
+      workingDirectory,
+      downloadOptions,
+    );
     const io = await createIO();
     const overviewSource = await io.read(
       sourcePaths.get("open3dmodel-overview-skeleton"),
@@ -626,8 +800,9 @@ export async function prepareAnatomyAssets({
       );
     }
 
-    const anatomyDirectory = join(outputRoot, "anatomy");
-    const dracoDirectory = join(outputRoot, "draco");
+    const stagedPublicRoot = join(stagingRepositoryRoot, "public");
+    const anatomyDirectory = join(stagedPublicRoot, "anatomy");
+    const dracoDirectory = join(stagedPublicRoot, "draco");
     await mkdir(anatomyDirectory, { recursive: true });
     await mkdir(dracoDirectory, { recursive: true });
     const overviewPath = join(
@@ -727,9 +902,13 @@ export async function prepareAnatomyAssets({
           "Overlays",
         ],
       },
-      deterministicBuild: {
-        method: "first-build, second-build, and committed SHA-256 equality",
-        repetitions: 2,
+      generationVerification: {
+        method:
+          "Two independent generation passes from the same pinned downloaded inputs are compared byte-for-byte before publication",
+        independentGenerationPasses: 2,
+        byteComparisonRequiredBeforePublication: true,
+        validatorTrustBoundary:
+          "The independent validator checks that actual artifact bytes equal the recorded first-build, second-build, and committed hashes; it does not rerun generation",
       },
       dracoRuntime: {
         version: "1.5.7",
@@ -764,9 +943,17 @@ export async function prepareAnatomyAssets({
       join(anatomyDirectory, "open3dmodel-provenance.json"),
       `${JSON.stringify(provenance, null, 2)}\n`,
     );
+    await validateAndPromoteStagedAssetSet({
+      stagingRepositoryRoot,
+      destinationPublicRoot: outputRoot,
+      beforePromotion,
+    });
     return provenance;
   } finally {
-    await rm(workingDirectory, { recursive: true, force: true });
+    await Promise.all([
+      rm(workingDirectory, { recursive: true, force: true }),
+      rm(stagingRepositoryRoot, { recursive: true, force: true }),
+    ]);
   }
 }
 

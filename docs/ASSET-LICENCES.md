@@ -31,6 +31,16 @@ The source and derived identities are recorded in
 - `lower-limb-glb.zip`, 5,492,015 bytes, SHA-256
   `E080EBEF16B2A3F53C7F6005515FAC39EDD941FB0AEBC79FF4B9F59FFFF8D416`.
 
+Preparation bounds each network read by a timeout, a required valid
+`Content-Length`, and the pinned archive byte ceiling before verifying the
+exact byte count and SHA-256. It generates each GLB twice independently from
+the pinned downloaded inputs and requires byte-for-byte equality before
+publication. All GLBs, decoder files, licence text, and provenance are then
+validated in a temporary staging tree and promoted as one set. The standalone
+validator has a narrower trust boundary: it proves that current artifact bytes
+match the recorded first-build, second-build, and committed hashes, but it does
+not itself rerun generation.
+
 The build retains bone meshes only, maps source metres and axes to application
 millimetres (`x` patient-left, `y` anterior, `z` headward), repairs winding,
 derives the missing left anatomy by reflection, replaces materials, removes T12

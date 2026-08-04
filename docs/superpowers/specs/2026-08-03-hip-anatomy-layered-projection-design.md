@@ -433,7 +433,18 @@ Automated asset checks verify:
 - femoral-head pivot placement;
 - triangle count, invalid values, normals, and duplicate geometry;
 - manifold and closure status for every thickness-eligible mesh;
-- deterministic derived output from the processing recipe.
+- two independent preparation passes from pinned downloaded inputs produce
+  byte-identical derived output before publication;
+- staged files pass the independent validator before the complete anatomy,
+  decoder, licence, and provenance set replaces the published set.
+
+Network reads require a valid bounded `Content-Length`, enforce an accumulated
+stream ceiling tied to the pinned byte count, time out, and still require the
+exact byte count and SHA-256 after streaming. The standalone validator confirms
+that current artifact bytes match the recorded first-build, second-build, and
+committed hashes. That recorded-hash check does not independently prove or
+rerun the two generation passes; generation-time byte comparison remains a
+separate mandatory gate.
 
 ### 12.2 Geometry and renderer unit tests
 
