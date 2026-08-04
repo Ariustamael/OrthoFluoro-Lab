@@ -8,8 +8,6 @@ import {
   Texture,
   Vector3,
 } from "three";
-import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import {
   HIP_ANATOMY_GROUPS,
   type AnatomySide,
@@ -258,6 +256,10 @@ function createLocalLoadingManager(): LoadingManager {
 }
 
 async function loadFreshHipAnatomy(): Promise<LoadedHipAnatomy> {
+  const [{ DRACOLoader }, { GLTFLoader }] = await Promise.all([
+    import("three/examples/jsm/loaders/DRACOLoader.js"),
+    import("three/examples/jsm/loaders/GLTFLoader.js"),
+  ]);
   const manager = createLocalLoadingManager();
   const dracoLoader = new DRACOLoader(manager);
   dracoLoader.setDecoderPath(asset.dracoDecoderPath);

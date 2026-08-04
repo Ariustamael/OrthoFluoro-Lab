@@ -120,7 +120,9 @@ describe("hip anatomy asset loading", () => {
     const second = loadHipAnatomy();
 
     expect(second).toBe(first);
-    expect(loaderHarness.loadAsync).toHaveBeenCalledOnce();
+    await vi.waitFor(() => {
+      expect(loaderHarness.loadAsync).toHaveBeenCalledOnce();
+    });
     resolve({ scene: validHipScene() });
     await first;
   });

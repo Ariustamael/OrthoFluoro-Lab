@@ -34,6 +34,21 @@ test("server-renders the OrthoFluoro application shell", async () => {
   );
 });
 
+test("keeps Draco loader URL initializers out of the initial SSR entry", async () => {
+  const assetsDirectory = new URL("../dist/server/ssr/assets/", import.meta.url);
+  const appEntryFile = (await readdir(assetsDirectory)).find((fileName) =>
+    /^AppEntry-.*\.js$/.test(fileName),
+  );
+
+  assert.ok(appEntryFile, "expected the production SSR AppEntry asset");
+  const appEntry = await readFile(new URL(appEntryFile, assetsDirectory), "utf8");
+  assert.doesNotMatch(
+    appEntry,
+    /new URL\(["']\.\.\/libs\/draco\//,
+    "the initial SSR entry must not evaluate browser-only Draco URLs",
+  );
+});
+
 test("keeps the finished shell free of starter preview assets", async () => {
   const [page, layout, packageJson] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
