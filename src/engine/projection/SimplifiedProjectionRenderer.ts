@@ -194,6 +194,20 @@ function createSimplifiedSvg(input: ProjectionFrameInput): {
 export class SimplifiedProjectionRenderer implements ProjectionRenderer<ProjectionFrameInput> {
   private disposed = false;
 
+  constructor(
+    private readonly presentation: {
+      readonly badge: string;
+      readonly description: string;
+      readonly reason: string;
+      readonly strategyId: string;
+    } = {
+      badge: "Procedural fallback",
+      description: "Procedural fallback — anatomy unavailable",
+      reason: "anatomy-unavailable",
+      strategyId: "simplified-procedural",
+    },
+  ) {}
+
   async render(input: ProjectionFrameInput): Promise<ProjectionOutput> {
     if (this.disposed) {
       throw new Error("Cannot render with a disposed projection renderer");
@@ -209,12 +223,12 @@ export class SimplifiedProjectionRenderer implements ProjectionRenderer<Projecti
         height,
         width,
       },
-      description: "Procedural fallback — anatomy unavailable",
+      description: this.presentation.description,
       metadata: {
-        badge: "Procedural fallback",
-        reason: "anatomy-unavailable",
+        badge: this.presentation.badge,
+        reason: this.presentation.reason,
       },
-      strategyId: "simplified-procedural",
+      strategyId: this.presentation.strategyId,
     };
   }
 
@@ -225,4 +239,15 @@ export class SimplifiedProjectionRenderer implements ProjectionRenderer<Projecti
 
 export function createSimplifiedProjectionRenderer(): ProjectionRenderer {
   return new SimplifiedProjectionRenderer();
+}
+
+export function createCompatibilityProjectionRenderer(
+  reason: string,
+): ProjectionRenderer<ProjectionFrameInput> {
+  return new SimplifiedProjectionRenderer({
+    badge: "Compatibility",
+    description: `Compatibility projection — ${reason}`,
+    reason,
+    strategyId: "simplified-compatibility",
+  });
 }

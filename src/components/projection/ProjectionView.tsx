@@ -17,7 +17,10 @@ import {
   type ProjectionCapabilityReason,
   type ProjectionWebGLContext,
 } from "../../engine/projection/projectionCapabilities";
-import { createSimplifiedProjectionRenderer } from "../../engine/projection/SimplifiedProjectionRenderer";
+import {
+  createCompatibilityProjectionRenderer,
+  createSimplifiedProjectionRenderer,
+} from "../../engine/projection/SimplifiedProjectionRenderer";
 import type {
   AnatomyProjectionInput,
   ProjectionFrameInput,
@@ -152,15 +155,18 @@ function DetectorOverlay({
 
 type AnatomyRenderer = ProjectionRenderer<AnatomyProjectionInput>;
 type FrameRenderer = ProjectionRenderer<ProjectionFrameInput>;
-type RendererStrategy = "layered" | "silhouette" | "simplified";
+type RendererStrategy =
+  "compatibility" | "layered" | "silhouette" | "simplified";
 
 export interface ProjectionRendererFactories {
+  readonly createCompatibility?: (reason: string) => FrameRenderer;
   readonly createLayered: () => AnatomyRenderer;
   readonly createSilhouette: () => AnatomyRenderer;
   readonly createSimplified: () => FrameRenderer;
 }
 
 const DEFAULT_RENDERER_FACTORIES: ProjectionRendererFactories = {
+  createCompatibility: createCompatibilityProjectionRenderer,
   createLayered: createLayeredThicknessProjectionRenderer,
   createSilhouette: createMeshSilhouetteProjectionRenderer,
   createSimplified: createSimplifiedProjectionRenderer,
@@ -178,7 +184,14 @@ export function detectBrowserProjectionCapability(): ProjectionCapability {
     const context = document
       .createElement("canvas")
       .getContext("webgl2") as ProjectionWebGLContext | null;
-    return selectProjectionCapability(context);
+    try {
+      return selectProjectionCapability(context);
+    } finally {
+      const loseContext = context?.getExtension("WEBGL_lose_context") as {
+        loseContext?: () => void;
+      } | null;
+      loseContext?.loseContext?.();
+    }
   } catch {
     return {
       precision: null,
@@ -207,6 +220,12 @@ interface ActiveRenderer {
 
 interface ForcedSilhouette {
   readonly reason: string;
+}
+
+interface CapabilitySnapshot {
+  readonly capability: ProjectionCapability;
+  readonly recoveryRevision: number;
+  readonly resource: AnatomyProjectionInput["anatomy"];
 }
 
 const CAPABILITY_REASON_LABELS: Readonly<
@@ -238,6 +257,9 @@ function renderProjection(
   if (activeRenderer.strategy === "simplified") {
     return (activeRenderer.renderer as FrameRenderer).render(frameInput);
   }
+  if (activeRenderer.strategy === "compatibility") {
+    return (activeRenderer.renderer as FrameRenderer).render(frameInput);
+  }
   if (anatomyInput === null) {
     return Promise.reject(
       new Error("Anatomy is unavailable for mesh projection"),
@@ -267,6 +289,12 @@ function projectionMethodStatus(
     return {
       label: "Anatomy unavailable",
       reason: "procedural projection shown",
+    };
+  }
+  if (activeRenderer?.strategy === "compatibility") {
+    return {
+      label: "Simplified compatibility projection",
+      reason: activeRenderer.reason ?? "WebGL projection unavailable",
     };
   }
   return null;
@@ -301,6 +329,8 @@ export function ProjectionView({
   const [forcedSilhouette, setForcedSilhouette] =
     useState<ForcedSilhouette | null>(null);
   const [recoveryRevision, setRecoveryRevision] = useState(0);
+  const [capabilitySnapshot, setCapabilitySnapshot] =
+    useState<CapabilitySnapshot | null>(null);
   const [projectionState, setProjectionState] = useState<ProjectionState>({
     status: "pending",
   });
@@ -311,21 +341,27 @@ export function ProjectionView({
         : { ...rendererFactories, createSimplified: createRenderer },
     [createRenderer, rendererFactories],
   );
-  const capability = useMemo(() => {
-    void recoveryRevision;
-    return anatomy.status === "ready" && anatomy.resource !== null
-      ? detectCapability()
+  const capability =
+    anatomy.status === "ready" &&
+    anatomy.resource !== null &&
+    capabilitySnapshot?.resource === anatomy.resource &&
+    capabilitySnapshot.recoveryRevision === recoveryRevision
+      ? capabilitySnapshot.capability
       : null;
-  }, [anatomy.resource, anatomy.status, detectCapability, recoveryRevision]);
   const desiredStrategy: RendererStrategy | null =
     anatomy.status === "error"
       ? "simplified"
       : anatomy.status !== "ready" || anatomy.resource === null
         ? null
-        : forcedSilhouette !== null ||
-            capability?.strategy === "mesh-silhouette"
-          ? "silhouette"
-          : "layered";
+        : capability === null
+          ? null
+          : capability.strategy === "layered-thickness"
+            ? forcedSilhouette === null
+              ? "layered"
+              : "silhouette"
+            : capability.reason === "float-color-buffer-unavailable"
+              ? "silhouette"
+              : "compatibility";
   const desiredReason =
     desiredStrategy === "silhouette"
       ? forcedSilhouette !== null
@@ -333,9 +369,12 @@ export function ProjectionView({
         : capability?.strategy === "mesh-silhouette"
           ? CAPABILITY_REASON_LABELS[capability.reason]
           : null
-      : desiredStrategy === "simplified"
-        ? (anatomy.error?.message ?? "anatomy unavailable")
-        : null;
+      : desiredStrategy === "compatibility" &&
+          capability?.strategy === "mesh-silhouette"
+        ? CAPABILITY_REASON_LABELS[capability.reason]
+        : desiredStrategy === "simplified"
+          ? (anatomy.error?.message ?? "anatomy unavailable")
+          : null;
 
   const frameInput = useMemo<ProjectionFrameInput>(
     () => ({
@@ -365,6 +404,24 @@ export function ProjectionView({
   );
 
   useEffect(() => {
+    if (anatomy.status !== "ready" || anatomy.resource === null) return;
+    let active = true;
+    const resource = anatomy.resource;
+    const nextCapability = detectCapability();
+    queueMicrotask(() => {
+      if (!active) return;
+      setCapabilitySnapshot({
+        capability: nextCapability,
+        recoveryRevision,
+        resource,
+      });
+    });
+    return () => {
+      active = false;
+    };
+  }, [anatomy.resource, anatomy.status, detectCapability, recoveryRevision]);
+
+  useEffect(() => {
     let mounted = true;
     const disposedRenderers = disposedRenderersRef.current;
     if (desiredStrategy === null) {
@@ -386,7 +443,12 @@ export function ProjectionView({
           ? effectiveFactories.createLayered()
           : desiredStrategy === "silhouette"
             ? effectiveFactories.createSilhouette()
-            : effectiveFactories.createSimplified();
+            : desiredStrategy === "compatibility"
+              ? (
+                  effectiveFactories.createCompatibility ??
+                  createCompatibilityProjectionRenderer
+                )(desiredReason ?? "WebGL projection unavailable")
+              : effectiveFactories.createSimplified();
       nextRenderer = {
         reason: desiredReason,
         renderer,

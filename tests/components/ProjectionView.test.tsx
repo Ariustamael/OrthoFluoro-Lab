@@ -5,13 +5,14 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   AnatomyAssetProvider,
   type AnatomyAssetLease,
 } from "../../src/anatomy/AnatomyAssetProvider";
 import { REFERENCE_HIP_ANATOMY_POSE } from "../../src/anatomy/anatomyTypes";
 import {
+  detectBrowserProjectionCapability,
   ProjectionView,
   type ProjectionRendererFactories,
 } from "../../src/components/projection/ProjectionView";
@@ -107,7 +108,68 @@ beforeEach(() => {
   });
 });
 
+afterEach(() => vi.restoreAllMocks());
+
 describe("ProjectionView renderer orchestration", () => {
+  it.each([
+    ["context-unavailable", "WebGL context unavailable"],
+    ["webgl2-required", "WebGL 2 required"],
+  ] as const)(
+    "uses a non-WebGL compatibility projection for %s",
+    async (reason, reasonLabel) => {
+      render(
+        <AnatomyAssetProvider acquireLease={readyLease}>
+          <ProjectionView
+            detectCapability={() => ({
+              precision: null,
+              reason,
+              strategy: "mesh-silhouette",
+            })}
+          />
+        </AnatomyAssetProvider>,
+      );
+
+      const image = await screen.findByRole("img", {
+        name: /Compatibility projection/,
+      });
+      expect(image).toHaveAttribute(
+        "src",
+        expect.stringMatching(/^data:image\/svg\+xml/),
+      );
+      expect(
+        screen.getByRole("region", { name: "Simulated X-ray view" }),
+      ).toHaveAttribute("data-projection-strategy", "simplified-compatibility");
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(screen.queryByText("Anatomy unavailable")).not.toBeInTheDocument();
+      expect(
+        screen.getByRole("status", { name: "Projection method" }),
+      ).toHaveTextContent(reasonLabel);
+    },
+  );
+
+  it("releases the temporary WebGL capability probe context", () => {
+    const loseContext = vi.fn();
+    const context = {
+      getExtension: vi.fn((name: string) =>
+        name === "WEBGL_lose_context" ? { loseContext } : null,
+      ),
+      texStorage2D: vi.fn(),
+    };
+    const canvas = {
+      getContext: vi.fn(() => context),
+    } as unknown as HTMLCanvasElement;
+    const createElement = vi
+      .spyOn(document, "createElement")
+      .mockReturnValue(canvas);
+
+    expect(detectBrowserProjectionCapability()).toMatchObject({
+      reason: "float-color-buffer-unavailable",
+      strategy: "mesh-silhouette",
+    });
+    expect(loseContext).toHaveBeenCalledOnce();
+    createElement.mockRestore();
+  });
+
   it("chooses layered thickness for ready anatomy and full capabilities", async () => {
     const layered = renderer<AnatomyProjectionInput>(
       output("Layered mesh thickness", "layered-mesh-thickness", {
@@ -253,7 +315,7 @@ describe("ProjectionView renderer orchestration", () => {
     const firstCapability = () =>
       ({
         precision: null,
-        reason: "webgl2-required",
+        reason: "float-color-buffer-unavailable",
         strategy: "mesh-silhouette",
       }) satisfies ProjectionCapability;
     const view = renderProjection(factories, firstCapability());
@@ -410,6 +472,7 @@ describe("ProjectionView renderer orchestration", () => {
     const canvases = [
       document.createElement("canvas"),
       document.createElement("canvas"),
+      document.createElement("canvas"),
     ];
     const renderers = canvases.map(
       (contextCanvas, index) =>
@@ -428,7 +491,8 @@ describe("ProjectionView renderer orchestration", () => {
       createLayered: vi
         .fn<ProjectionRendererFactories["createLayered"]>()
         .mockReturnValueOnce(renderers[0])
-        .mockReturnValueOnce(renderers[1]),
+        .mockReturnValueOnce(renderers[1])
+        .mockReturnValueOnce(renderers[2]),
       createSilhouette: () => renderer(output("Silhouette", "mesh-silhouette")),
       createSimplified: () =>
         renderer(output("Unavailable", "simplified-procedural")),
@@ -460,10 +524,24 @@ describe("ProjectionView renderer orchestration", () => {
     expect(acquireLease).toHaveBeenCalledTimes(2);
     expect(renderers[0].dispose).toHaveBeenCalledOnce();
 
-    view.unmount();
+    const secondLost = new Event("webglcontextlost", { cancelable: true });
+    canvases[1].dispatchEvent(secondLost);
+    expect(secondLost.defaultPrevented).toBe(true);
     expect(renderers[1].dispose).toHaveBeenCalledOnce();
+    act(() => useSimulationStore.getState().setSelectedHipRotation(37));
     canvases[1].dispatchEvent(new Event("webglcontextrestored"));
-    expect(acquireLease).toHaveBeenCalledTimes(2);
+
+    expect(
+      await screen.findByRole("img", { name: "Layered 2-37" }),
+    ).toBeVisible();
+    expect(acquireLease).toHaveBeenCalledTimes(3);
+    expect(renderers[0].dispose).toHaveBeenCalledOnce();
+    expect(renderers[1].dispose).toHaveBeenCalledOnce();
+
+    view.unmount();
+    expect(renderers[2].dispose).toHaveBeenCalledOnce();
+    canvases[2].dispatchEvent(new Event("webglcontextrestored"));
+    expect(acquireLease).toHaveBeenCalledTimes(3);
   });
 
   it("keeps a permanent layered failure on silhouette across resource reloads", async () => {
@@ -510,14 +588,18 @@ describe("ProjectionView renderer orchestration", () => {
       },
       acquireLease,
     );
-    expect(await screen.findByRole("img", { name: "Silhouette 0" })).toBeVisible();
+    expect(
+      await screen.findByRole("img", { name: "Silhouette 0" }),
+    ).toBeVisible();
 
     silhouetteCanvases[0].dispatchEvent(
       new Event("webglcontextlost", { cancelable: true }),
     );
     silhouetteCanvases[0].dispatchEvent(new Event("webglcontextrestored"));
 
-    expect(await screen.findByRole("img", { name: "Silhouette 1" })).toBeVisible();
+    expect(
+      await screen.findByRole("img", { name: "Silhouette 1" }),
+    ).toBeVisible();
     expect(acquireLease).toHaveBeenCalledTimes(2);
     expect(factories.createLayered).toHaveBeenCalledOnce();
     expect(factories.createSilhouette).toHaveBeenCalledTimes(2);

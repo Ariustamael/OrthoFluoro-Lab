@@ -59,7 +59,7 @@ test("@desktop learner completes the linked C-arm simulator journey", async ({
   });
   await expect(projectionRegion).toHaveAttribute(
     "data-projection-strategy",
-    /^(layered-mesh-thickness|mesh-silhouette)$/,
+    /^(layered-mesh-thickness|mesh-silhouette|simplified-compatibility)$/,
   );
   if (
     (await projectionRegion.getAttribute("data-projection-strategy")) ===
