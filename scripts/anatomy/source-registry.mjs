@@ -23,4 +23,4 @@ export const SOURCE_ASSETS = Object.freeze([
     memberSha256:
       "5A889D5CAE00421885AAF1841E72364E5F215F0C29FB0116CA5E9844EC4C5FE7",
   },
-]);
+].map((source) => Object.freeze(source)));
