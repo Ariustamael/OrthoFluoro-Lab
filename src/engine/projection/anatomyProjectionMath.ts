@@ -63,7 +63,7 @@ function validateDetectorBasis(right: Vec3, up: Vec3, forward: Vec3): void {
   }
 }
 
-export function createDetectorAlignedProjection(
+export function createDetectorAlignedCamera(
   geometry: CArmGeometry,
   options: DetectorAlignedProjectionOptions = {},
 ): DetectorAlignedProjection {
@@ -95,9 +95,13 @@ export function createDetectorAlignedProjection(
   const nearMm = options.nearMm ?? DEFAULT_NEAR_MM;
   const farMm =
     options.farMm ?? sourceDetectorDistance * DEFAULT_FAR_SID_MULTIPLIER;
-  requirePositive("Projection near plane", nearMm);
-  requirePositive("Projection far plane", farMm);
-  if (farMm <= nearMm || nearMm >= sourceDetectorDistance) {
+  if (
+    !Number.isFinite(nearMm) ||
+    !Number.isFinite(farMm) ||
+    nearMm <= 0 ||
+    nearMm >= sourceDetectorDistance ||
+    farMm <= sourceDetectorDistance
+  ) {
     throw new RangeError(
       "Projection planes must satisfy 0 < near < detector distance < far",
     );
@@ -154,6 +158,8 @@ export function createDetectorAlignedProjection(
     geometry,
   };
 }
+
+export const createDetectorAlignedProjection = createDetectorAlignedCamera;
 
 export function projectDetectorPointToNdc(
   projection: DetectorAlignedProjection,

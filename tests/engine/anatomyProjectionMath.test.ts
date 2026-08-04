@@ -8,6 +8,7 @@ import type {
   ProjectionRenderer,
 } from "../../src/engine/projection/rendererTypes";
 import {
+  createDetectorAlignedCamera,
   createDetectorAlignedProjection,
   projectDetectorPointToNdc,
   projectWorldPointToDetectorNdc,
@@ -69,6 +70,31 @@ describe("anatomy projection contracts", () => {
 });
 
 describe("detector-aligned off-axis projection", () => {
+  it("enforces finite 0 < near < authoritative detector distance < far boundaries", () => {
+    const geometry = buildCArmGeometry(REFERENCE_C_ARM_POSE);
+    const sid = geometry.sourceDetectorDistance;
+    const invalidOptions = [
+      { nearMm: 0 },
+      { nearMm: Number.NaN },
+      { nearMm: sid },
+      { farMm: sid - 1 },
+      { farMm: sid },
+      { farMm: Number.POSITIVE_INFINITY },
+    ];
+
+    invalidOptions.forEach((options) => {
+      expect(() => createDetectorAlignedCamera(geometry, options)).toThrow(
+        /0 < near < detector distance < far/,
+      );
+    });
+    expect(() =>
+      createDetectorAlignedCamera(geometry, {
+        nearMm: sid - 1,
+        farMm: sid + 1,
+      }),
+    ).not.toThrow();
+  });
+
   it("places the camera at the authoritative source and aims through detector centre", () => {
     const geometry = buildCArmGeometry({
       ...REFERENCE_C_ARM_POSE,
@@ -222,6 +248,56 @@ describe("detector-aligned off-axis projection", () => {
         magnitude(subtract(geometry.detector.center, geometry.source)),
       ).toBeCloseTo(geometry.sourceDetectorDistance, 8);
     });
+  });
+
+  it("changes an asymmetric projected silhouette footprint under authoritative rotation without changing SID", () => {
+    const vertices = [
+      [-21, -14, -8],
+      [29, -14, -8],
+      [-21, 17, -8],
+      [-21, -14, 26],
+      [13.5, 9.5, 5.5],
+    ] as const;
+    const reference = buildCArmGeometry(REFERENCE_C_ARM_POSE);
+    const rotated = buildCArmGeometry({
+      ...REFERENCE_C_ARM_POSE,
+      orbitDegrees: 31,
+      cranialCaudalDegrees: 17,
+      swivelDegrees: -23,
+    });
+
+    const projectedBounds = (geometry: typeof reference) => {
+      const projected = vertices.map((vertex) => {
+        const ndc = projectWorldPointToDetectorNdc(geometry, vertex);
+        expect(ndc).not.toBeNull();
+        return ndc!;
+      });
+      const xs = projected.map(([x]) => x);
+      const ys = projected.map(([, y]) => y);
+      return {
+        minX: Math.min(...xs),
+        maxX: Math.max(...xs),
+        minY: Math.min(...ys),
+        maxY: Math.max(...ys),
+      };
+    };
+
+    const referenceBounds = projectedBounds(reference);
+    const rotatedBounds = projectedBounds(rotated);
+    const footprintDelta = Math.max(
+      ...Object.keys(referenceBounds).map((key) =>
+        Math.abs(
+          referenceBounds[key as keyof typeof referenceBounds] -
+            rotatedBounds[key as keyof typeof rotatedBounds],
+        ),
+      ),
+    );
+
+    expect(footprintDelta).toBeGreaterThan(1e-3);
+    expect(rotated.sourceDetectorDistance).toBeCloseTo(
+      reference.sourceDetectorDistance,
+      8,
+    );
   });
 
   it("clips world points behind the source and outside the detector face", () => {
