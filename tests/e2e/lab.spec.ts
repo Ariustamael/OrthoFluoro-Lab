@@ -155,6 +155,8 @@ test("@desktop production shell remains usable offline", async ({
   await expect(
     page.getByRole("status", { name: "Projection status" }),
   ).toContainText("Orbit 10.0°");
+  await expect(page.getByText("Anatomy loading")).toHaveCount(0);
+  await expect(page.getByText("Anatomy unavailable")).toHaveCount(0);
   await context.setOffline(false);
 });
 

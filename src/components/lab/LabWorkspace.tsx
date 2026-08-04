@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
+import { AnatomyAssetProvider } from "../../anatomy/AnatomyAssetProvider";
 import { CArmControls } from "../controls/CArmControls";
 import { TheatreCanvas } from "../scene/TheatreCanvas";
 import {
@@ -94,50 +95,52 @@ export function LabWorkspace() {
   const [activeSurface, setActiveSurface] = useState<LabSurface>("scene");
 
   return (
-    <section aria-label="Laboratory workspace" className="lab-workspace">
-      <MobileLabTabs
-        activeSurface={activeSurface}
-        onSurfaceChange={setActiveSurface}
-      />
-      <MobilePanelShells activeSurface={activeSurface} viewport={viewport} />
-      {viewport === "unresolved" ? (
-        <div
-          aria-label="Preparing laboratory workspace"
-          className="lab-workspace__hydration-shell"
-          role="status"
-        >
-          Preparing laboratory workspace…
-        </div>
-      ) : viewport === "desktop" ? (
-        <>
+    <AnatomyAssetProvider>
+      <section aria-label="Laboratory workspace" className="lab-workspace">
+        <MobileLabTabs
+          activeSurface={activeSurface}
+          onSurfaceChange={setActiveSurface}
+        />
+        <MobilePanelShells activeSurface={activeSurface} viewport={viewport} />
+        {viewport === "unresolved" ? (
           <div
-            aria-label="Synchronized imaging views"
-            className="lab-workspace__viewports"
-            data-layout-priority="equal"
-            role="group"
+            aria-label="Preparing laboratory workspace"
+            className="lab-workspace__hydration-shell"
+            role="status"
           >
-            <div className="lab-workspace__viewport lab-workspace__viewport--theatre">
-              <TheatreCanvas surface="theatre" />
-            </div>
-            <div className="lab-workspace__viewport lab-workspace__viewport--projection">
-              <TheatreCanvas surface="projection" />
-            </div>
+            Preparing laboratory workspace…
           </div>
-          <div className="lab-workspace__controls-dock">
-            <CArmControls />
-          </div>
-          <InformationPanel />
-        </>
-      ) : null}
-      <aside
-        aria-label="Educational limitation"
-        className="lab-workspace__disclaimer"
-        role="note"
-      >
-        <strong>Educational visualisation only.</strong> Synthetic projections
-        are approximations and must not be used for diagnosis, surgical
-        navigation, patient-specific planning, or radiation-dose calculation.
-      </aside>
-    </section>
+        ) : viewport === "desktop" ? (
+          <>
+            <div
+              aria-label="Synchronized imaging views"
+              className="lab-workspace__viewports"
+              data-layout-priority="equal"
+              role="group"
+            >
+              <div className="lab-workspace__viewport lab-workspace__viewport--theatre">
+                <TheatreCanvas surface="theatre" />
+              </div>
+              <div className="lab-workspace__viewport lab-workspace__viewport--projection">
+                <TheatreCanvas surface="projection" />
+              </div>
+            </div>
+            <div className="lab-workspace__controls-dock">
+              <CArmControls />
+            </div>
+            <InformationPanel />
+          </>
+        ) : null}
+        <aside
+          aria-label="Educational limitation"
+          className="lab-workspace__disclaimer"
+          role="note"
+        >
+          <strong>Educational visualisation only.</strong> Synthetic projections
+          are approximations and must not be used for diagnosis, surgical
+          navigation, patient-specific planning, or radiation-dose calculation.
+        </aside>
+      </section>
+    </AnatomyAssetProvider>
   );
 }

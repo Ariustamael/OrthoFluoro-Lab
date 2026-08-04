@@ -2,17 +2,15 @@
 
 import { OrbitControls } from "@react-three/drei/core/OrbitControls";
 import { Html } from "@react-three/drei/web/Html";
-import type { ThreeEvent } from "@react-three/fiber";
-import { useCallback, useMemo, useRef, useState } from "react";
-import { MathUtils } from "three";
-import { useSimulationStore } from "../../state/simulationStore";
+import { useState } from "react";
 import {
-  advanceHandleDragValue,
-  captureHandlePointer,
-  CArmRig,
-  releaseHandlePointer,
-} from "./CArmRig";
+  useAnatomyAsset,
+  type AnatomyAssetStatus,
+} from "../../anatomy/AnatomyAssetProvider";
+import { useSimulationStore } from "../../state/simulationStore";
+import { CArmRig } from "./CArmRig";
 import type { CArmCueId } from "./cArmCueHints";
+import { HipAnatomy } from "./HipAnatomy";
 
 export const THEATRE_BACKGROUND_COLOR = "#07131f";
 export const DEFAULT_THEATRE_TARGET = [0, -200, 0] satisfies [
@@ -29,133 +27,6 @@ export function orbitControlsEnabled(
   manipulatorActive: boolean,
 ): boolean {
   return interactionMode !== "move-anatomy" && !manipulatorActive;
-}
-
-export const ANATOMY_ROTATION_HANDLE_DEFINITIONS = [
-  {
-    axis: "X",
-    color: "#ff8f70",
-    index: 0,
-    radius: 92,
-    rotation: [0, Math.PI / 2, 0],
-  },
-  {
-    axis: "Y",
-    color: "#8ce99a",
-    index: 1,
-    radius: 112,
-    rotation: [Math.PI / 2, 0, 0],
-  },
-  { axis: "Z", color: "#43d9ff", index: 2, radius: 132, rotation: [0, 0, 0] },
-] as const;
-
-export function advanceAnatomyRotationValue(
-  rawValue: number,
-  previousPointerCoordinate: number,
-  pointerCoordinate: number,
-  modifiers: { altKey: boolean; shiftKey: boolean },
-): { rawValue: number; value: number } {
-  const next = advanceHandleDragValue(
-    rawValue,
-    previousPointerCoordinate,
-    pointerCoordinate,
-    0.4,
-    modifiers,
-    5,
-  );
-  return {
-    rawValue: next.rawValue,
-    value: Math.min(180, Math.max(-180, next.value)),
-  };
-}
-
-interface PointerCaptureTarget {
-  hasPointerCapture(pointerId: number): boolean;
-  releasePointerCapture(pointerId: number): void;
-  setPointerCapture(pointerId: number): void;
-}
-
-interface AnatomyDragState {
-  captureTarget: PointerCaptureTarget;
-  lastPointerCoordinate: number;
-  pointerId: number;
-  rawValue: number;
-}
-
-function AnatomyRotationHandle({
-  definition,
-  value,
-}: {
-  definition: (typeof ANATOMY_ROTATION_HANDLE_DEFINITIONS)[number];
-  value: number;
-}) {
-  const dragRef = useRef<AnatomyDragState | null>(null);
-  const setObjectRotation = useSimulationStore(
-    (state) => state.setObjectRotation,
-  );
-  const onPointerDown = useCallback(
-    (event: ThreeEvent<PointerEvent>) => {
-      event.stopPropagation();
-      const captureTarget = event.target as unknown as PointerCaptureTarget;
-      captureHandlePointer(captureTarget, event.pointerId);
-      dragRef.current = {
-        captureTarget,
-        lastPointerCoordinate: event.clientX - event.clientY,
-        pointerId: event.pointerId,
-        rawValue: value,
-      };
-    },
-    [value],
-  );
-  const onPointerMove = useCallback(
-    (event: ThreeEvent<PointerEvent>) => {
-      const drag = dragRef.current;
-      if (drag === null || drag.pointerId !== event.pointerId) return;
-      event.stopPropagation();
-      const coordinate = event.clientX - event.clientY;
-      const next = advanceAnatomyRotationValue(
-        drag.rawValue,
-        drag.lastPointerCoordinate,
-        coordinate,
-        event,
-      );
-      drag.rawValue = next.rawValue;
-      drag.lastPointerCoordinate = coordinate;
-      const rotation = [
-        ...useSimulationStore.getState().objectPose.rotationDegrees,
-      ] as [number, number, number];
-      rotation[definition.index] = next.value;
-      setObjectRotation(rotation);
-    },
-    [definition.index, setObjectRotation],
-  );
-  const endDrag = useCallback((event: ThreeEvent<PointerEvent>) => {
-    const drag = dragRef.current;
-    if (drag === null || drag.pointerId !== event.pointerId) return;
-    event.stopPropagation();
-    releaseHandlePointer(drag.captureTarget, event.pointerId);
-    dragRef.current = null;
-  }, []);
-
-  return (
-    <group name={`anatomy-${definition.axis.toLowerCase()}-rotation-handle`}>
-      <mesh
-        onPointerCancel={endDrag}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={endDrag}
-        rotation={definition.rotation}
-      >
-        <torusGeometry args={[definition.radius, 4, 10, 48]} />
-        <meshBasicMaterial color={definition.color} depthTest={false} />
-      </mesh>
-      <Html center pointerEvents="none" position={[definition.radius, 0, 0]}>
-        <span className="c-arm-handle__readout">
-          {definition.axis}: {value.toFixed(1)}°
-        </span>
-      </Html>
-    </group>
-  );
 }
 
 function OperatingTable() {
@@ -181,38 +52,71 @@ function OperatingTable() {
   );
 }
 
-function AnatomicalPlaceholder() {
-  const objectPose = useSimulationStore((state) => state.objectPose);
-  const interactionMode = useSimulationStore((state) => state.interactionMode);
-  const rotation = useMemo(
-    () =>
-      objectPose.rotationDegrees.map((degrees) =>
-        MathUtils.degToRad(degrees),
-      ) as [number, number, number],
-    [objectPose.rotationDegrees],
-  );
+export function anatomyFallbackLabel(
+  status: Exclude<AnatomyAssetStatus, "ready">,
+): string {
+  return status === "loading" ? "Anatomy loading" : "Anatomy unavailable";
+}
 
+export function AnatomyFallbackNotice({
+  onRetry,
+  status,
+}: {
+  onRetry: () => void;
+  status: Exclude<AnatomyAssetStatus, "ready">;
+}) {
+  const label = anatomyFallbackLabel(status);
   return (
-    <group position={objectPose.position} rotation={rotation}>
-      <mesh castShadow rotation={[Math.PI / 2, 0, 0]}>
-        <cylinderGeometry args={[62, 48, 520, 24]} />
-        <meshStandardMaterial color="#e1b18d" roughness={0.82} />
+    <div
+      className="anatomical-placeholder__label"
+      role={status === "error" ? "alert" : "status"}
+    >
+      <span>{label}</span>
+      {status === "error" ? (
+        <button onClick={onRetry} type="button">
+          Retry anatomy
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function AnatomyFallback({
+  onRetry,
+  status,
+}: {
+  onRetry: () => void;
+  status: Exclude<AnatomyAssetStatus, "ready">;
+}) {
+  const label = anatomyFallbackLabel(status);
+  return (
+    <group name={label}>
+      <mesh position={[0, -180, 0]}>
+        <icosahedronGeometry args={[70, 1]} />
+        <meshBasicMaterial
+          color="#9cb5c6"
+          opacity={0.32}
+          transparent
+          wireframe
+        />
       </mesh>
-      <Html center pointerEvents="none" position={[0, 95, 0]}>
-        <span className="anatomical-placeholder__label">
-          Anatomical placeholder
-        </span>
+      <Html center position={[0, -70, 0]}>
+        <AnatomyFallbackNotice onRetry={onRetry} status={status} />
       </Html>
-      {interactionMode === "move-anatomy"
-        ? ANATOMY_ROTATION_HANDLE_DEFINITIONS.map((definition) => (
-            <AnatomyRotationHandle
-              definition={definition}
-              key={definition.axis}
-              value={objectPose.rotationDegrees[definition.index]}
-            />
-          ))
-        : null}
     </group>
+  );
+}
+
+function HipAnatomyLayer() {
+  const anatomy = useAnatomyAsset();
+  if (anatomy.status === "ready" && anatomy.resource !== null) {
+    return <HipAnatomy resource={anatomy.resource} />;
+  }
+  return (
+    <AnatomyFallback
+      onRetry={anatomy.retry}
+      status={anatomy.status === "error" ? "error" : "loading"}
+    />
   );
 }
 
@@ -242,7 +146,7 @@ export function TheatreScene({
         <meshStandardMaterial color="#142a38" roughness={0.92} />
       </mesh>
       <OperatingTable />
-      <AnatomicalPlaceholder />
+      <HipAnatomyLayer />
       <CArmRig
         onManipulatorDragStateChange={setManipulatorActive}
         onManipulatorHintChange={onManipulatorHintChange}

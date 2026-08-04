@@ -18,7 +18,15 @@ async function listFiles(directory) {
   return files.flat();
 }
 
-const assets = (await listFiles(join(clientRoot, "assets")))
+const runtimeAssetDirectories = ["assets", "anatomy", "draco"];
+const assets = (
+  await Promise.all(
+    runtimeAssetDirectories.map((directory) =>
+      listFiles(join(clientRoot, directory)),
+    ),
+  )
+)
+  .flat()
   .map((path) => `/${relative(clientRoot, path).split(sep).join("/")}`)
   .sort();
 

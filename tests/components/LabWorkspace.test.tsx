@@ -91,6 +91,12 @@ vi.mock("@react-three/fiber", async (importOriginal) => {
   };
 });
 
+vi.mock("../../src/anatomy/AnatomyAssetProvider", () => ({
+  AnatomyAssetProvider: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="anatomy-asset-provider">{children}</div>
+  ),
+}));
+
 vi.mock(
   "../../src/components/scene/WebGLErrorFallback",
   async (importOriginal) => {
@@ -141,6 +147,21 @@ function mockViewport(initiallyMobile: boolean) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("responsive laboratory workspace", () => {
+  it("shares one anatomy asset provider across both desktop viewports", () => {
+    mockViewport(false);
+
+    render(<LabWorkspace />);
+
+    expect(screen.getAllByTestId("anatomy-asset-provider")).toHaveLength(1);
+    const provider = screen.getByTestId("anatomy-asset-provider");
+    expect(
+      within(provider).getByRole("region", { name: "3D theatre" }),
+    ).toBeInTheDocument();
+    expect(
+      within(provider).getByRole("region", { name: "Simulated X-ray view" }),
+    ).toBeInTheDocument();
+  });
+
   it("gives the synchronized desktop views equal semantic priority", () => {
     mockViewport(false);
 

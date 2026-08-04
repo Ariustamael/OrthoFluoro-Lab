@@ -1,5 +1,7 @@
 import { render, renderHook, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   Color,
@@ -51,8 +53,8 @@ import {
   useCArmRigResources,
 } from "../../src/components/scene/CArmRig";
 import {
-  advanceAnatomyRotationValue,
-  ANATOMY_ROTATION_HANDLE_DEFINITIONS,
+  AnatomyFallbackNotice,
+  anatomyFallbackLabel,
   DEFAULT_THEATRE_TARGET,
   orbitControlsEnabled,
   THEATRE_BACKGROUND_COLOR,
@@ -222,39 +224,34 @@ describe("generic scene handle deltas", () => {
   });
 });
 
-describe("direct anatomy rotation handles", () => {
-  it("defines one visible rotation ring for every object axis", () => {
-    expect(
-      ANATOMY_ROTATION_HANDLE_DEFINITIONS.map(({ axis, index }) => ({
-        axis,
-        index,
-      })),
-    ).toEqual([
-      { axis: "X", index: 0 },
-      { axis: "Y", index: 1 },
-      { axis: "Z", index: 2 },
-    ]);
+describe("real anatomy scene boundary", () => {
+  it("labels restrained loading and error fallbacks and offers retry", async () => {
+    const user = userEvent.setup();
+    const retry = vi.fn();
+
+    expect(anatomyFallbackLabel("loading")).toBe("Anatomy loading");
+    expect(anatomyFallbackLabel("error")).toBe("Anatomy unavailable");
+    const view = render(
+      <AnatomyFallbackNotice status="loading" onRetry={retry} />,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Anatomy loading");
+
+    view.rerender(<AnatomyFallbackNotice status="error" onRetry={retry} />);
+    expect(screen.getByRole("alert")).toHaveTextContent("Anatomy unavailable");
+    await user.click(screen.getByRole("button", { name: "Retry anatomy" }));
+    expect(retry).toHaveBeenCalledOnce();
   });
 
-  it("supports ordinary, snapped, and fine object rotation drags", () => {
-    expect(
-      advanceAnatomyRotationValue(0, 0, 10, {
-        altKey: false,
-        shiftKey: false,
-      }).value,
-    ).toBe(4);
-    expect(
-      advanceAnatomyRotationValue(0, 0, 11, {
-        altKey: false,
-        shiftKey: true,
-      }).value,
-    ).toBe(5);
-    expect(
-      advanceAnatomyRotationValue(0, 0, 10, {
-        altKey: true,
-        shiftKey: false,
-      }).value,
-    ).toBeCloseTo(0.4);
+  it("mounts HipAnatomy without the procedural body or world-space handles", () => {
+    const source = readFileSync(
+      join(process.cwd(), "src/components/scene/TheatreScene.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain("<HipAnatomy");
+    expect(source).not.toContain("AnatomicalPlaceholder");
+    expect(source).not.toContain("AnatomyRotationHandle");
+    expect(source).not.toContain("ANATOMY_ROTATION_HANDLE_DEFINITIONS");
   });
 });
 

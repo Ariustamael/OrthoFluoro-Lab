@@ -625,12 +625,17 @@ git commit -m "feat: model hip anatomy state and transforms"
 - Create: `src/anatomy/AnatomyAssetProvider.tsx`
 - Create: `src/components/scene/HipAnatomy.tsx`
 - Create: `tests/anatomy/anatomyAssetLoader.test.ts`
+- Create: `tests/anatomy/AnatomyAssetProvider.test.tsx`
 - Create: `tests/components/HipAnatomy.test.tsx`
 - Modify: `src/components/scene/TheatreScene.tsx`
 - Modify: `src/components/scene/TheatreCanvas.tsx`
 - Modify: `src/components/lab/LabWorkspace.tsx`
+- Modify: `scripts/write-asset-manifest.mjs`
+- Modify: `public/service-worker.js`
 - Modify: `tests/components/TheatreScene.test.tsx`
 - Modify: `tests/components/LabWorkspace.test.tsx`
+- Modify: `tests/rendered-html.test.mjs`
+- Modify: `tests/e2e/lab.spec.ts`
 
 - [ ] **Step 1: Write failing loader, scene, and provider-boundary tests**
 
@@ -645,16 +650,21 @@ Test that:
 - materials are cloned before the neutral bone material is applied;
 - `LabWorkspace` places one provider above both desktop viewports;
 - an asset error leaves the theatre visible with an explicit fallback notice.
+- the generated offline precache manifest contains both anatomy GLBs and every
+  local Draco decoder runtime file, and the service worker handles those paths
+  cache-first.
 
 - [ ] **Step 2: Run the focused tests and verify RED**
 
 Run:
 
 ```powershell
-npm.cmd run test:unit -- tests/anatomy/anatomyAssetLoader.test.ts tests/components/HipAnatomy.test.tsx tests/components/TheatreScene.test.tsx tests/components/LabWorkspace.test.tsx
+npm.cmd run test:unit -- tests/anatomy/anatomyAssetLoader.test.ts tests/anatomy/AnatomyAssetProvider.test.tsx tests/components/HipAnatomy.test.tsx tests/components/TheatreScene.test.tsx tests/components/LabWorkspace.test.tsx
+npm.cmd run test:starter
 ```
 
-Expected: FAIL because the loader, provider, and mesh component do not exist.
+Expected: FAIL because the loader, provider, and mesh component do not exist,
+and because the generated precache manifest excludes anatomy and Draco files.
 
 - [ ] **Step 3: Implement loader caching and semantic validation**
 
@@ -677,6 +687,11 @@ contents, or external texture/buffer URLs. Traverse once to set shadows,
 frustum culling, and a neutral bone material; do not store the scene in
 Zustand.
 
+Allow GLTFLoader's metadata and semantic container nodes to arrive as generic
+`THREE.Object3D` instances, then normalize the nine validated semantic
+containers into the promised `THREE.Group` runtime contract without changing
+their hierarchy or transforms.
+
 - [ ] **Step 4: Implement the provider and scene component**
 
 `AnatomyAssetProvider` owns `{status, resource, error, retry}` and starts one
@@ -697,20 +712,27 @@ Wrap the responsive contents of `LabWorkspace` in one provider so the 3D and
 projection branches share the same loaded resource. Do not mount the whole
 skeleton in `/lab`.
 
+Extend the generated asset manifest narrowly to include deployed `/anatomy/**`
+and `/draco/**` files, and route those same-origin paths through the service
+worker's cache-first handler. This ensures a reload after the shell is installed
+does not attempt an unavailable network request for the GLB or decoder.
+
 - [ ] **Step 5: Run the focused tests and verify GREEN**
 
 Run:
 
 ```powershell
-npm.cmd run test:unit -- tests/anatomy/anatomyAssetLoader.test.ts tests/components/HipAnatomy.test.tsx tests/components/TheatreScene.test.tsx tests/components/LabWorkspace.test.tsx
+npm.cmd run test:unit -- tests/anatomy/anatomyAssetLoader.test.ts tests/anatomy/AnatomyAssetProvider.test.tsx tests/components/HipAnatomy.test.tsx tests/components/TheatreScene.test.tsx tests/components/LabWorkspace.test.tsx
+npm.cmd run test:starter
 ```
 
-Expected: PASS.
+Expected: PASS. Also run the production E2E suite serially and require the
+offline reload to finish anatomy loading without showing `Anatomy unavailable`.
 
 - [ ] **Step 6: Commit the real 3D anatomy**
 
 ```powershell
-git add src/anatomy/anatomyAssetLoader.ts src/anatomy/AnatomyAssetProvider.tsx src/components/scene/HipAnatomy.tsx src/components/scene/TheatreScene.tsx src/components/scene/TheatreCanvas.tsx src/components/lab/LabWorkspace.tsx tests/anatomy/anatomyAssetLoader.test.ts tests/components/HipAnatomy.test.tsx tests/components/TheatreScene.test.tsx tests/components/LabWorkspace.test.tsx
+git add src/anatomy/anatomyAssetLoader.ts src/anatomy/AnatomyAssetProvider.tsx src/components/scene/HipAnatomy.tsx src/components/scene/TheatreScene.tsx src/components/scene/TheatreCanvas.tsx src/components/lab/LabWorkspace.tsx scripts/write-asset-manifest.mjs public/service-worker.js tests/anatomy/anatomyAssetLoader.test.ts tests/anatomy/AnatomyAssetProvider.test.tsx tests/components/HipAnatomy.test.tsx tests/components/TheatreScene.test.tsx tests/components/LabWorkspace.test.tsx tests/rendered-html.test.mjs tests/e2e/lab.spec.ts docs/superpowers/plans/2026-08-04-hip-anatomy-layered-projection.md
 git commit -m "feat: render synchronized hip anatomy"
 ```
 

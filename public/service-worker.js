@@ -1,6 +1,6 @@
-const SHELL_CACHE = "orthofluoro-shell-v1";
-const ASSET_CACHE = "orthofluoro-assets-v1";
-const CONTENT_CACHE = "orthofluoro-content-v1";
+const SHELL_CACHE = "orthofluoro-shell-v2";
+const ASSET_CACHE = "orthofluoro-assets-v2";
+const CONTENT_CACHE = "orthofluoro-content-v2";
 const CURRENT_CACHES = new Set([SHELL_CACHE, ASSET_CACHE, CONTENT_CACHE]);
 const SHELL_URLS = [
   "/",
@@ -87,7 +87,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (/^\/(models|content)\//.test(url.pathname)) {
+  if (/^\/(models|content|anatomy|draco)\//.test(url.pathname)) {
     event.respondWith(cacheFirst(request, CONTENT_CACHE));
     return;
   }

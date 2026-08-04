@@ -67,20 +67,38 @@ test("ships a same-origin offline shell from the deployed asset root", async () 
     ),
   ]);
 
-  assert.match(serviceWorker, /orthofluoro-shell-v1/);
+  assert.match(serviceWorker, /orthofluoro-shell-v2/);
   assert.match(serviceWorker, /"\/"[\s\S]*"\/lab"/);
   assert.match(serviceWorker, /request\.mode === "navigate"/);
   assert.match(serviceWorker, /asset-manifest\.json/);
   assert.match(serviceWorker, /cache\.addAll\(assetUrls\)/);
   assert.match(serviceWorker, /url\.origin !== self\.location\.origin/);
-  assert.match(serviceWorker, /\^\\\/\(models\|content\)\\\//);
+  assert.match(
+    serviceWorker,
+    /\^\\\/\(models\|content\|anatomy\|draco\)\\\//,
+  );
+  assert.match(
+    serviceWorker,
+    /if \(cached\) return cached;[\s\S]*const response = await fetch\(request\)/,
+  );
   assert.doesNotMatch(serviceWorker, /https?:\/\//);
   assert.equal(JSON.parse(manifest).start_url, "/lab");
   const assetPaths = JSON.parse(assetManifest);
   assert.ok(assetPaths.length > 5);
   assert.ok(assetPaths.some((path) => /\/assets\/.*\.js$/.test(path)));
   assert.ok(assetPaths.some((path) => /\/assets\/.*\.css$/.test(path)));
-  assert.ok(assetPaths.every((path) => path.startsWith("/assets/")));
+  [
+    "/anatomy/open3dmodel-hip-lower-limbs.glb",
+    "/anatomy/open3dmodel-overview-skeleton.glb",
+    "/draco/draco_decoder.js",
+    "/draco/draco_decoder.wasm",
+    "/draco/draco_wasm_wrapper.js",
+  ].forEach((runtimePath) => assert.ok(assetPaths.includes(runtimePath)));
+  assert.ok(
+    assetPaths.every((path) =>
+      /^\/(?:assets|anatomy|draco)\//.test(path),
+    ),
+  );
   await assert.rejects(
     access(new URL("../dist/server/favicon.svg", import.meta.url)),
   );
