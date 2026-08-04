@@ -8,12 +8,20 @@ import {
   LATERAL_C_ARM_POSE,
 } from "../../src/engine/geometry/anatomicalAxes";
 import { REFERENCE_C_ARM_POSE } from "../../src/engine/geometry/geometryTypes";
+import { REFERENCE_HIP_ANATOMY_POSE } from "../../src/anatomy/anatomyTypes";
 import { useSimulationStore } from "../../src/state/simulationStore";
 
 beforeEach(() => {
   useSimulationStore.setState({
     cArmPose: { ...REFERENCE_C_ARM_POSE },
     objectPose: { position: [0, 0, 0], rotationDegrees: [0, 0, 0] },
+    hipAnatomyPose: {
+      ...REFERENCE_HIP_ANATOMY_POSE,
+      rootPosition: [...REFERENCE_HIP_ANATOMY_POSE.rootPosition],
+      rootRotationDegrees: [
+        ...REFERENCE_HIP_ANATOMY_POSE.rootRotationDegrees,
+      ],
+    },
     cArmMode: "isocentric",
     showBeam: true,
     interactionMode: "inspect",
@@ -22,6 +30,74 @@ beforeEach(() => {
 });
 
 describe("simulation store", () => {
+  it("starts from a serializable anatomy pose without aliasing reference arrays", () => {
+    const current = useSimulationStore.getState().hipAnatomyPose;
+
+    expect(current).toEqual(REFERENCE_HIP_ANATOMY_POSE);
+    expect(current.rootPosition).not.toBe(
+      REFERENCE_HIP_ANATOMY_POSE.rootPosition,
+    );
+    expect(current.rootRotationDegrees).not.toBe(
+      REFERENCE_HIP_ANATOMY_POSE.rootRotationDegrees,
+    );
+    expect(JSON.parse(JSON.stringify(current))).toEqual(current);
+  });
+
+  it("keeps independent clamped angles and rotates only the effective selected leg", () => {
+    const store = useSimulationStore.getState();
+
+    store.setSelectedHipRotation(70);
+    store.setSelectedAnatomySide("right");
+    store.setSelectedHipRotation(-70);
+
+    expect(useSimulationStore.getState().hipAnatomyPose).toMatchObject({
+      selectedSide: "right",
+      leftHipRotationDegrees: 45,
+      rightHipRotationDegrees: -45,
+    });
+  });
+
+  it("forces selected side to match single-leg visibility without losing angles", () => {
+    const store = useSimulationStore.getState();
+    store.setSelectedHipRotation(18);
+    store.setAnatomyVisibility("right-only");
+    store.setSelectedHipRotation(-12);
+    store.setSelectedAnatomySide("left");
+
+    expect(useSimulationStore.getState().hipAnatomyPose).toMatchObject({
+      visibility: "right-only",
+      selectedSide: "right",
+      leftHipRotationDegrees: 18,
+      rightHipRotationDegrees: -12,
+    });
+
+    useSimulationStore.getState().setAnatomyVisibility("bilateral");
+    useSimulationStore.getState().setSelectedAnatomySide("left");
+    expect(useSimulationStore.getState().hipAnatomyPose).toMatchObject({
+      visibility: "bilateral",
+      selectedSide: "left",
+      leftHipRotationDegrees: 18,
+      rightHipRotationDegrees: -12,
+    });
+  });
+
+  it("resets both hip angles and pose while preserving quality and fresh arrays", () => {
+    useSimulationStore.getState().setQuality("high");
+    useSimulationStore.getState().setAnatomyVisibility("right-only");
+    useSimulationStore.getState().setSelectedHipRotation(30);
+    useSimulationStore.getState().resetGeometry();
+
+    const state = useSimulationStore.getState();
+    expect(state.hipAnatomyPose).toEqual(REFERENCE_HIP_ANATOMY_POSE);
+    expect(state.hipAnatomyPose.rootPosition).not.toBe(
+      REFERENCE_HIP_ANATOMY_POSE.rootPosition,
+    );
+    expect(state.hipAnatomyPose.rootRotationDegrees).not.toBe(
+      REFERENCE_HIP_ANATOMY_POSE.rootRotationDegrees,
+    );
+    expect(state.quality).toBe("high");
+  });
+
   it("clamps every C-arm update through the geometry bounds", () => {
     useSimulationStore.getState().setCArmParameter("orbitDegrees", 220);
     useSimulationStore.getState().setCArmParameter("translationX", -900);

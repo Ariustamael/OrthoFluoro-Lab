@@ -1,4 +1,14 @@
 import { create } from "zustand";
+import {
+  clampHipRotation,
+  effectiveSelectedSide,
+} from "../anatomy/anatomyTransforms";
+import {
+  REFERENCE_HIP_ANATOMY_POSE,
+  type AnatomySide,
+  type AnatomyVisibility,
+  type HipAnatomyPose,
+} from "../anatomy/anatomyTypes";
 import { clampCArmPose } from "../engine/geometry/cArmTransforms";
 import {
   REFERENCE_C_ARM_POSE,
@@ -16,6 +26,7 @@ export interface SimulationState {
   cArmMode: CArmKinematicMode;
   showBeam: boolean;
   objectPose: ObjectPose;
+  hipAnatomyPose: HipAnatomyPose;
   interactionMode: InteractionMode;
   quality: QualityPreset;
   setCArmPose: (pose: CArmPose) => void;
@@ -31,6 +42,9 @@ export interface SimulationState {
   setCArmMode: (mode: CArmKinematicMode) => void;
   setShowBeam: (show: boolean) => void;
   setObjectRotation: (rotationDegrees: Vec3) => void;
+  setAnatomyVisibility: (visibility: AnatomyVisibility) => void;
+  setSelectedAnatomySide: (side: AnatomySide) => void;
+  setSelectedHipRotation: (degrees: number) => void;
   setInteractionMode: (mode: InteractionMode) => void;
   setQuality: (quality: QualityPreset) => void;
   resetGeometry: () => void;
@@ -40,6 +54,14 @@ const REFERENCE_OBJECT_POSE: Readonly<ObjectPose> = Object.freeze({
   position: [0, 0, 0] as const,
   rotationDegrees: [0, 0, 0] as const,
 });
+
+function createReferenceHipAnatomyPose(): HipAnatomyPose {
+  return {
+    ...REFERENCE_HIP_ANATOMY_POSE,
+    rootPosition: [...REFERENCE_HIP_ANATOMY_POSE.rootPosition],
+    rootRotationDegrees: [...REFERENCE_HIP_ANATOMY_POSE.rootRotationDegrees],
+  };
+}
 
 function snapInDirection(value: number, delta: number, snap?: number): number {
   if (snap === undefined || snap <= 0 || delta === 0) return value + delta;
@@ -56,6 +78,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   cArmMode: "isocentric",
   showBeam: true,
   objectPose: { ...REFERENCE_OBJECT_POSE },
+  hipAnatomyPose: createReferenceHipAnatomyPose(),
   interactionMode: "inspect",
   quality: "medium",
   setCArmPose: (pose) => {
@@ -90,6 +113,47 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       },
     }));
   },
+  setAnatomyVisibility: (visibility) => {
+    set((state) => ({
+      hipAnatomyPose: {
+        ...state.hipAnatomyPose,
+        visibility,
+        selectedSide: effectiveSelectedSide(
+          visibility,
+          state.hipAnatomyPose.selectedSide,
+        ),
+      },
+    }));
+  },
+  setSelectedAnatomySide: (side) => {
+    set((state) => ({
+      hipAnatomyPose: {
+        ...state.hipAnatomyPose,
+        selectedSide: effectiveSelectedSide(
+          state.hipAnatomyPose.visibility,
+          side,
+        ),
+      },
+    }));
+  },
+  setSelectedHipRotation: (degrees) => {
+    set((state) => {
+      const selectedSide = effectiveSelectedSide(
+        state.hipAnatomyPose.visibility,
+        state.hipAnatomyPose.selectedSide,
+      );
+      const rotationDegrees = clampHipRotation(degrees);
+      return {
+        hipAnatomyPose: {
+          ...state.hipAnatomyPose,
+          selectedSide,
+          ...(selectedSide === "left"
+            ? { leftHipRotationDegrees: rotationDegrees }
+            : { rightHipRotationDegrees: rotationDegrees }),
+        },
+      };
+    });
+  },
   setInteractionMode: (interactionMode) => {
     set({ interactionMode });
   },
@@ -105,6 +169,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
         position: [...REFERENCE_OBJECT_POSE.position] as Vec3,
         rotationDegrees: [...REFERENCE_OBJECT_POSE.rotationDegrees] as Vec3,
       },
+      hipAnatomyPose: createReferenceHipAnatomyPose(),
     });
   },
 }));
