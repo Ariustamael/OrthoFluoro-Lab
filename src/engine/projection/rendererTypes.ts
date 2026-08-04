@@ -1,10 +1,30 @@
+import type { Group, Vector3 } from "three";
+import type {
+  AnatomySide,
+  HipAnatomyGroup,
+  HipAnatomyPose,
+} from "../../anatomy/anatomyTypes";
 import type { CArmGeometry, ObjectPose } from "../geometry/geometryTypes";
 
-export interface ProjectionInput {
+export interface ProjectionFrameInput {
   readonly geometry: CArmGeometry;
-  readonly objectPose: ObjectPose;
   readonly width: number;
   readonly height: number;
+}
+
+export interface ProjectionInput extends ProjectionFrameInput {
+  readonly objectPose: ObjectPose;
+}
+
+export interface AnatomyProjectionResource {
+  readonly scene: Group;
+  readonly groups: ReadonlyMap<HipAnatomyGroup, Group>;
+  readonly hipPivots: Readonly<Record<AnatomySide, Vector3>>;
+}
+
+export interface AnatomyProjectionInput extends ProjectionFrameInput {
+  readonly anatomy: AnatomyProjectionResource;
+  readonly anatomyPose: HipAnatomyPose;
 }
 
 export interface DetectorSensorSize {
@@ -25,7 +45,9 @@ export interface ProjectionOutput {
   readonly artifact: ProjectionArtifact;
 }
 
-export interface ProjectionRenderer {
-  render(input: ProjectionInput): Promise<ProjectionOutput>;
+export interface ProjectionRenderer<
+  TInput extends ProjectionFrameInput = ProjectionInput,
+> {
+  render(input: TInput): Promise<ProjectionOutput>;
   dispose(): void;
 }
