@@ -9,6 +9,11 @@ export type HipAnatomyGroup =
   | `${AnatomySide}-tibia-fibula`
   | `${AnatomySide}-foot`;
 
+export type OverviewAnatomyGroup =
+  | "overview-midline"
+  | "overview-left"
+  | "overview-right";
+
 export interface HipAnatomyPose {
   readonly rootPosition: readonly [number, number, number];
   readonly rootRotationDegrees: readonly [number, number, number];
@@ -30,6 +35,13 @@ export const HIP_ANATOMY_GROUPS: readonly HipAnatomyGroup[] = Object.freeze([
   "right-foot",
 ]);
 
+export const OVERVIEW_ANATOMY_GROUPS: readonly OverviewAnatomyGroup[] =
+  Object.freeze([
+    "overview-midline",
+    "overview-left",
+    "overview-right",
+  ]);
+
 const REFERENCE_ROOT_POSITION = Object.freeze([0, 0, 0] as const);
 const REFERENCE_ROOT_ROTATION = Object.freeze([0, 0, 0] as const);
 
@@ -41,4 +53,3 @@ export const REFERENCE_HIP_ANATOMY_POSE: HipAnatomyPose = Object.freeze({
   leftHipRotationDegrees: 0,
   rightHipRotationDegrees: 0,
 });
-

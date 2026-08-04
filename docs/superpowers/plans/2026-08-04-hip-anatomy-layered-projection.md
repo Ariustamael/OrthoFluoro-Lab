@@ -484,7 +484,15 @@ expect(visibleAnatomyGroups("right-only")).toEqual([
 expect(effectiveSelectedSide("left-only", "right")).toBe("left");
 expect(clampHipRotation(70)).toBe(45);
 expect(clampHipRotation(-70)).toBe(-45);
+expect(anatomyRootRotation(pose)).toBe(pose.rootRotationDegrees);
+expect(anatomyGroupLocalRotation("pelvis", pose)).toEqual([0, 0, 0]);
 ```
+
+Use a pose with non-zero root X/Y/Z rotation to prove that semantic-child hip
+rotation remains local `[0, 0, hipAngle]` rather than being added to any root
+Euler component. Assert the complete manifest value, exact checksums and source
+archive URLs, local runtime paths, deep immutability, and precise overview/hip
+group types.
 
 Update the store test in `CArmControls.test.tsx` to assert the reference anatomy
 state, selected-side rules, independent left/right hip angles, clamping, and
@@ -513,6 +521,10 @@ export type HipAnatomyGroup =
   | `${AnatomySide}-patella`
   | `${AnatomySide}-tibia-fibula`
   | `${AnatomySide}-foot`;
+export type OverviewAnatomyGroup =
+  | "overview-midline"
+  | "overview-left"
+  | "overview-right";
 
 export interface HipAnatomyPose {
   readonly rootPosition: readonly [number, number, number];
@@ -533,10 +545,18 @@ export const REFERENCE_HIP_ANATOMY_POSE: HipAnatomyPose = Object.freeze({
 });
 ```
 
-In `anatomyAssets.ts`, define immutable manifest records for `whole-skeleton`
-and `hip-lower-limbs`, local `/anatomy/...glb` URLs, `/draco/`, provenance URL,
-and the nine group names. The active hip lab references only
-`hip-lower-limbs`; the whole skeleton remains available for a later overview.
+In `anatomyAssets.ts`, define a generic or discriminated immutable manifest so
+the whole-skeleton record exposes only `OverviewAnatomyGroup[]` and the hip
+record exposes only `HipAnatomyGroup[]`; neither group collection may widen to
+`string[]`. Each record owns its typed `id`, `name`, `region`, local `filePath`,
+`coordinateSystem: "orthofluoro-anatomical-v1"`,
+`millimetresPerUnit: 1`, precisely typed groups, locked source archive URL,
+source-member SHA-256, current derived SHA-256, `CC-BY-SA-4.0` licence, required
+attribution, local `/draco/` decoder path, and local provenance URL. Deep-freeze
+the manifest, both records, and both group arrays. The active hip lab references
+only `hip-lower-limbs`; the whole skeleton remains available for a later
+overview. Components consume `filePath`; they do not hard-code or alias a
+second model URL.
 
 - [ ] **Step 4: Implement pure visibility and joint transforms**
 
@@ -546,12 +566,17 @@ Implement and export:
 visibleAnatomyGroups(visibility: AnatomyVisibility): HipAnatomyGroup[]
 effectiveSelectedSide(visibility: AnatomyVisibility, requested: AnatomySide): AnatomySide
 clampHipRotation(degrees: number): number
-hipGroupRotation(group: HipAnatomyGroup, pose: HipAnatomyPose): readonly [number, number, number]
+anatomyRootRotation(pose: HipAnatomyPose): HipAnatomyPose["rootRotationDegrees"]
+anatomyGroupLocalRotation(group: HipAnatomyGroup, pose: HipAnatomyPose): readonly [number, number, number]
 ```
 
-Internal/external rotation is about the app headward axis through the matching
-hip pivot. Pelvis transform is always the root transform. All four groups on a
-selected side receive the same joint transform so the leg remains intact.
+Task 4 applies `anatomyRootRotation(pose)` exactly once to the anatomy root.
+Semantic children never repeat or Euler-add that root rotation. The pelvis
+child has local identity `[0, 0, 0]`. Each of the four groups on a side receives
+the same local `[0, 0, clampedHipAngle]` beneath that side's femoral-head pivot,
+so internal/external rotation is about the app headward axis and the complete
+leg remains intact. The removed `hipGroupRotation` name must not be restored;
+it conflates root and child coordinate spaces.
 
 - [ ] **Step 5: Replace generic object state with anatomy state**
 

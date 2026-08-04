@@ -31,12 +31,17 @@ export function clampHipRotation(degrees: number): number {
   return Math.max(-45, Math.min(45, degrees));
 }
 
-export function hipGroupRotation(
+export function anatomyRootRotation(
+  pose: HipAnatomyPose,
+): HipAnatomyPose["rootRotationDegrees"] {
+  return pose.rootRotationDegrees;
+}
+
+export function anatomyGroupLocalRotation(
   group: HipAnatomyGroup,
   pose: HipAnatomyPose,
 ): readonly [number, number, number] {
-  const [rootX, rootY, rootZ] = pose.rootRotationDegrees;
-  if (group === "pelvis") return [rootX, rootY, rootZ];
+  if (group === "pelvis") return [0, 0, 0];
 
   const hipRotation = group.startsWith("left-")
     ? pose.leftHipRotationDegrees
