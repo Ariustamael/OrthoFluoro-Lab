@@ -193,6 +193,19 @@ describe("detector-aligned off-axis projection", () => {
     },
   );
 
+  it("projects a fixed asymmetric landmark after the physical source-over switch", () => {
+    const geometry = buildCArmGeometry(
+      REFERENCE_C_ARM_POSE,
+      undefined,
+      { approachSide: "right", tubeOrientation: "source-over" },
+    );
+    const projected = projectWorldPointToDetectorNdc(geometry, [40, 20, 30]);
+
+    expect(projected).not.toBeNull();
+    expect(projected![0]).toBeCloseTo(0.748146000692035, 8);
+    expect(projected![1]).toBeCloseTo(-0.561109500519026, 8);
+  });
+
   it.each([
     ["orbitDegrees", 35],
     ["cranialCaudalDegrees", 22],

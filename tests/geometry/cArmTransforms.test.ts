@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { MathUtils, Quaternion, Vector3 } from "three";
+import { MathUtils, Matrix4, Quaternion, Vector3 } from "three";
 import {
   ANATOMICAL_LANDMARKS,
   AP_C_ARM_POSE,
@@ -371,6 +371,79 @@ describe("physical C-arm setup", () => {
     expect(switched.rigTransform.scale[0]).toBeLessThan(0);
   });
 
+  it("matches M_tube * M_approach * M_pose for every source-over rig anchor and basis", () => {
+    const local = deriveCArmRigGeometry(ISO);
+    const qSwivel = new Quaternion().setFromAxisAngle(
+      new Vector3(0, 1, 0),
+      MathUtils.degToRad(posed.swivelDegrees),
+    );
+    const qTilt = new Quaternion().setFromAxisAngle(
+      new Vector3(1, 0, 0),
+      MathUtils.degToRad(posed.cranialCaudalDegrees),
+    );
+    const qOrbit = new Quaternion().setFromAxisAngle(
+      new Vector3(0, 0, 1),
+      MathUtils.degToRad(posed.orbitDegrees),
+    );
+    const orientation = qSwivel.multiply(qTilt).multiply(qOrbit).normalize();
+    const poseMatrix = new Matrix4().compose(
+      new Vector3(posed.translationX, posed.translationY, posed.translationZ),
+      orientation,
+      new Vector3(1, 1, 1),
+    );
+    const approachMatrix = new Matrix4().makeScale(-1, 1, 1);
+    const approachedMatrix = approachMatrix.clone().multiply(poseMatrix);
+    const approachedIsocentre = new Vector3(...local.isocentre).applyMatrix4(
+      approachedMatrix,
+    );
+    const approachedDetectorU = new Vector3(...local.detectorUAxis)
+      .transformDirection(approachedMatrix)
+      .normalize();
+    const tubeMatrix = new Matrix4()
+      .makeTranslation(...approachedIsocentre.toArray())
+      .multiply(
+        new Matrix4().makeRotationAxis(approachedDetectorU, Math.PI),
+      )
+      .multiply(
+        new Matrix4().makeTranslation(
+          -approachedIsocentre.x,
+          -approachedIsocentre.y,
+          -approachedIsocentre.z,
+        ),
+      );
+    const oracle = tubeMatrix.multiply(approachedMatrix);
+    const expectedPoint = (point: readonly [number, number, number]) =>
+      new Vector3(...point).applyMatrix4(oracle);
+    const expectedDirection = (axis: readonly [number, number, number]) =>
+      new Vector3(...axis).transformDirection(oracle).normalize();
+    const geometry = buildCArmGeometry(posed, ISO, {
+      approachSide: "right",
+      tubeOrientation: "source-over",
+    });
+
+    expectVectorClose(geometry.source, expectedPoint(local.source));
+    expectVectorClose(
+      geometry.detector.center,
+      expectedPoint(local.detectorCenter),
+    );
+    expectVectorClose(
+      geometry.mechanicalPivot,
+      expectedPoint(ISO.mechanicalPivotOffset),
+    );
+    expectVectorClose(
+      geometry.detector.uAxis,
+      expectedDirection(local.detectorUAxis).negate(),
+    );
+    expectVectorClose(
+      geometry.detector.vAxis,
+      expectedDirection(local.detectorVAxis),
+    );
+    expectVectorClose(
+      geometry.detector.normal,
+      expectedDirection([0, 1, 0]),
+    );
+  });
+
   it.each([
     ["left", "detector-over"],
     ["left", "source-over"],
@@ -398,6 +471,41 @@ describe("physical C-arm setup", () => {
       ).toBeCloseTo(-1, 8);
     },
   );
+});
+
+describe("reference setup compatibility", () => {
+  it("preserves the legacy transform and normal exactly through a negative rotation", () => {
+    const pose: CArmPose = {
+      ...REFERENCE_C_ARM_POSE,
+      translationX: 19,
+      translationY: -23,
+      translationZ: 7,
+      orbitDegrees: -170,
+    };
+    const orientation = new Quaternion()
+      .setFromAxisAngle(new Vector3(0, 1, 0), 0)
+      .multiply(new Quaternion().setFromAxisAngle(new Vector3(1, 0, 0), 0))
+      .multiply(
+        new Quaternion().setFromAxisAngle(
+          new Vector3(0, 0, 1),
+          MathUtils.degToRad(pose.orbitDegrees),
+        ),
+      )
+      .normalize();
+    const geometry = buildCArmGeometry(pose, ISO);
+
+    expect(geometry.rigTransform).toEqual({
+      position: [19, -23, 7],
+      quaternion: orientation.toArray(),
+      scale: [1, 1, 1],
+    });
+    expect(geometry.detector.normal).toEqual(
+      new Vector3(0, 1, 0).applyQuaternion(orientation).toArray(),
+    );
+    expect(buildCArmGeometry(REFERENCE_C_ARM_POSE, ISO).detector.normal).toEqual(
+      [0, 1, 0],
+    );
+  });
 });
 
 describe("anatomical reference views", () => {

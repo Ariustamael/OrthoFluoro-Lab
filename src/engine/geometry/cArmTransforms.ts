@@ -187,10 +187,15 @@ export function buildCArmGeometry(
     ? (axis: Vec3): Vec3 =>
         toTuple(new Vector3(...axis).applyQuaternion(orientation))
     : (axis: Vec3): Vec3 => transformDirection(finalMatrix, axis);
-  const position = new Vector3();
-  const quaternion = new Quaternion();
-  const scale = new Vector3();
-  finalMatrix.decompose(position, quaternion, scale);
+  let finalPosition = rigPosition;
+  let finalQuaternion = orientation;
+  let finalScale = new Vector3(1, 1, 1);
+  if (!isReferenceSetup) {
+    finalPosition = new Vector3();
+    finalQuaternion = new Quaternion();
+    finalScale = new Vector3();
+    finalMatrix.decompose(finalPosition, finalQuaternion, finalScale);
+  }
 
   const source = transformFinalPoint(local.source);
   const detectorCenter = transformFinalPoint(local.detectorCenter);
@@ -205,7 +210,9 @@ export function buildCArmGeometry(
     source,
     detector: {
       center: detectorCenter,
-      normal: forward,
+      normal: isReferenceSetup
+        ? transformFinalDirection([0, 1, 0])
+        : forward,
       uAxis,
       vAxis,
       width: preset.detectorWidth,
@@ -217,9 +224,9 @@ export function buildCArmGeometry(
       ? toTuple(pivot.add(translation))
       : transformFinalPoint(preset.mechanicalPivotOffset),
     rigTransform: {
-      position: toTuple(position),
-      quaternion: toQuaternionTuple(quaternion),
-      scale: toTuple(scale),
+      position: toTuple(finalPosition),
+      quaternion: toQuaternionTuple(finalQuaternion),
+      scale: toTuple(finalScale),
     },
     sourceDetectorDistance: preset.sourceDetectorDistance,
   };
