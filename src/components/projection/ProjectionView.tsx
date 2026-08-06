@@ -305,14 +305,17 @@ export function ProjectionView({
   const anatomy = useAnatomyAsset();
   const retryAnatomy = anatomy.retry;
   const cArmPose = useSimulationStore((state) => state.cArmPose);
+  const physicalSetup = useSimulationStore(
+    (state) => state.cArmPhysicalSetup,
+  );
   const cArmMode = useSimulationStore((state) => state.cArmMode);
   const hipAnatomyPose = useSimulationStore((state) => state.hipAnatomyPose);
   const quality = useSimulationStore((state) => state.quality);
   const isInteracting = usePointerInteraction();
   const preset = C_ARM_RIG_PRESETS[cArmMode];
   const geometry = useMemo(
-    () => buildCArmGeometry(cArmPose, preset),
-    [cArmPose, preset],
+    () => buildCArmGeometry(cArmPose, preset, physicalSetup),
+    [cArmPose, physicalSetup, preset],
   );
   const renderDimensions = detectorRenderDimensions(quality, isInteracting);
   const displayDimensions = detectorDisplayDimensions();

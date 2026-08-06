@@ -16,7 +16,12 @@ import {
   ProjectionView,
   type ProjectionRendererFactories,
 } from "../../src/components/projection/ProjectionView";
-import { REFERENCE_C_ARM_POSE } from "../../src/engine/geometry/geometryTypes";
+import { C_ARM_RIG_PRESETS } from "../../src/engine/geometry/cArmRigPresets";
+import { buildCArmGeometry } from "../../src/engine/geometry/cArmTransforms";
+import {
+  REFERENCE_C_ARM_PHYSICAL_SETUP,
+  REFERENCE_C_ARM_POSE,
+} from "../../src/engine/geometry/geometryTypes";
 import type { ProjectionCapability } from "../../src/engine/projection/projectionCapabilities";
 import type {
   AnatomyProjectionInput,
@@ -96,6 +101,7 @@ function renderProjection(
 beforeEach(() => {
   useSimulationStore.setState({
     cArmMode: "isocentric",
+    cArmPhysicalSetup: { ...REFERENCE_C_ARM_PHYSICAL_SETUP },
     cArmPose: { ...REFERENCE_C_ARM_POSE },
     hipAnatomyPose: {
       ...REFERENCE_HIP_ANATOMY_POSE,
@@ -111,6 +117,37 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("ProjectionView renderer orchestration", () => {
+  it("rerenders from final physical setup geometry", async () => {
+    const layered = renderer<AnatomyProjectionInput>(
+      output("Physical setup", "physical-setup"),
+    );
+    const factories: ProjectionRendererFactories = {
+      createLayered: () => layered,
+      createSilhouette: () =>
+        renderer(output("Silhouette", "mesh-silhouette")),
+      createSimplified: () =>
+        renderer(output("Unavailable", "simplified-procedural")),
+    };
+    renderProjection(factories, {
+      precision: "float32",
+      reason: null,
+      strategy: "layered-thickness",
+    });
+    await waitFor(() => expect(layered.render).toHaveBeenCalledOnce());
+
+    act(() => useSimulationStore.getState().setApproachSide("right"));
+    await waitFor(() => expect(layered.render).toHaveBeenCalledTimes(2));
+    expect(layered.render).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        geometry: buildCArmGeometry(
+          REFERENCE_C_ARM_POSE,
+          C_ARM_RIG_PRESETS.isocentric,
+          { approachSide: "right", tubeOrientation: "detector-over" },
+        ),
+      }),
+    );
+  });
+
   it.each([
     ["context-unavailable", "WebGL context unavailable"],
     ["webgl2-required", "WebGL 2 required"],

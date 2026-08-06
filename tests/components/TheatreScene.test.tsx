@@ -90,6 +90,7 @@ function expectArcAnchor(
 
 function transformCueAnchor(anchor: Vec3, geometry: CArmGeometry): Vec3 {
   const point = new Vector3(...anchor)
+    .multiply(new Vector3(...geometry.rigTransform.scale))
     .applyQuaternion(new Quaternion(...geometry.rigTransform.quaternion))
     .add(new Vector3(...geometry.rigTransform.position));
   return [point.x, point.y, point.z];
@@ -734,6 +735,31 @@ describe("six-DoF C-arm manipulator math", () => {
     expect(visible.groups[2]?.position).not.toEqual(geometry.referenceCentre);
   });
 
+  it("applies the complete physical setup transform to every cue anchor", () => {
+    const preset = C_ARM_RIG_PRESETS.isocentric;
+    const local = deriveCArmRigGeometry(preset);
+    const geometry = buildCArmGeometry(REFERENCE_C_ARM_POSE, preset, {
+      approachSide: "right",
+      tubeOrientation: "source-over",
+    });
+    const model = createCArmManipulatorRenderModel(
+      local,
+      preset,
+      geometry,
+      "move-carm",
+    );
+
+    expect(model.groups[0]?.position).toEqual(
+      transformCueAnchor(model.localAnchors.orbitTilt, geometry),
+    );
+    expect(model.groups[1]?.position).toEqual(
+      transformCueAnchor(model.localAnchors.swivel, geometry),
+    );
+    expect(model.groups[2]?.position).toEqual(
+      transformCueAnchor(model.localAnchors.translation, geometry),
+    );
+  });
+
   it("suspends camera controls only for active rig drags", () => {
     expect(orbitControlsEnabled("inspect", false)).toBe(true);
     expect(orbitControlsEnabled("move-carm", false)).toBe(true);
@@ -742,6 +768,33 @@ describe("six-DoF C-arm manipulator math", () => {
 });
 
 describe("integrated C-arm renderer", () => {
+  it("uses the same complete affine transform for every rig node", () => {
+    const resources = createCArmRigResources(C_ARM_RIG_PRESETS.isocentric);
+    const setup = {
+      approachSide: "right",
+      tubeOrientation: "source-over",
+    } as const;
+    const model = createCArmRigRenderModel(
+      REFERENCE_C_ARM_POSE,
+      C_ARM_RIG_PRESETS.isocentric,
+      resources,
+      true,
+      setup,
+    );
+
+    expect(model.rigTransform).toEqual(
+      buildCArmGeometry(
+        REFERENCE_C_ARM_POSE,
+        C_ARM_RIG_PRESETS.isocentric,
+        setup,
+      ).rigTransform,
+    );
+    expect(model.nodes.map(({ name }) => name)).toContain("X-ray beam");
+    expect(model.rigTransform.scale).toContain(-1);
+
+    disposeCArmRigResources(resources);
+  });
+
   it("describes only the integrated rig nodes and removes only a hidden beam", () => {
     const resources = createCArmRigResources(C_ARM_RIG_PRESETS.isocentric);
     const visible = createCArmRigRenderModel(

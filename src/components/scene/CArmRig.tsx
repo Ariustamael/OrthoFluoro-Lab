@@ -23,11 +23,13 @@ import { buildCArmGeometry } from "../../engine/geometry/cArmTransforms";
 import type {
   CArmGeometry,
   CArmKinematicMode,
+  CArmPhysicalSetup,
   CArmPose,
   CArmRigPreset,
   RigTransform,
   Vec3,
 } from "../../engine/geometry/geometryTypes";
+import { REFERENCE_C_ARM_PHYSICAL_SETUP } from "../../engine/geometry/geometryTypes";
 import { useSimulationStore } from "../../state/simulationStore";
 import { CArmManipulators } from "./CArmManipulators";
 import type { CArmCueId } from "./cArmCueHints";
@@ -236,13 +238,14 @@ export function createCArmRigRenderModel(
   preset: CArmRigPreset,
   resources: CArmRigResources,
   showBeam: boolean,
+  setup: CArmPhysicalSetup = REFERENCE_C_ARM_PHYSICAL_SETUP,
 ): CArmRigRenderModel {
   const shapeKey = rigShapeKey(preset);
   if (resources.rigShapeKey !== shapeKey) {
     throw new Error("C-arm render resources do not match the rig preset");
   }
 
-  const geometry = buildCArmGeometry(pose, preset);
+  const geometry = buildCArmGeometry(pose, preset, setup);
   const sourceDisplay = deriveCArmSourceDisplay(resources.local);
   const nodes: CArmRigNodeModel[] = [
     {
@@ -304,6 +307,9 @@ export function CArmRig({
 }: CArmRigProps = {}) {
   const storePose = useSimulationStore((state) => state.cArmPose);
   const storeMode = useSimulationStore((state) => state.cArmMode);
+  const physicalSetup = useSimulationStore(
+    (state) => state.cArmPhysicalSetup,
+  );
   const storeShowBeam = useSimulationStore((state) => state.showBeam);
   const pose = poseOverride ?? storePose;
   const mode = modeOverride ?? storeMode;
@@ -315,8 +321,15 @@ export function CArmRig({
     [resources.local],
   );
   const model = useMemo(
-    () => createCArmRigRenderModel(pose, preset, resources, showBeam),
-    [pose, preset, resources, showBeam],
+    () =>
+      createCArmRigRenderModel(
+        pose,
+        preset,
+        resources,
+        showBeam,
+        physicalSetup,
+      ),
+    [physicalSetup, pose, preset, resources, showBeam],
   );
 
   return (
@@ -325,6 +338,7 @@ export function CArmRig({
         name="C-arm rig"
         position={model.rigTransform.position}
         quaternion={model.rigTransform.quaternion}
+        scale={model.rigTransform.scale}
       >
         <mesh castShadow name="C arc and detector" receiveShadow>
           <primitive

@@ -344,9 +344,13 @@ export function createCArmManipulatorRenderModel(
   });
   const rigQuaternion = new Quaternion(...geometry.rigTransform.quaternion);
   const rigPosition = new Vector3(...geometry.rigTransform.position);
+  const rigScale = new Vector3(...geometry.rigTransform.scale);
   const toWorldAnchor = (anchor: Vec3): Vec3 =>
     tuple(
-      new Vector3(...anchor).applyQuaternion(rigQuaternion).add(rigPosition),
+      new Vector3(...anchor)
+        .multiply(rigScale)
+        .applyQuaternion(rigQuaternion)
+        .add(rigPosition),
     );
   const orbitTiltPosition = toWorldAnchor(localAnchors.orbitTilt);
   const swivelPosition = toWorldAnchor(localAnchors.swivel);
@@ -355,8 +359,14 @@ export function createCArmManipulatorRenderModel(
     -Math.sin(MathUtils.degToRad(orbitTiltDegrees)),
     Math.cos(MathUtils.degToRad(orbitTiltDegrees)),
     0,
-  ).applyQuaternion(rigQuaternion);
-  const floatingTiltAxis = new Vector3(0, 0, 1).applyQuaternion(rigQuaternion);
+  )
+    .multiply(rigScale)
+    .applyQuaternion(rigQuaternion)
+    .normalize();
+  const floatingTiltAxis = new Vector3(0, 0, 1)
+    .multiply(rigScale)
+    .applyQuaternion(rigQuaternion)
+    .normalize();
   const groups: ManipulatorGroupModel[] =
     interactionMode === "move-carm"
       ? [
