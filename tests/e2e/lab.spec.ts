@@ -34,11 +34,15 @@ async function waitForProjectionChange(
   page: Page,
   previousSignature: string,
 ): Promise<string> {
+  const detector = page.getByTestId("projection-detector-display");
   const image = page
     .getByRole("region", { name: "Simulated X-ray view" })
     .locator("img.projection-view__surface");
   await expect
     .poll(async () => {
+      if ((await detector.getAttribute("aria-busy")) !== "false") {
+        return previousSignature;
+      }
       const source = await image.getAttribute("src");
       return source === null ? null : sourceSignature(source);
     }, { timeout: 30_000 })
@@ -92,8 +96,10 @@ test("@desktop separates physical setup from X-ray display orientation", async (
 
   const initial = await waitForProjectionChange(page, neutral);
   await page.getByRole("radio", { name: "Left leg only" }).check();
+  const leftLegBaseline = await waitForProjectionChange(page, initial);
+
   await page.getByRole("radio", { name: "Right approach" }).check();
-  const rightApproach = await waitForProjectionChange(page, initial);
+  const rightApproach = await waitForProjectionChange(page, leftLegBaseline);
 
   await page.getByRole("radio", { name: "Source over detector" }).check();
   const switchedTube = await waitForProjectionChange(page, rightApproach);
@@ -108,15 +114,34 @@ test("@desktop separates physical setup from X-ray display orientation", async (
   const flipVertical = page.getByRole("button", {
     name: "Flip X-ray vertically",
   });
+  const displayTransform = page.getByTestId("xray-display-transform");
 
   await rotateRight.click();
   await expect(rotationStatus).toHaveText("10°");
   expect(await projectionImageSignature(page)).toBe(switchedTube);
+  const rotatedTransform = await displayTransform.evaluate(
+    (element) => getComputedStyle(element).transform,
+  );
 
   await flipHorizontal.click();
-  await flipVertical.click();
   await expect(flipHorizontal).toHaveAttribute("aria-pressed", "true");
+  await expect
+    .poll(() =>
+      displayTransform.evaluate((element) => getComputedStyle(element).transform),
+    )
+    .not.toBe(rotatedTransform);
+  expect(await projectionImageSignature(page)).toBe(switchedTube);
+  const horizontallyFlippedTransform = await displayTransform.evaluate(
+    (element) => getComputedStyle(element).transform,
+  );
+
+  await flipVertical.click();
   await expect(flipVertical).toHaveAttribute("aria-pressed", "true");
+  await expect
+    .poll(() =>
+      displayTransform.evaluate((element) => getComputedStyle(element).transform),
+    )
+    .not.toBe(horizontallyFlippedTransform);
   expect(await projectionImageSignature(page)).toBe(switchedTube);
 
   await page.getByRole("button", { name: "Reset geometry" }).click();
