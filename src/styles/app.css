@@ -1071,6 +1071,228 @@ button:hover {
   gap: var(--space-2);
 }
 
+.c-arm-controls__columns {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: minmax(0, 1.35fr) repeat(2, minmax(0, 1fr));
+}
+
+.control-column {
+  background: linear-gradient(180deg, rgb(16 38 56 / 70%), rgb(7 19 31 / 54%));
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 0.55rem;
+  margin: 0;
+  min-inline-size: 0;
+  padding: var(--space-3);
+}
+
+.control-column__title {
+  color: var(--text);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  padding-inline: var(--space-1);
+  text-transform: uppercase;
+}
+
+.control-column > .interaction-mode {
+  margin-block-end: var(--space-2);
+}
+
+.control-column .c-arm-controls__parameters {
+  grid-template-columns: 1fr;
+  margin-block-end: 0;
+}
+
+.control-column .c-arm-controls__parameter-group {
+  padding: var(--space-2);
+}
+
+.control-column .c-arm-controls__parameter-fields {
+  gap: var(--space-2);
+}
+
+.setup-control-group {
+  border: 0;
+  border-block-end: 1px solid color-mix(in srgb, var(--border) 68%, transparent);
+  margin: 0 0 var(--space-3);
+  min-inline-size: 0;
+  padding: 0 0 var(--space-3);
+}
+
+.setup-control-group > legend {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.05em;
+  margin-block-end: var(--space-1);
+}
+
+.setup-control-options {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.setup-control-options label {
+  align-items: center;
+  background: rgb(3 10 18 / 36%);
+  border: 1px solid transparent;
+  border-radius: 0.4rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  font-size: 0.78rem;
+  gap: var(--space-2);
+  min-block-size: 2.4rem;
+  padding: 0.35rem var(--space-2);
+  position: relative;
+}
+
+.setup-control-options input {
+  accent-color: var(--cyan-500);
+  block-size: 1px;
+  inline-size: 1px;
+  opacity: 0;
+  position: absolute;
+}
+
+.setup-control-options label:has(input:checked) {
+  background: color-mix(in srgb, var(--cyan-500) 8%, var(--navy-850));
+  border-color: color-mix(in srgb, var(--cyan-500) 74%, var(--border));
+  color: var(--text);
+}
+
+.setup-control-options label:has(input:focus-visible) {
+  box-shadow: var(--focus-ring);
+}
+
+.setup-control-options--schematic {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.setup-control-options--schematic label {
+  align-items: stretch;
+  flex-direction: column;
+  gap: 0.25rem;
+  text-align: center;
+}
+
+.rig-schematic {
+  display: block;
+  inline-size: 3.5rem;
+  margin-inline: auto;
+  min-block-size: 2.5rem;
+  position: relative;
+}
+
+.rig-schematic i {
+  display: block;
+  position: absolute;
+}
+
+.rig-schematic__patient {
+  background: color-mix(in srgb, var(--text-muted) 45%, transparent);
+  border-radius: 999px;
+  block-size: 1.65rem;
+  inline-size: 0.48rem;
+  inset: 0.42rem auto auto 50%;
+  transform: translateX(-50%);
+}
+
+.rig-schematic__arc {
+  border: 2px solid var(--cyan-300);
+  block-size: 2rem;
+  inline-size: 1.2rem;
+  inset-block-start: 0.22rem;
+}
+
+.rig-schematic--approach-left .rig-schematic__arc {
+  border-inline-end: 0;
+  border-radius: 999px 0 0 999px;
+  inset-inline-start: 0.36rem;
+}
+
+.rig-schematic--approach-right .rig-schematic__arc {
+  border-inline-start: 0;
+  border-radius: 0 999px 999px 0;
+  inset-inline-end: 0.36rem;
+}
+
+.rig-schematic__detector {
+  background: var(--cyan-300);
+  border-radius: 1px;
+  block-size: 0.2rem;
+  inline-size: 1.55rem;
+  inset: 0.18rem auto auto 50%;
+  transform: translateX(-50%);
+}
+
+.rig-schematic__beam {
+  background: linear-gradient(var(--cyan-500), rgb(39 212 239 / 12%));
+  clip-path: polygon(34% 0, 66% 0, 100% 100%, 0 100%);
+  block-size: 1.52rem;
+  inline-size: 1.15rem;
+  inset: 0.44rem auto auto 50%;
+  opacity: 0.56;
+  transform: translateX(-50%);
+}
+
+.rig-schematic__source {
+  background: var(--warning);
+  border-radius: 50% 50% 0 0;
+  block-size: 0.52rem;
+  inline-size: 0.72rem;
+  inset: 2rem auto auto 50%;
+  transform: translateX(-50%);
+}
+
+.rig-schematic--tube-source-over {
+  transform: rotate(180deg);
+}
+
+.setup-control-options--quality {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.setup-control-options--quality label {
+  justify-content: center;
+  padding-inline: 0.3rem;
+  text-align: center;
+}
+
+.c-arm-controls__capture-status {
+  color: var(--cyan-300);
+  font-size: 0.75rem;
+  margin: var(--space-2) 0 0;
+  min-block-size: 1.1rem;
+}
+
+.anatomy-controls.control-column {
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-3);
+}
+
+.anatomy-controls__attribution {
+  border-block-start: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  color: color-mix(in srgb, var(--text-muted) 82%, transparent);
+  font-size: 0.66rem;
+  line-height: 1.48;
+  margin: var(--space-1) 0 0;
+  padding-block-start: var(--space-2);
+}
+
+.anatomy-controls__attribution a {
+  color: var(--text-muted);
+  text-underline-offset: 0.16em;
+}
+
+.anatomy-controls__attribution a:hover {
+  color: var(--cyan-300);
+}
+
 .lab-workspace__disclaimer {
   border-inline-start: 4px solid var(--warning);
   color: var(--text-muted);
@@ -1164,6 +1386,22 @@ button:hover {
   .lab-workspace__hydration-shell,
   .lab-workspace__disclaimer {
     padding: var(--space-3);
+  }
+
+  .c-arm-controls__columns {
+    grid-template-columns: 1fr;
+  }
+
+  .control-column button,
+  .control-column label,
+  .anatomy-controls__rotation input,
+  .anatomy-controls__segments label > span:first-of-type,
+  .anatomy-controls__reset {
+    min-block-size: var(--target-min);
+  }
+
+  .setup-control-options--schematic label {
+    min-block-size: 5.75rem;
   }
 }
 

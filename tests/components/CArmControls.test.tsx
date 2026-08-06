@@ -277,7 +277,76 @@ describe("CArmControls", () => {
     expect(
       screen.queryByRole("spinbutton", { name: "Object rotation X" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Anatomy" })).toBeVisible();
+    expect(screen.getByRole("group", { name: "Anatomy" })).toBeVisible();
+  });
+
+  it("presents three always-expanded semantic control columns", () => {
+    render(<CArmControls />);
+
+    expect(screen.getByRole("group", { name: "Move C-arm" })).toBeVisible();
+    expect(screen.getByRole("group", { name: "Rig setup" })).toBeVisible();
+    expect(screen.getByRole("group", { name: "Anatomy" })).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Anatomy", exact: true }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("radio", { name: "Left approach" }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole("radio", { name: "Detector over source" }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole("radio", { name: "Medium quality" }),
+    ).toBeChecked();
+  });
+
+  it("preserves physical and display state across presets and resets them independently", async () => {
+    const user = userEvent.setup();
+    render(<CArmControls />);
+
+    await user.click(screen.getByRole("radio", { name: "Right approach" }));
+    await user.click(
+      screen.getByRole("radio", { name: "Source over detector" }),
+    );
+    useSimulationStore.getState().rotateXrayDisplay(3);
+    useSimulationStore.getState().toggleXrayFlip("vertical");
+
+    await user.click(screen.getByRole("button", { name: "AP view" }));
+    expect(useSimulationStore.getState()).toMatchObject({
+      cArmPhysicalSetup: {
+        approachSide: "right",
+        tubeOrientation: "source-over",
+      },
+      xrayDisplayOrientation: {
+        rotationSteps: 3,
+        flipHorizontal: false,
+        flipVertical: true,
+      },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Lateral view" }));
+    expect(useSimulationStore.getState()).toMatchObject({
+      cArmPhysicalSetup: {
+        approachSide: "right",
+        tubeOrientation: "source-over",
+      },
+      xrayDisplayOrientation: {
+        rotationSteps: 3,
+        flipHorizontal: false,
+        flipVertical: true,
+      },
+    });
+
+    await user.click(screen.getByRole("button", { name: "Reset geometry" }));
+    expect(screen.getByRole("radio", { name: "Left approach" })).toBeChecked();
+    expect(
+      screen.getByRole("radio", { name: "Detector over source" }),
+    ).toBeChecked();
+    expect(useSimulationStore.getState().xrayDisplayOrientation).toEqual({
+      rotationSteps: 3,
+      flipHorizontal: false,
+      flipVertical: true,
+    });
   });
 
   it("groups exact controls by their matching physical manipulator", () => {
