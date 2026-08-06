@@ -3,6 +3,10 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: true,
+  // The simulator mounts two WebGL consumers. Persistent parallel Chromium
+  // workers retain GPU resources even after their individual contexts close,
+  // which can starve the remaining production journeys on Windows.
+  workers: 1,
   reporter: "list",
   timeout: 30_000,
   expect: { timeout: 7_500 },

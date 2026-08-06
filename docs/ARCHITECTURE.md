@@ -3,28 +3,35 @@
 ## Runtime shape
 
 Vinext supplies the Sites-compatible application entry and Cloudflare worker
-build. A client-side React Router tree owns the learning routes. The server
-renders a lightweight hydration shell; the browser then starts the router and
-mounts the requested page.
+build. A client-side React Router tree exposes the simulator at the root. The
+server renders a lightweight hydration shell; the browser then starts the
+router and mounts the one-page Lab experience.
 
 The lab has one serializable simulation state, one anatomy resource provider,
 and one authoritative C-arm geometry pipeline:
 
 ```text
-simulationStore C-arm pose + mode
+simulationStore pose + mode + physical setup
         |-- preset -> buildCArmGeometry -> 3D rig + manipulators
         `-- preset -> buildCArmGeometry -> detector-aligned projection camera
 
 AnatomyAssetProvider -> semantic local GLB --+-> HipAnatomy theatre scene
 simulationStore hip pose + visibility -------+
 geometry + anatomy + render quality ---------`-> ProjectionView artifact
+simulationStore X-ray display orientation -----> DOM artifact + overlay transform
 ```
 
-Both viewports consume the same pure C-arm geometry derivation and serializable
-anatomy pose. Source, detector plane, mechanical pivot, SID, visibility, and hip
-rotation are not maintained as independent 3D and projection state. The
-scene-only `showBeam` flag is intentionally absent from `ProjectionView`, so
-hiding the visible beam does not change projection geometry.
+Simulation state has three independent C-arm layers: pose, physical rig setup,
+and X-ray display orientation. Pose plus physical setup produce one
+authoritative world geometry consumed by both Three.js and the projection
+renderers. Display orientation is a DOM-only post-process over the completed
+artifact and detector overlay; it cannot alter or request projection geometry.
+
+Both viewports also consume the same serializable anatomy pose. Source, detector
+plane, mechanical pivot, SID, visibility, and hip rotation are not maintained
+as independent 3D and projection state. The scene-only `showBeam` flag is
+intentionally absent from `ProjectionView`, so hiding the visible beam does not
+change projection geometry.
 
 ## Boundaries and ownership
 
@@ -36,8 +43,8 @@ hiding the visible beam does not change projection geometry.
   collimator, and aperture placement from the authoritative local source point;
   it does not own projection geometry.
 - `src/engine/geometry/cArmTransforms.ts` clamps the six-degree pose, composes
-  its quaternion and pivot transform, and produces authoritative world
-  `CArmGeometry`.
+  pose, approach-side, and tube-orientation transforms in that order, and
+  produces authoritative world `CArmGeometry` with a canonical detector basis.
 - `src/engine/geometry/projectionMath.ts` owns ray-plane projection, detector
   bounds, and magnification.
 - `src/anatomy/AnatomyAssetProvider.tsx` owns a cached, reference-counted lease
@@ -55,24 +62,28 @@ hiding the visible beam does not change projection geometry.
   `SimplifiedProjectionRenderer.ts` also owns an anatomy-derived CPU/SVG
   compatibility renderer for unavailable WebGL contexts or WebGL 1, while its
   separate procedural renderer is reserved for anatomy load failure.
-- `src/state/simulationStore.ts` owns C-arm pose and mode, serializable hip
-  anatomy pose and visibility, interaction mode, beam visibility, and graphics
-  quality. Reset is a store transition, not component-local cleanup.
+- `src/state/simulationStore.ts` owns C-arm pose and mode, physical rig setup,
+  X-ray display orientation, serializable hip anatomy pose and visibility,
+  interaction mode, beam visibility, and graphics quality. Geometry and display
+  resets are separate store transitions, not component-local cleanup.
 - `src/components/scene/CArmRig.tsx` renders the local resources under the
-  authoritative rigid transform. `CArmManipulators.tsx` derives its outer cue
-  anchors from the local circular arc, transforms them with the rig, and writes
-  pose changes back to the store.
+  authoritative final transform. `CArmManipulators.tsx` derives its outer cue
+  anchors from the same physical setup and computes camera-relative drag signs
+  before writing pose changes back to the store.
 - `src/components/scene/TheatreCanvas.tsx` owns the fixed cue-help DOM overlay.
   It maps semantic cue IDs from the Three.js scene and keeps the hint outside
   the canvas rather than attaching a large label to the model.
 - `src/components/projection/ProjectionView.tsx` combines the same world
   geometry with the provider resource, anatomy pose, and raster dimensions,
-  selects a renderer, and owns its asynchronous lifecycle.
+  selects a renderer, and owns its asynchronous lifecycle. Its display wrapper
+  applies rotation, flips, and fit scaling only after an artifact is complete.
 
-`src/app/App.tsx` declares the route surface. Home, Lab, About, and Settings are
-functional; Guided, Library, Communication, and Saved routes identify planned
-modules. The unlinked `/lab/c-arm-review` and projection smoke routes are
-development/review surfaces, not primary learner navigation.
+`src/app/App.tsx` declares the route surface. The public application exposes only
+the root Lab route; former public URLs redirect to `/` and no site navigation is
+rendered. The unlinked C-arm review and projection-renderer smoke routes exist
+only in builds created with the explicit diagnostic-route flag. Normal
+production builds omit them; the production-like E2E build enables them so the
+real-WebGL renderer smoke test remains executable.
 
 ## Renderer fallback flow
 
@@ -124,11 +135,11 @@ overlays.
 ## Resilience, mobile, and PWA
 
 WebGL initialization is checked before the canvas mounts and context loss has a
-recovery path. On desktop, the linked 3D and detector views remain visible
-together. On mobile, the tab workspace mounts only the selected heavy surface,
-so an inactive WebGL canvas or detector renderer does not consume resources.
-The application error boundary prevents a failed feature from leaving a blank
-page.
+recovery path. The linked 3D and detector views remain mounted together at every
+viewport size. Desktop uses a two-view grid above a three-column control dock;
+mobile stacks X-ray, theatre, and all three expanded control groups in one
+document without workspace tabs. The application error boundary prevents a
+failed feature from leaving a blank page.
 
 The PWA precaches the versioned application shell and local anatomy/Draco
 assets. Runtime caching is same-origin only; the built lab does not depend on a

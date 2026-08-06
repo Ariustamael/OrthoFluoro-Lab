@@ -1,24 +1,25 @@
-import { expect, test, type Page } from "@playwright/test";
+import { createHash } from "node:crypto";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const consoleErrors = new WeakMap<Page, string[]>();
-const SIX_POSE_LABELS = [
-  "Lateral translation value",
-  "Vertical translation value",
-  "Longitudinal translation value",
-  "Swivel angle",
-  "Cranial/caudal angle",
-  "Orbit angle",
+test.describe.configure({ mode: "serial", timeout: 120_000 });
+const RETIRED_PATHS = [
+  "/lab",
+  "/guided",
+  "/guided/wrist-true-lateral",
+  "/library",
+  "/library/wrist-neutral",
+  "/communication",
+  "/saved",
+  "/about",
+  "/settings",
 ] as const;
 
-async function poseValues(page: Page): Promise<string[]> {
-  return Promise.all(
-    SIX_POSE_LABELS.map((label) =>
-      page.getByRole("spinbutton", { name: label }).inputValue(),
-    ),
-  );
+function sourceSignature(source: string): string {
+  return createHash("sha256").update(source).digest("hex");
 }
 
-async function projectionImageSource(page: Page): Promise<string> {
+async function projectionImageSignature(page: Page): Promise<string> {
   const image = page
     .getByRole("region", { name: "Simulated X-ray view" })
     .locator("img.projection-view__surface");
@@ -26,7 +27,42 @@ async function projectionImageSource(page: Page): Promise<string> {
   const source = await image.getAttribute("src");
   expect(source).toMatch(/^data:image\/(png|svg\+xml)/);
   expect(source!.length).toBeGreaterThan(100);
-  return source!;
+  return sourceSignature(source!);
+}
+
+async function waitForProjectionChange(
+  page: Page,
+  previousSignature: string,
+): Promise<string> {
+  const image = page
+    .getByRole("region", { name: "Simulated X-ray view" })
+    .locator("img.projection-view__surface");
+  await expect
+    .poll(async () => {
+      const source = await image.getAttribute("src");
+      return source === null ? null : sourceSignature(source);
+    }, { timeout: 30_000 })
+    .not.toBe(previousSignature);
+  return projectionImageSignature(page);
+}
+
+async function expectInside(inner: Locator, outer: Locator): Promise<void> {
+  const [innerBox, outerBox] = await Promise.all([
+    inner.boundingBox(),
+    outer.boundingBox(),
+  ]);
+  expect(innerBox).not.toBeNull();
+  expect(outerBox).not.toBeNull();
+
+  const tolerance = 1;
+  expect(innerBox!.x).toBeGreaterThanOrEqual(outerBox!.x - tolerance);
+  expect(innerBox!.y).toBeGreaterThanOrEqual(outerBox!.y - tolerance);
+  expect(innerBox!.x + innerBox!.width).toBeLessThanOrEqual(
+    outerBox!.x + outerBox!.width + tolerance,
+  );
+  expect(innerBox!.y + innerBox!.height).toBeLessThanOrEqual(
+    outerBox!.y + outerBox!.height + tolerance,
+  );
 }
 
 test.beforeEach(async ({ page }) => {
@@ -36,7 +72,7 @@ test.beforeEach(async ({ page }) => {
   });
   page.on("pageerror", (error) => errors.push(error.message));
   consoleErrors.set(page, errors);
-  await page.goto("/lab");
+  await page.goto("/");
   await expect(
     page.getByRole("heading", { level: 1, name: "Projection geometry lab" }),
   ).toBeVisible();
@@ -46,192 +82,145 @@ test.afterEach(async ({ page }) => {
   expect(consoleErrors.get(page) ?? []).toEqual([]);
 });
 
-test("@desktop learner completes the linked C-arm simulator journey", async ({
+test("@desktop separates physical setup from X-ray display orientation", async ({
   page,
 }) => {
-  await expect(page.getByRole("region", { name: "3D theatre" })).toBeVisible();
-  await expect(
-    page.getByRole("region", { name: "Simulated X-ray view" }),
-  ).toBeVisible();
-
-  const projectionRegion = page.getByRole("region", {
-    name: "Simulated X-ray view",
-  });
-  await expect(projectionRegion).toHaveAttribute(
-    "data-projection-strategy",
-    /^(layered-mesh-thickness|mesh-silhouette|simplified-compatibility)$/,
-  );
-  if (
-    (await projectionRegion.getAttribute("data-projection-strategy")) ===
-    "mesh-silhouette"
-  ) {
-    await expect(
-      page.getByRole("status", { name: "Projection method" }),
-    ).toContainText("Simplified silhouette projection");
-  }
-  const initialProjection = await projectionImageSource(page);
-
+  const neutral = await projectionImageSignature(page);
   const orbit = page.getByRole("spinbutton", { name: "Orbit angle" });
-  const projectionStatus = page.getByRole("status", {
-    name: "Projection status",
-  });
   await orbit.fill("30");
   await orbit.press("Enter");
-  await expect
-    .poll(() => projectionImageSource(page))
-    .not.toBe(initialProjection);
-  const orbitProjection = await projectionImageSource(page);
-  await expect(projectionStatus).toContainText("Orbit 30.0°");
 
-  const beamToggle = page.getByRole("checkbox", { name: "Show X-ray beam" });
-  const statusBeforeBeamToggle = await projectionStatus.textContent();
-  expect(statusBeforeBeamToggle).not.toBeNull();
-  await beamToggle.uncheck();
-  await expect(beamToggle).not.toBeChecked();
-  await expect(projectionStatus).toHaveText(statusBeforeBeamToggle!);
-  await beamToggle.check();
-  await expect(beamToggle).toBeChecked();
-  await expect(projectionStatus).toHaveText(statusBeforeBeamToggle!);
+  const initial = await waitForProjectionChange(page, neutral);
+  await page.getByRole("radio", { name: "Left leg only" }).check();
+  await page.getByRole("radio", { name: "Right approach" }).check();
+  const rightApproach = await waitForProjectionChange(page, initial);
 
-  const poseBeforeModeChange = await poseValues(page);
-  const nonIsocentric = page.getByRole("button", { name: "Non-isocentric" });
-  await nonIsocentric.click();
-  await expect(nonIsocentric).toHaveAttribute("aria-pressed", "true");
-  expect(await poseValues(page)).toEqual(poseBeforeModeChange);
+  await page.getByRole("radio", { name: "Source over detector" }).check();
+  const switchedTube = await waitForProjectionChange(page, rightApproach);
 
-  const moveCArm = page.getByRole("button", { name: "Move C-arm" });
-  await moveCArm.click();
-  await expect(moveCArm).toHaveAttribute("aria-pressed", "true");
-  const companionSemantics = [
-    ["Orbit and tilt cue", ["Orbit angle", "Cranial/caudal angle"]],
-    [
-      "Translation cue",
-      [
-        "Lateral translation value",
-        "Vertical translation value",
-        "Longitudinal translation value",
-      ],
-    ],
-    ["Wig-wag cue", ["Swivel angle"]],
-  ] as const;
-  for (const [manipulatorName, controlLabels] of companionSemantics) {
-    await test.step(`${manipulatorName} is exposed with its companion controls`, async () => {
-      const manipulatorGroup = page.getByRole("group", {
-        name: manipulatorName,
-        exact: true,
-      });
-      await expect(manipulatorGroup).toBeVisible();
-      for (const label of controlLabels) {
-        await expect(
-          manipulatorGroup.getByRole("spinbutton", { name: label }),
-        ).toBeVisible();
-      }
-    });
-  }
-
-  const tilt = page.getByRole("spinbutton", {
-    name: "Cranial/caudal angle",
+  const rotateRight = page.getByRole("button", {
+    name: "Rotate X-ray right 10 degrees",
   });
-  await tilt.fill("14");
-  await tilt.press("Enter");
-  const orbitBeforeAnatomyReset = await orbit.inputValue();
-  const tiltBeforeAnatomyReset = await tilt.inputValue();
-
-  const anatomyDisclosure = page.getByRole("button", {
-    name: "Anatomy",
-    exact: true,
+  const rotationStatus = page.getByRole("status", { name: "X-ray rotation" });
+  const flipHorizontal = page.getByRole("button", {
+    name: "Flip X-ray horizontally",
   });
-  await anatomyDisclosure.click();
-  await expect(anatomyDisclosure).toHaveAttribute("aria-expanded", "true");
-  const anatomy = page.getByRole("group", { name: "Anatomy" });
-  await anatomy.getByRole("radio", { name: "Left leg only" }).check();
-  await expect
-    .poll(() => projectionImageSource(page))
-    .not.toBe(orbitProjection);
-  const singleLegProjection = await projectionImageSource(page);
-  const leftRotation = anatomy.getByRole("slider", {
-    name: "Left leg internal or external rotation",
+  const flipVertical = page.getByRole("button", {
+    name: "Flip X-ray vertically",
   });
-  await leftRotation.fill("30");
-  await expect
-    .poll(() => projectionImageSource(page))
-    .not.toBe(singleLegProjection);
-  await leftRotation.press("ArrowRight");
-  await expect(leftRotation).toHaveValue("31");
-  await leftRotation.press("ArrowLeft");
-  await expect(leftRotation).toHaveValue("30");
 
-  for (const statusName of ["3D anatomy status", "Projection anatomy status"]) {
-    const anatomyStatus = page.getByRole("status", {
-      name: statusName,
-      exact: true,
-    });
-    await expect(anatomyStatus).toContainText("left-only");
-    await expect(anatomyStatus).toContainText("Left leg rotation +30°");
-  }
+  await rotateRight.click();
+  await expect(rotationStatus).toHaveText("10°");
+  expect(await projectionImageSignature(page)).toBe(switchedTube);
 
-  await anatomy.getByRole("button", { name: "Reset anatomy" }).click();
-  await expect(leftRotation).toHaveValue("0");
-  await expect(
-    page.getByRole("status", { name: "3D anatomy status" }),
-  ).toContainText("bilateral");
-  await expect(orbit).toHaveValue(orbitBeforeAnatomyReset);
-  await expect(tilt).toHaveValue(tiltBeforeAnatomyReset);
+  await flipHorizontal.click();
+  await flipVertical.click();
+  await expect(flipHorizontal).toHaveAttribute("aria-pressed", "true");
+  await expect(flipVertical).toHaveAttribute("aria-pressed", "true");
+  expect(await projectionImageSignature(page)).toBe(switchedTube);
 
   await page.getByRole("button", { name: "Reset geometry" }).click();
+  await expect(page.getByRole("radio", { name: "Left approach" })).toBeChecked();
   await expect(
-    page.getByRole("button", { name: "Isocentric", exact: true }),
-  ).toHaveAttribute("aria-pressed", "true");
-  await expect(beamToggle).toBeChecked();
-  for (const label of SIX_POSE_LABELS) {
-    await expect(page.getByRole("spinbutton", { name: label })).toHaveValue(
-      "0",
-    );
-  }
+    page.getByRole("radio", { name: "Detector over source" }),
+  ).toBeChecked();
+  await expect(orbit).toHaveValue("0");
+  await expect(rotationStatus).toHaveText("10°");
+  await expect(flipHorizontal).toHaveAttribute("aria-pressed", "true");
+  await expect(flipVertical).toHaveAttribute("aria-pressed", "true");
+
+  const resetGeometryProjection = await waitForProjectionChange(
+    page,
+    switchedTube,
+  );
+  await page.getByRole("button", { name: "Reset X-ray display" }).click();
+  await expect(rotationStatus).toHaveText("0°");
+  await expect(flipHorizontal).toHaveAttribute("aria-pressed", "false");
+  await expect(flipVertical).toHaveAttribute("aria-pressed", "false");
+  expect(await projectionImageSignature(page)).toBe(resetGeometryProjection);
+  await expect(page.getByRole("radio", { name: "Left approach" })).toBeChecked();
+  await expect(
+    page.getByRole("radio", { name: "Detector over source" }),
+  ).toBeChecked();
 });
 
-test("@desktop detector distinguishes AP, oblique, and lateral geometry", async ({
-  page,
-}) => {
-  await page.getByRole("button", { name: "AP view" }).click();
-  const apProjection = await projectionImageSource(page);
+test("@desktop rotates continuously in 10-degree steps", async ({ page }) => {
+  const rotateRight = page.getByRole("button", {
+    name: "Rotate X-ray right 10 degrees",
+  });
+  const rotateLeft = page.getByRole("button", {
+    name: "Rotate X-ray left 10 degrees",
+  });
+  const rotationStatus = page.getByRole("status", { name: "X-ray rotation" });
 
-  const orbit = page.getByRole("spinbutton", { name: "Orbit angle" });
-  await orbit.fill("135");
-  await orbit.press("Enter");
-  await expect.poll(() => projectionImageSource(page)).not.toBe(apProjection);
-  const obliqueProjection = await projectionImageSource(page);
+  await rotateRight.evaluate((button) => {
+    for (let step = 0; step < 37; step += 1) (button as HTMLElement).click();
+  });
+  await expect(rotationStatus).toHaveText("10°");
 
-  await page.getByRole("button", { name: "Lateral view" }).click();
-  await expect
-    .poll(() => projectionImageSource(page))
-    .not.toBe(obliqueProjection);
-  const lateralProjection = await projectionImageSource(page);
-  expect(lateralProjection).not.toBe(apProjection);
+  await rotateLeft.evaluate((button) => {
+    for (let step = 0; step < 38; step += 1) (button as HTMLElement).click();
+  });
+  await expect(rotationStatus).toHaveText("350°");
 });
 
-test("@desktop geometry review exposes the three reference views", async ({
+test("@desktop keeps the complete rotated X-ray inside its black stage", async ({
   page,
 }) => {
-  await page.goto("/lab/c-arm-review");
-  await expect(
-    page.getByRole("heading", { level: 1, name: "C-arm geometry review" }),
-  ).toBeVisible();
-  for (const name of ["Side", "Detector-facing", "Oblique"]) {
-    const button = page.getByRole("button", { name });
-    await button.click();
-    await expect(button).toHaveAttribute("aria-pressed", "true");
-  }
+  await projectionImageSignature(page);
+  const stage = page.locator(".projection-view__display-stage");
+  const transformedImage = page.getByTestId("xray-display-transform");
+  const rotateRight = page.getByRole("button", {
+    name: "Rotate X-ray right 10 degrees",
+  });
+  const rotationStatus = page.getByRole("status", { name: "X-ray rotation" });
 
-  const beamToggle = page.getByRole("button", { name: "Beam off" });
-  await beamToggle.click();
-  await expect(page.getByRole("button", { name: "Beam on" })).toHaveAttribute(
-    "aria-pressed",
-    "true",
+  await rotateRight.click();
+  await expect(rotationStatus).toHaveText("10°");
+  await expect(transformedImage).toHaveCSS("transform", /matrix\(/);
+  await expectInside(transformedImage, stage);
+
+  for (let step = 0; step < 3; step += 1) await rotateRight.click();
+  await expect(rotationStatus).toHaveText("40°");
+  await expectInside(transformedImage, stage);
+});
+
+test("@desktop retired public routes redirect to the root simulator", async ({
+  page,
+}) => {
+  for (const path of RETIRED_PATHS) {
+    await page.goto(path);
+    await expect(page).toHaveURL(/\/$/);
+    await expect(
+      page.getByRole("heading", {
+        level: 1,
+        name: "Projection geometry lab",
+      }),
+    ).toBeVisible();
+  }
+  await expect(
+    page.getByRole("navigation", { name: "Primary navigation" }),
+  ).toHaveCount(0);
+});
+
+test("@desktop root simulator retains complete anatomy attribution", async ({
+  page,
+}) => {
+  const anatomy = page.getByRole("group", { name: "Anatomy", exact: true });
+  await expect(anatomy).toContainText("George J.R. Maat (LUMC)");
+  await expect(anatomy).toContainText("Jan Kooloos (RadboudUMC)");
+  await expect(
+    anatomy.getByRole("link", { name: "AnatomyTOOL Open3DModel" }),
+  ).toHaveAttribute("href", "https://anatomytool.org/open3dmodel");
+  await expect(
+    anatomy.getByRole("link", { name: "CC BY-SA 4.0" }),
+  ).toHaveAttribute(
+    "href",
+    "https://creativecommons.org/licenses/by-sa/4.0/",
   );
 });
 
-test("@desktop production shell remains usable offline", async ({
+test("@desktop production root remains usable offline", async ({
   context,
   page,
 }) => {
@@ -240,13 +229,12 @@ test("@desktop production shell remains usable offline", async ({
     if (!registration.active) throw new Error("Service worker is not active");
   });
   await expect
-    .poll(() =>
-      page.evaluate(() => navigator.serviceWorker.controller !== null),
-    )
+    .poll(() => page.evaluate(() => navigator.serviceWorker.controller !== null))
     .toBe(true);
 
   await context.setOffline(true);
   await page.reload();
+  await expect(page).toHaveURL(/\/$/);
   await expect(
     page.getByRole("heading", { level: 1, name: "Projection geometry lab" }),
   ).toBeVisible();
@@ -263,83 +251,22 @@ test("@desktop production shell remains usable offline", async ({
   await context.setOffline(false);
 });
 
-test("@desktop declared routes render distinct learning pages", async ({
+test("@mobile mounts the X-ray, theatre, and all controls without tabs", async ({
   page,
 }) => {
-  const routes = [
-    ["/", "Explore fluoroscopy in three dimensions"],
-    ["/guided", "Guided views"],
-    ["/guided/wrist-true-lateral", "Wrist true lateral"],
-    ["/library", "Case library"],
-    ["/library/wrist-neutral", "Wrist neutral case"],
-    ["/communication", "Communication practice"],
-    ["/saved", "Saved learning"],
-    ["/about", "About OrthoFluoro Lab"],
-    ["/settings", "Settings"],
-  ] as const;
-
-  for (const [path, heading] of routes) {
-    await page.goto(path);
-    await expect(
-      page.getByRole("heading", { level: 1, name: heading }),
-    ).toBeVisible();
-  }
-});
-
-test("@desktop hydrated About page exposes anatomy attribution and boundaries", async ({
-  page,
-}) => {
-  await page.goto("/about");
-  const main = page.getByRole("main");
-
   await expect(
-    main.getByRole("heading", { level: 1, name: "About OrthoFluoro Lab" }),
+    page.getByRole("region", { name: "Simulated X-ray view" }),
   ).toBeVisible();
-  await expect(main).toContainText(
-    "licensed, transformed Open3DModel educational model",
-  );
-  await expect(main).toContainText("synthetic relative-thickness projection");
-  await expect(main).toContainText("George J.R. Maat (LUMC)");
-  await expect(main).toContainText("Jan Kooloos (RadboudUMC)");
+  await expect(page.getByRole("region", { name: "3D theatre" })).toBeVisible();
   await expect(
-    main.getByRole("link", { name: "AnatomyTOOL Open3DModel" }),
-  ).toHaveAttribute("href", "https://anatomytool.org/open3dmodel");
+    page.getByRole("group", { name: "Move C-arm", exact: true }),
+  ).toBeVisible();
   await expect(
-    main.getByRole("link", { name: "CC BY-SA 4.0" }),
-  ).toHaveAttribute(
-    "href",
-    "https://creativecommons.org/licenses/by-sa/4.0/",
-  );
-  await expect(main).toContainText(
-    "The bundled files are modified educational derivatives",
-  );
-  await expect(main).toContainText("not a fluoroscopy system");
-});
-
-test("@mobile learner mounts only the selected lab surface", async ({
-  page,
-}) => {
-  const checks = [
-    ["3D Scene", "3D theatre"],
-    ["Fluoroscopy", "Simulated X-ray view"],
-    ["Controls", "C-arm controls"],
-    ["Information", "Information"],
-  ] as const;
-
-  for (const [tabName, regionName] of checks) {
-    const tab = page.getByRole("tab", { name: tabName });
-    await tab.click();
-    await expect(tab).toHaveAttribute("aria-selected", "true");
-    await expect(page.getByRole("region", { name: regionName })).toBeVisible();
-    if (tabName !== "3D Scene") {
-      await expect(
-        page.getByRole("region", { name: "3D theatre" }),
-      ).toHaveCount(0);
-    }
-    if (tabName !== "Fluoroscopy") {
-      await expect(
-        page.getByRole("region", { name: "Simulated X-ray view" }),
-      ).toHaveCount(0);
-    }
-  }
+    page.getByRole("group", { name: "Rig setup", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("group", { name: "Anatomy", exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("tab")).toHaveCount(0);
+  await expect(page.getByRole("tablist")).toHaveCount(0);
 });

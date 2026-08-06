@@ -124,6 +124,51 @@ Translations are clamped to `[-500, 500]` on every axis, swivel and
 cranial/caudal tilt to `[-45°, 45°]`, and orbit to `[-180°, 180°]`. Non-finite
 pose values are rejected.
 
+## Physical rig setup
+
+Pose, approach side, and tube orientation form one authoritative world
+transform. With column vectors, the composition order is:
+
+```text
+M_final = M_tube-switch M_approach M_pose
+```
+
+`M_approach` is identity for left approach. For right approach it reflects the
+complete posed rig across the patient sagittal plane, world `X = 0`. The
+reflection therefore includes source, detector, arc, beam, isocentre, mechanical
+pivot, translations, and cue anchors rather than moving only a display mesh.
+
+`M_tube-switch` is identity for detector-over orientation. For source-over it is
+a 180-degree rotation about the approached detector `U` axis through the
+approached isocentre. This exchanges the source and detector ends of the central
+ray while preserving the selected approach, SID, detector dimensions, and rigid
+relationship of every visible rig part.
+
+A sagittal reflection reverses handedness. After applying `M_final`, the
+detector pixel basis is canonicalized by reversing the transformed `U` axis when
+the final matrix determinant is negative. The resulting `U`, `V`, and central-ray
+directions remain orthonormal with the handedness required by the projection
+renderers. This basis correction does not modify the physical mesh matrix.
+
+## Camera-relative direct manipulation
+
+Every manipulator follows the same visible-direction convention: dragging in
+the screen direction drawn as positive must increase its parameter and move the
+visible C-arm in that direction, independent of camera view or physical setup.
+At pointer-down, the interaction layer:
+
+1. builds the final geometry for the current pose and setup;
+2. builds it again after a small positive change to the active parameter;
+3. projects the same cue anchor from both geometries through the current camera;
+4. normalizes that finite difference into a positive screen tangent; and
+5. dots pointer displacement with the tangent to obtain the signed drag delta.
+
+This convention applies to all three translations, orbit, cranial/caudal tilt,
+and wig-wag/swivel. When the physical finite difference is edge-on and its
+screen magnitude is too small to determine a stable sign, the billboarded cue's
+positive screen direction is used as the fallback. The fallback affects only
+pointer mapping; it never changes geometry or clinical angle semantics.
+
 ## Perspective projection
 
 `buildCArmGeometry` is the single world-geometry derivation used by both the
