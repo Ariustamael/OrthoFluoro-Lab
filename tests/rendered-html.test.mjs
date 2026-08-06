@@ -161,3 +161,25 @@ test("builds diagnostic routes only for E2E and waits at the root", async () => 
   assert.match(runner, /VITE_ENABLE_DIAGNOSTIC_ROUTES:\s*"true"/);
   assert.match(runner, /fetch\("http:\/\/localhost:3100\/"\)/);
 });
+
+test("removes selectors for the retired multi-page shell", async () => {
+  const css = await readFile(
+    new URL("../src/styles/app.css", import.meta.url),
+    "utf8",
+  );
+
+  [
+    "site-nav",
+    "mobile-lab-tabs",
+    "home-page",
+    "settings-grid",
+    "settings-card",
+    "quality-option",
+    "hero-diagram",
+    "feature-grid",
+    "lab-information",
+    "lab-workspace__disclaimer",
+  ].forEach((retiredClass) => {
+    assert.doesNotMatch(css, new RegExp(`\\.${retiredClass}\\b`));
+  });
+});
