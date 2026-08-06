@@ -85,7 +85,7 @@ function usePointerInteraction(): boolean {
     const handlePointerDown = (event: PointerEvent) => {
       if (
         event.target instanceof Element &&
-        event.target.closest("a, button, input, select, textarea") !== null
+        event.target.closest(".xray-display-toolbar") !== null
       ) {
         return;
       }

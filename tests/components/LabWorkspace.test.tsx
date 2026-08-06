@@ -224,6 +224,12 @@ describe("responsive laboratory workspace", () => {
     );
   });
 
+  it("keeps X-ray display transforms immediate without a motion override", () => {
+    expect(appCss).not.toMatch(
+      /\.projection-view__display-transform\s*\{[^}]*transition:/s,
+    );
+  });
+
   it("server-renders a lightweight hydration shell with stable empty panels", () => {
     const markup = renderToString(<LabWorkspace />);
 
@@ -810,6 +816,46 @@ describe("replaceable projection renderer", () => {
     expect(
       await screen.findByRole("img", { name: "Second projection" }),
     ).toBeVisible();
+  });
+
+  it("clears an incompatible artifact while a replacement renderer is pending", async () => {
+    const firstOutput = testProjectionOutput("First projection", "first");
+    const secondOutput = testProjectionOutput("Second projection", "second");
+    const secondRender = deferred<ProjectionOutput>();
+    const firstRenderer: ProjectionRenderer = {
+      dispose: vi.fn(),
+      render: vi.fn(async () => firstOutput),
+    };
+    const secondRenderer: ProjectionRenderer = {
+      dispose: vi.fn(),
+      render: vi.fn(() => secondRender.promise),
+    };
+    const firstFactory = () => firstRenderer;
+    const secondFactory = () => secondRenderer;
+    const view = render(<ProjectionView createRenderer={firstFactory} />);
+
+    expect(
+      await screen.findByRole("img", { name: "First projection" }),
+    ).toBeVisible();
+    view.rerender(<ProjectionView createRenderer={secondFactory} />);
+
+    await waitFor(() => expect(secondRenderer.render).toHaveBeenCalledOnce());
+    expect(
+      screen.queryByRole("img", { name: "First projection" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId("projection-detector-display")).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+    expect(
+      screen.getByRole("region", { name: "Simulated X-ray view" }),
+    ).not.toHaveAttribute("data-projection-strategy");
+
+    await act(async () => secondRender.resolve(secondOutput));
+    expect(
+      await screen.findByRole("img", { name: "Second projection" }),
+    ).toBeVisible();
+    expect(firstRenderer.dispose).toHaveBeenCalledOnce();
   });
 
   it("clears a render error when a retry starts", async () => {

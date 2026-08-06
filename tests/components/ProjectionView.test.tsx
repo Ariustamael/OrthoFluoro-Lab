@@ -12,6 +12,7 @@ import {
   type AnatomyAssetLease,
 } from "../../src/anatomy/AnatomyAssetProvider";
 import { REFERENCE_HIP_ANATOMY_POSE } from "../../src/anatomy/anatomyTypes";
+import { CArmControls } from "../../src/components/controls/CArmControls";
 import {
   detectBrowserProjectionCapability,
   ProjectionView,
@@ -179,6 +180,79 @@ describe("ProjectionView renderer orchestration", () => {
     });
     expect(layered.render).toHaveBeenCalledOnce();
     expect(useSimulationStore.getState()).toMatchObject(physicalState);
+  });
+
+  it("keeps toolbar pointer actions at the selected render quality", async () => {
+    useSimulationStore.setState({ quality: "high" });
+    const user = userEvent.setup();
+    const layered = renderer<AnatomyProjectionInput>(
+      output("Toolbar quality", "toolbar-quality"),
+    );
+    const factories: ProjectionRendererFactories = {
+      createLayered: () => layered,
+      createSilhouette: () => renderer(output("Silhouette", "mesh-silhouette")),
+      createSimplified: () =>
+        renderer(output("Unavailable", "simplified-procedural")),
+    };
+
+    renderProjection(factories, {
+      precision: "float32",
+      reason: null,
+      strategy: "layered-thickness",
+    });
+    await screen.findByRole("img", { name: "Toolbar quality" });
+
+    await user.click(
+      screen.getByRole("button", { name: "Rotate X-ray right 10 degrees" }),
+    );
+
+    expect(
+      screen.getByRole("region", { name: "Simulated X-ray view" }),
+    ).toHaveAttribute("data-render-scale", "1");
+    expect(layered.render).toHaveBeenCalledOnce();
+  });
+
+  it("uses interactive render quality while a physical range control is dragged", async () => {
+    useSimulationStore.setState({ quality: "high" });
+    const layered = renderer<AnatomyProjectionInput>(
+      output("Range interaction", "range-interaction"),
+    );
+    const factories: ProjectionRendererFactories = {
+      createLayered: () => layered,
+      createSilhouette: () => renderer(output("Silhouette", "mesh-silhouette")),
+      createSimplified: () =>
+        renderer(output("Unavailable", "simplified-procedural")),
+    };
+
+    render(
+      <AnatomyAssetProvider acquireLease={readyLease}>
+        <CArmControls />
+        <ProjectionView
+          detectCapability={() => ({
+            precision: "float32",
+            reason: null,
+            strategy: "layered-thickness",
+          })}
+          rendererFactories={factories}
+        />
+      </AnatomyAssetProvider>,
+    );
+    await waitFor(() => expect(layered.render).toHaveBeenCalledOnce());
+    const orbitRange = screen.getByRole("slider", { name: "Orbit" });
+
+    fireEvent.pointerDown(orbitRange, { pointerId: 29 });
+    await waitFor(() => expect(layered.render).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(layered.render).mock.calls[1][0]).toMatchObject({
+      height: 300,
+      width: 300,
+    });
+
+    fireEvent.pointerUp(orbitRange, { pointerId: 29 });
+    await waitFor(() => expect(layered.render).toHaveBeenCalledTimes(3));
+    expect(vi.mocked(layered.render).mock.calls[2][0]).toMatchObject({
+      height: 500,
+      width: 500,
+    });
   });
 
   it("keeps the last valid artifact and toolbar visible during a physical rerender and its error", async () => {

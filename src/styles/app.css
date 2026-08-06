@@ -701,7 +701,6 @@ button:hover {
 .projection-view__display-transform {
   position: relative;
   transform-origin: center;
-  transition: transform 160ms ease-out;
 }
 
 .projection-view__display-error {
@@ -1169,10 +1168,6 @@ button:hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .projection-view__display-transform {
-    transition: none;
-  }
-
   *,
   *::before,
   *::after {
