@@ -506,12 +506,12 @@ const AXIS_ROTATIONS = {
 } as const;
 
 const CUE_SCREEN_TANGENT_FALLBACKS = {
-  orbitDegrees: [1, 0],
-  cranialCaudalDegrees: [0, 1],
+  orbitDegrees: [-1, 0],
+  cranialCaudalDegrees: [0, -1],
   translationX: [1, 0],
   translationY: [0, 1],
   translationZ: [Math.SQRT1_2, Math.SQRT1_2],
-  swivelDegrees: [1, 0],
+  swivelDegrees: [-1, 0],
 } as const satisfies Record<keyof CArmPose, ScreenPoint>;
 
 export function cueScreenFallback(

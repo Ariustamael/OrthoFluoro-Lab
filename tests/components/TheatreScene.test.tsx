@@ -329,6 +329,42 @@ describe("six-DoF C-arm manipulator math", () => {
     ).toEqual([Math.SQRT1_2, Math.SQRT1_2]);
   });
 
+  it.each([
+    ["orbit", [-1, 0, 0]],
+    ["tilt", [0, 1, 0]],
+    ["swivel", [-1, 0, 0]],
+  ] as const)(
+    "matches the %s edge-on fallback to its billboarded positive arrow",
+    (id, localPositiveArrow) => {
+      const definition = C_ARM_MANIPULATOR_CONTROL_DEFINITIONS.find(
+        (candidate) => candidate.id === id,
+      )!;
+      const camera = new PerspectiveCamera(60, 1, 0.1, 100);
+      camera.position.set(4, 3, 8);
+      camera.lookAt(0, 0, 0);
+      camera.updateMatrixWorld();
+      camera.updateProjectionMatrix();
+      const arrow = new Vector3(...localPositiveArrow).applyQuaternion(
+        camera.quaternion,
+      );
+      const worldPositiveArrow: Vec3 = [arrow.x, arrow.y, arrow.z];
+      const renderedScreenDirection = projectWorldAxisToScreen(
+        worldPositiveArrow,
+        camera,
+        { width: 1000, height: 1000 },
+      );
+
+      expect(cueScreenFallback(definition)[0]).toBeCloseTo(
+        renderedScreenDirection[0],
+        10,
+      );
+      expect(cueScreenFallback(definition)[1]).toBeCloseTo(
+        renderedScreenDirection[1],
+        10,
+      );
+    },
+  );
+
   it("keeps every edge-on cue draggable without changing another pose field", () => {
     const start = { ...REFERENCE_C_ARM_POSE };
 
