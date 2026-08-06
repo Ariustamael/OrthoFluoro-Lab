@@ -9,8 +9,7 @@ import {
 import userEvent from "@testing-library/user-event";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { renderToString } from "react-dom/server";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CArmControls } from "../../src/components/controls/CArmControls";
 import { LabWorkspace } from "../../src/components/lab/LabWorkspace";
 import {
@@ -124,37 +123,8 @@ beforeEach(() => {
   });
 });
 
-function mockViewport(initiallyMobile: boolean) {
-  let matches = initiallyMobile;
-  const listeners = new Set<() => void>();
-  const query = "(max-width: 759px)";
-  const mediaQuery = {
-    addEventListener: (_event: string, listener: () => void) =>
-      listeners.add(listener),
-    dispatchEvent: vi.fn(),
-    get matches() {
-      return matches;
-    },
-    media: query,
-    onchange: null,
-    removeEventListener: (_event: string, listener: () => void) =>
-      listeners.delete(listener),
-  };
-  vi.stubGlobal("matchMedia", () => mediaQuery);
-  return {
-    setMobile(nextMatches: boolean) {
-      matches = nextMatches;
-      listeners.forEach((listener) => listener());
-    },
-  };
-}
-
-afterEach(() => vi.unstubAllGlobals());
-
 describe("responsive laboratory workspace", () => {
-  it("shares one anatomy asset provider across both desktop viewports", () => {
-    mockViewport(false);
-
+  it("mounts X-ray, theatre, and expanded controls under one anatomy provider", () => {
     render(<LabWorkspace />);
 
     expect(screen.getAllByTestId("anatomy-asset-provider")).toHaveLength(1);
@@ -165,30 +135,12 @@ describe("responsive laboratory workspace", () => {
     expect(
       within(provider).getByRole("region", { name: "Simulated X-ray view" }),
     ).toBeInTheDocument();
-  });
-
-  it("gives the synchronized desktop views equal semantic priority", () => {
-    mockViewport(false);
-
-    render(<LabWorkspace />);
-
-    const imagingViews = screen.getByRole("group", {
-      name: "Synchronized imaging views",
+    ["Move C-arm", "Rig setup", "Anatomy"].forEach((name) => {
+      expect(within(provider).getByRole("group", { name })).toBeInTheDocument();
     });
-    expect(imagingViews).toHaveAttribute("data-layout-priority", "equal");
-    expect(
-      within(imagingViews).getByRole("region", { name: "3D theatre" }),
-    ).toBeInTheDocument();
-    expect(
-      within(imagingViews).getByRole("region", {
-        name: "Simulated X-ray view",
-      }),
-    ).toBeInTheDocument();
   });
 
   it("retains accessible names for simulator modes, beam, and numeric inputs", () => {
-    mockViewport(false);
-
     render(<LabWorkspace />);
 
     ["Inspect", "Move C-arm"].forEach((name) => {
@@ -205,22 +157,22 @@ describe("responsive laboratory workspace", () => {
     });
   });
 
-  it("uses one 44px target token for mobile tabs and simulator controls", () => {
+  it("uses one 44px target token for simulator controls", () => {
     expect(appCss).toMatch(/--target-min:\s*44px/);
-    expect(appCss).toMatch(
-      /\.mobile-lab-tabs__tab\s*\{[^}]*min-block-size:\s*var\(--target-min\)/s,
-    );
     expect(appCss).toMatch(
       /\.c-arm-controls__beam-toggle\s*\{[^}]*min-block-size:\s*var\(--target-min\)/s,
     );
   });
 
-  it("uses equal desktop viewport columns without collapsing either instrument", () => {
+  it("uses grid areas to show theatre then X-ray on desktop", () => {
     expect(appCss).toMatch(
-      /\.lab-workspace__viewports\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/s,
+      /\.lab-workspace__viewports\s*\{[^}]*grid-template-areas:\s*"theatre projection"/s,
     );
     expect(appCss).toMatch(
-      /\.lab-workspace__viewport\s*\{[^}]*min-inline-size:\s*0/s,
+      /\.lab-workspace__viewport--projection\s*\{[^}]*grid-area:\s*projection/s,
+    );
+    expect(appCss).toMatch(
+      /\.lab-workspace__viewport--theatre\s*\{[^}]*grid-area:\s*theatre/s,
     );
   });
 
@@ -230,19 +182,7 @@ describe("responsive laboratory workspace", () => {
     );
   });
 
-  it("server-renders a lightweight hydration shell with stable empty panels", () => {
-    const markup = renderToString(<LabWorkspace />);
-
-    expect(markup).toContain("Preparing laboratory workspace");
-    expect(markup).not.toContain('aria-label="3D theatre"');
-    expect(markup).not.toContain('aria-labelledby="simulated-xray-heading"');
-    ["scene", "fluoroscopy", "controls", "information"].forEach((surface) => {
-      expect(markup).toContain(`id="lab-panel-${surface}"`);
-      expect(markup).toContain(`aria-labelledby="lab-tab-${surface}"`);
-    });
-  });
-
-  it("composes the lab page with a single page heading and in-flow disclaimer", () => {
+  it("composes the lab page with a single page heading and no limitation copy", () => {
     render(<LabPage />);
 
     expect(
@@ -251,141 +191,21 @@ describe("responsive laboratory workspace", () => {
         name: "Projection geometry lab",
       }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("note", { name: "Educational limitation" }),
-    ).toHaveTextContent("must not be used for diagnosis");
+    expect(screen.queryByRole("note")).not.toBeInTheDocument();
+    expect(screen.queryByText(/must not be used for diagnosis/i)).not.toBeInTheDocument();
   });
 
-  it("provides four accessible mobile tabs with the scene selected initially", () => {
-    mockViewport(true);
-
+  it("keeps mobile source order X-ray, theatre, then controls", () => {
     render(<LabWorkspace />);
 
-    expect(
-      screen.getByRole("tablist", { name: "Laboratory views" }),
-    ).toHaveAttribute("aria-orientation", "horizontal");
-    const tabs = screen.getAllByRole("tab");
-    expect(tabs).toHaveLength(4);
-    expect(tabs.map((tab) => tab.textContent)).toEqual([
-      "3D Scene",
-      "Fluoroscopy",
-      "Controls",
-      "Information",
-    ]);
-    expect(screen.getByRole("tab", { name: "3D Scene" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
-  });
-
-  it("mounts only the selected major surface on small screens", async () => {
-    mockViewport(true);
-    const user = userEvent.setup();
-
-    render(<LabWorkspace />);
-
-    expect(
-      screen.getByRole("region", { name: "3D theatre" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("region", {
-        name: "Simulated X-ray view",
-      }),
-    ).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("tab", { name: "Fluoroscopy" }));
-
-    expect(screen.getByRole("tab", { name: "Fluoroscopy" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
-    expect(
-      screen.getByRole("region", { name: "Simulated X-ray view" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("region", { name: "3D theatre" }),
-    ).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("tab", { name: "Controls" }));
-
-    expect(
-      screen.getByRole("heading", { name: "C-arm controls" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("region", {
-        name: "Simulated X-ray view",
-      }),
-    ).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("tab", { name: "Information" }));
-
-    expect(
-      screen.getByRole("region", { name: "Information" }),
-    ).toHaveTextContent("must not be used for diagnosis");
-    expect(
-      screen.queryByRole("region", {
-        name: "Simulated X-ray view",
-      }),
-    ).not.toBeInTheDocument();
-  });
-
-  it("changes viewport composition without retaining unselected mobile surfaces", () => {
-    const viewport = mockViewport(false);
-    render(<LabWorkspace />);
-
-    expect(
-      screen.getByRole("region", { name: "3D theatre" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("region", { name: "Simulated X-ray view" }),
-    ).toBeInTheDocument();
-
-    act(() => viewport.setMobile(true));
-
-    expect(
-      screen.getByRole("region", { name: "3D theatre" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("region", {
-        name: "Simulated X-ray view",
-      }),
-    ).not.toBeInTheDocument();
-    expect(screen.getAllByRole("tabpanel", { hidden: true })).toHaveLength(4);
-    expect(document.getElementById("lab-panel-scene")).not.toHaveAttribute(
-      "hidden",
-    );
-    expect(document.getElementById("lab-panel-fluoroscopy")).toHaveAttribute(
-      "hidden",
-    );
-
-    act(() => viewport.setMobile(false));
-
-    expect(
-      screen.getByRole("region", { name: "Simulated X-ray view" }),
-    ).toBeInTheDocument();
-  });
-
-  it("moves between mobile tabs with arrow keys", async () => {
-    mockViewport(true);
-    const user = userEvent.setup();
-    render(<LabWorkspace />);
-
-    screen.getByRole("tab", { name: "3D Scene" }).focus();
-    await user.keyboard("{ArrowRight}");
-
-    expect(screen.getByRole("tab", { name: "Fluoroscopy" })).toHaveFocus();
-    expect(screen.getByRole("tab", { name: "Fluoroscopy" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
-
-    await user.keyboard("{ArrowDown}");
-
-    expect(screen.getByRole("tab", { name: "Fluoroscopy" })).toHaveFocus();
-    expect(screen.getByRole("tab", { name: "Fluoroscopy" })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    const projection = screen.getByRole("region", { name: "Simulated X-ray view" });
+    const theatre = screen.getByRole("region", { name: "3D theatre" });
+    const controls = screen.getByRole("heading", { name: "C-arm controls" });
+    expect(projection.compareDocumentPosition(theatre) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(theatre.compareDocumentPosition(controls) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Information" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/first projection is a geometric visualisation/i)).not.toBeInTheDocument();
   });
 });
 

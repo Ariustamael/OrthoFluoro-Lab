@@ -3,7 +3,7 @@
   "name": "OrthoFluoro Lab",
   "short_name": "Fluoro Lab",
   "description": "Explore how 3D positioning changes simplified fluoroscopic projections",
-  "start_url": "/lab",
+  "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#030a12",
@@ -22,7 +22,7 @@
     {
       "name": "Open geometry lab",
       "short_name": "Lab",
-      "url": "/lab"
+      "url": "/"
     }
   ]
 }

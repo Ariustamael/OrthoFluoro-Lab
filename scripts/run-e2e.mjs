@@ -1,11 +1,17 @@
 import { spawn, spawnSync } from "node:child_process";
 
-function runNode(args) {
-  const result = spawnSync(process.execPath, args, { stdio: "inherit" });
+function runNode(args, env = process.env) {
+  const result = spawnSync(process.execPath, args, {
+    env,
+    stdio: "inherit",
+  });
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
 
-runNode(["node_modules/vinext/dist/cli.js", "build"]);
+runNode(["node_modules/vinext/dist/cli.js", "build"], {
+  ...process.env,
+  VITE_ENABLE_DIAGNOSTIC_ROUTES: "true",
+});
 runNode(["scripts/write-asset-manifest.mjs"]);
 
 const server = spawn(process.execPath, ["tests/e2e/production-server.mjs"], {
@@ -15,7 +21,7 @@ const server = spawn(process.execPath, ["tests/e2e/production-server.mjs"], {
 async function waitForServer() {
   for (let attempt = 0; attempt < 120; attempt += 1) {
     try {
-      const response = await fetch("http://localhost:3100/lab");
+      const response = await fetch("http://localhost:3100/");
       if (response.ok) return;
     } catch {
       // The server is still starting.

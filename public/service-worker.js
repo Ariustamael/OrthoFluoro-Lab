@@ -1,10 +1,9 @@
-const SHELL_CACHE = "orthofluoro-shell-v2";
+const SHELL_CACHE = "orthofluoro-shell-v3";
 const ASSET_CACHE = "orthofluoro-assets-v2";
 const CONTENT_CACHE = "orthofluoro-content-v2";
 const CURRENT_CACHES = new Set([SHELL_CACHE, ASSET_CACHE, CONTENT_CACHE]);
 const SHELL_URLS = [
   "/",
-  "/lab",
   "/asset-manifest.json",
   "/manifest.webmanifest",
   "/favicon.svg",

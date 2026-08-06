@@ -66,34 +66,34 @@ test("keeps the finished shell free of starter preview assets", async () => {
   );
 });
 
-test("describes the licensed skeletal model and bounded synthetic projection", async () => {
-  const [aboutPage, homePage] = await Promise.all([
-    readFile(new URL("../src/pages/AboutPage.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../src/pages/HomePage.tsx", import.meta.url), "utf8"),
-  ]);
+test("keeps model attribution inline while removing Lab limitation copy", async () => {
+  const [anatomyControls, appLayout, labWorkspace, fallback] =
+    await Promise.all([
+      readFile(
+        new URL("../src/components/controls/AnatomyControls.tsx", import.meta.url),
+        "utf8",
+      ),
+      readFile(
+        new URL("../src/components/layout/AppLayout.tsx", import.meta.url),
+        "utf8",
+      ),
+      readFile(
+        new URL("../src/components/lab/LabWorkspace.tsx", import.meta.url),
+        "utf8",
+      ),
+      readFile(
+        new URL("../src/components/scene/WebGLErrorFallback.tsx", import.meta.url),
+        "utf8",
+      ),
+    ]);
 
-  assert.match(aboutPage, /licensed, transformed Open3DModel/i);
-  assert.match(aboutPage, /synthetic\s+relative-thickness projection/i);
-  assert.match(
-    aboutPage,
-    /compatibility modes display anatomy-derived\s+silhouettes/i,
-  );
-  assert.match(aboutPage, /C-arm geometry and anatomy state are linked/i);
-  assert.match(aboutPage, /not a fluoroscopy system/i);
-  assert.match(aboutPage, /not[^.]*diagnostic image/i);
-  assert.match(aboutPage, /not[^.]*dose model/i);
-  assert.match(aboutPage, /not[^.]*patient-specific/is);
-  assert.match(aboutPage, /George J\.R\. Maat\s+\(LUMC\)/i);
-  assert.match(aboutPage, /Jan Kooloos \(RadboudUMC\)/i);
-  assert.match(aboutPage, /AnatomyTOOL Open3DModel/i);
-  assert.match(aboutPage, /CC BY-SA 4\.0/i);
-  assert.match(aboutPage, /modified educational derivatives/i);
-  assert.match(homePage, /licensed synthetic skeletal anatomy/i);
-
-  assert.doesNotMatch(
-    aboutPage,
-    /(?:is|provides|produces)\s+(?:a\s+)?(?:clinically calibrated|dose accurate|patient-specific)/i,
-  );
+  assert.match(anatomyControls, /George J\.R\. Maat \(LUMC\)/i);
+  assert.match(anatomyControls, /Jan Kooloos\s+\(RadboudUMC\)/i);
+  assert.match(anatomyControls, /AnatomyTOOL Open3DModel/i);
+  assert.match(anatomyControls, /CC BY-SA 4\.0/i);
+  assert.doesNotMatch(appLayout, /Primary navigation|Educational geometric visualisation/i);
+  assert.doesNotMatch(labWorkspace, /InformationPanel|Educational limitation/i);
+  assert.doesNotMatch(fallback, /educational visualisation/i);
 });
 
 test("ships a same-origin offline shell from the deployed asset root", async () => {
@@ -112,8 +112,8 @@ test("ships a same-origin offline shell from the deployed asset root", async () 
     ),
   ]);
 
-  assert.match(serviceWorker, /orthofluoro-shell-v2/);
-  assert.match(serviceWorker, /"\/"[\s\S]*"\/lab"/);
+  assert.match(serviceWorker, /orthofluoro-shell-v3/);
+  assert.doesNotMatch(serviceWorker, /"\/lab"/);
   assert.match(serviceWorker, /request\.mode === "navigate"/);
   assert.match(serviceWorker, /asset-manifest\.json/);
   assert.match(serviceWorker, /cache\.addAll\(assetUrls\)/);
@@ -127,7 +127,10 @@ test("ships a same-origin offline shell from the deployed asset root", async () 
     /if \(cached\) return cached;[\s\S]*const response = await fetch\(request\)/,
   );
   assert.doesNotMatch(serviceWorker, /https?:\/\//);
-  assert.equal(JSON.parse(manifest).start_url, "/lab");
+  assert.equal(JSON.parse(manifest).start_url, "/");
+  assert.ok(
+    JSON.parse(manifest).shortcuts.every(({ url }) => url === "/"),
+  );
   const assetPaths = JSON.parse(assetManifest);
   assert.ok(assetPaths.length > 5);
   assert.ok(assetPaths.some((path) => /\/assets\/.*\.js$/.test(path)));
@@ -147,4 +150,14 @@ test("ships a same-origin offline shell from the deployed asset root", async () 
   await assert.rejects(
     access(new URL("../dist/server/favicon.svg", import.meta.url)),
   );
+});
+
+test("builds diagnostic routes only for E2E and waits at the root", async () => {
+  const runner = await readFile(
+    new URL("../scripts/run-e2e.mjs", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(runner, /VITE_ENABLE_DIAGNOSTIC_ROUTES:\s*"true"/);
+  assert.match(runner, /fetch\("http:\/\/localhost:3100\/"\)/);
 });

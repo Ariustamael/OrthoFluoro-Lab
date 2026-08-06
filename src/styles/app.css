@@ -68,19 +68,15 @@ a {
   backdrop-filter: blur(18px);
   background: rgb(3 10 18 / 88%);
   border-block-end: 1px solid var(--border);
-  display: grid;
-  gap: var(--space-3);
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  display: flex;
   inset-block-start: 0;
-  min-block-size: 4.5rem;
+  min-block-size: 3.75rem;
   padding: var(--space-2) clamp(var(--space-3), 3vw, 3rem);
   position: sticky;
   z-index: 20;
 }
 
 .brand,
-.site-nav__link,
-.settings-link,
 .button-link {
   align-items: center;
   border-radius: 0.5rem;
@@ -104,38 +100,6 @@ a {
   inline-size: 2.25rem;
   justify-content: center;
   min-block-size: 2.25rem;
-}
-
-.site-nav {
-  display: flex;
-  gap: 0.25rem;
-  justify-content: center;
-}
-.site-nav__link,
-.settings-link {
-  color: var(--text-muted);
-  padding-inline: var(--space-2);
-}
-.site-nav__link:hover,
-.site-nav__link.is-active,
-.settings-link:hover {
-  color: var(--text);
-  background: var(--navy-850);
-}
-.settings-link {
-  border: 1px solid var(--border);
-}
-
-.site-footer {
-  border-block-start: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  padding: var(--space-4) clamp(var(--space-3), 3vw, 3rem);
-  text-align: center;
-}
-
-.site-footer p {
-  margin: 0;
 }
 
 .connection-status,
@@ -525,6 +489,7 @@ button:hover {
   align-items: stretch;
   display: grid;
   gap: var(--space-3);
+  grid-template-areas: "theatre projection";
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -554,6 +519,14 @@ button:hover {
   );
 }
 
+.lab-workspace__viewport--projection {
+  grid-area: projection;
+}
+
+.lab-workspace__viewport--theatre {
+  grid-area: theatre;
+}
+
 .lab-workspace__viewport > .theatre-canvas,
 .lab-workspace__viewport > .projection-view {
   block-size: 100%;
@@ -561,10 +534,7 @@ button:hover {
 
 .theatre-canvas,
 .projection-view,
-.c-arm-controls,
-.lab-information,
-.lab-workspace__hydration-shell,
-.lab-workspace__disclaimer {
+.c-arm-controls {
   background: linear-gradient(145deg, var(--navy-850), var(--navy-900));
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -629,8 +599,7 @@ button:hover {
 
 .projection-view__education-label,
 .projection-view > p,
-.lab-page__header > p:last-child,
-.lab-information p {
+.lab-page__header > p:last-child {
   color: var(--text-muted);
 }
 
@@ -717,10 +686,7 @@ button:hover {
 }
 
 .lab-workspace__controls-dock,
-.c-arm-controls,
-.lab-information,
-.lab-workspace__hydration-shell,
-.lab-workspace__disclaimer {
+.c-arm-controls {
   padding: var(--space-4);
 }
 
@@ -732,16 +698,7 @@ button:hover {
   background: var(--navy-900);
 }
 
-.lab-workspace__hydration-shell {
-  align-items: center;
-  color: var(--text-muted);
-  display: flex;
-  justify-content: center;
-  min-block-size: 12rem;
-}
-
-.c-arm-controls h2,
-.lab-information h2 {
+.c-arm-controls h2 {
   margin-block-start: 0;
 }
 
@@ -782,8 +739,7 @@ button:hover {
 }
 
 .interaction-mode button[aria-pressed="true"],
-.c-arm-controls__rig-motion button[aria-pressed="true"],
-.mobile-lab-tabs__tab[aria-selected="true"] {
+.c-arm-controls__rig-motion button[aria-pressed="true"] {
   background: var(--cyan-500);
   border-color: var(--cyan-300);
   color: var(--navy-950);
@@ -1293,24 +1249,6 @@ button:hover {
   color: var(--cyan-300);
 }
 
-.lab-workspace__disclaimer {
-  border-inline-start: 4px solid var(--warning);
-  color: var(--text-muted);
-  position: static;
-}
-
-.lab-workspace__disclaimer strong {
-  color: var(--text);
-}
-
-.mobile-lab-tabs {
-  display: none;
-}
-
-.mobile-lab-tabs__tab {
-  min-block-size: var(--target-min);
-}
-
 .anatomical-placeholder__label {
   background: rgb(3 10 18 / 90%);
   border: 1px solid var(--cyan-500);
@@ -1325,18 +1263,6 @@ button:hover {
 }
 
 @media (max-width: 759px) {
-  .site-header {
-    grid-template-columns: 1fr auto;
-  }
-  .site-nav {
-    grid-column: 1 / -1;
-    justify-content: flex-start;
-    overflow-x: auto;
-    order: 3;
-  }
-  .site-nav__link {
-    flex: 0 0 auto;
-  }
   .hero {
     grid-template-columns: 1fr;
     min-block-size: auto;
@@ -1358,21 +1284,11 @@ button:hover {
     padding: var(--space-3);
   }
 
-  .mobile-lab-tabs {
-    display: flex;
-    gap: var(--space-1);
-    overflow-x: auto;
-    padding-block: 3px;
-    scroll-snap-type: x proximity;
-  }
-
-  .mobile-lab-tabs__tab {
-    flex: 1 0 max-content;
-    scroll-snap-align: start;
-  }
-
-  .lab-workspace__mobile-panel {
-    min-inline-size: 0;
+  .lab-workspace__viewports {
+    grid-template-areas:
+      "projection"
+      "theatre";
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .theatre-canvas,
@@ -1381,10 +1297,7 @@ button:hover {
     min-block-size: min(30rem, 62vh);
   }
 
-  .c-arm-controls,
-  .lab-information,
-  .lab-workspace__hydration-shell,
-  .lab-workspace__disclaimer {
+  .c-arm-controls {
     padding: var(--space-3);
   }
 

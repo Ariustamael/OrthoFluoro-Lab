@@ -28,10 +28,7 @@ export function WebGLErrorFallback({ onReset }: WebGLErrorFallbackProps) {
   return (
     <div className="webgl-error-fallback" role="alert">
       <h2>The 3D view could not start on this device</h2>
-      <p>
-        This educational visualisation uses simplified geometry and is not a
-        clinical imaging system.
-      </p>
+      <p>Reset graphics to try the 3D view again.</p>
       <button onClick={onReset} type="button">
         Reset graphics
       </button>

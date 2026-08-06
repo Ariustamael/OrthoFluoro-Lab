@@ -1393,7 +1393,7 @@ describe("WebGLErrorFallback", () => {
     expect(renderer.forceContextLoss).toHaveBeenCalledOnce();
   });
 
-  it("explains the limitation and offers graphics recovery", async () => {
+  it("offers concise graphics recovery without educational limitation copy", async () => {
     const user = userEvent.setup();
     const onReset = vi.fn();
 
@@ -1402,7 +1402,12 @@ describe("WebGLErrorFallback", () => {
     expect(
       screen.getByText("The 3D view could not start on this device"),
     ).toBeInTheDocument();
-    expect(screen.getByText(/educational visualisation/i)).toBeInTheDocument();
+    expect(
+      screen.getByText("Reset graphics to try the 3D view again."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/educational visualisation/i),
+    ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Reset graphics" }));
     expect(onReset).toHaveBeenCalledOnce();
