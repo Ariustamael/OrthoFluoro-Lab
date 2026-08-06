@@ -658,6 +658,61 @@ button:hover {
     0 0 2.5rem rgb(39 212 239 / 8%);
 }
 
+.xray-display-toolbar {
+  align-items: center;
+  align-self: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  inline-size: min(100%, 500px);
+  justify-content: flex-end;
+  margin-block: var(--space-2);
+}
+
+.xray-display-toolbar button {
+  min-inline-size: 44px;
+  padding-inline: 0.7rem;
+}
+
+.xray-display-toolbar button[aria-pressed="true"] {
+  background: color-mix(in srgb, var(--cyan-500) 18%, var(--navy-800));
+  border-color: var(--cyan-500);
+}
+
+.xray-display-toolbar output {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  inline-size: 3.25rem;
+  text-align: center;
+}
+
+.projection-view__display-stage,
+.projection-view__display-transform {
+  block-size: 100%;
+  inline-size: 100%;
+}
+
+.projection-view__display-stage {
+  background: #000;
+  overflow: hidden;
+  position: relative;
+}
+
+.projection-view__display-transform {
+  position: relative;
+  transform-origin: center;
+  transition: transform 160ms ease-out;
+}
+
+.projection-view__display-error {
+  background: rgb(3 16 30 / 88%);
+  inset: auto var(--space-2) var(--space-2);
+  margin: 0;
+  padding: var(--space-2);
+  position: absolute;
+  z-index: 2;
+}
+
 .projection-view__overlay {
   color: var(--cyan-500);
 }
@@ -1114,6 +1169,10 @@ button:hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .projection-view__display-transform {
+    transition: none;
+  }
+
   *,
   *::before,
   *::after {

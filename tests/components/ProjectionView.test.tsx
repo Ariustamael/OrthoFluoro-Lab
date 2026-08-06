@@ -5,6 +5,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   AnatomyAssetProvider,
@@ -16,6 +17,7 @@ import {
   ProjectionView,
   type ProjectionRendererFactories,
 } from "../../src/components/projection/ProjectionView";
+import { REFERENCE_XRAY_DISPLAY_ORIENTATION } from "../../src/components/projection/xrayDisplayOrientation";
 import { C_ARM_RIG_PRESETS } from "../../src/engine/geometry/cArmRigPresets";
 import { buildCArmGeometry } from "../../src/engine/geometry/cArmTransforms";
 import {
@@ -111,20 +113,132 @@ beforeEach(() => {
     interactionMode: "inspect",
     quality: "medium",
     showBeam: true,
+    xrayDisplayOrientation: { ...REFERENCE_XRAY_DISPLAY_ORIENTATION },
   });
 });
 
 afterEach(() => vi.restoreAllMocks());
 
 describe("ProjectionView renderer orchestration", () => {
+  it("applies every display action to the image and overlay without rendering physical geometry", async () => {
+    const user = userEvent.setup();
+    const layered = renderer<AnatomyProjectionInput>(
+      output("Display-only orientation", "display-only"),
+    );
+    const factories: ProjectionRendererFactories = {
+      createLayered: () => layered,
+      createSilhouette: () => renderer(output("Silhouette", "mesh-silhouette")),
+      createSimplified: () =>
+        renderer(output("Unavailable", "simplified-procedural")),
+    };
+    const physicalState = {
+      cArmPhysicalSetup: useSimulationStore.getState().cArmPhysicalSetup,
+      cArmPose: useSimulationStore.getState().cArmPose,
+    };
+
+    renderProjection(factories, {
+      precision: "float32",
+      reason: null,
+      strategy: "layered-thickness",
+    });
+
+    const image = await screen.findByRole("img", {
+      name: "Display-only orientation",
+    });
+    const transform = screen.getByTestId("xray-display-transform");
+    expect(transform).toContainElement(image);
+    expect(transform).toContainElement(
+      screen.getByRole("img", {
+        name: "Detector border and central crosshair",
+      }),
+    );
+    expect(layered.render).toHaveBeenCalledOnce();
+
+    await user.click(
+      screen.getByRole("button", { name: "Rotate X-ray left 10 degrees" }),
+    );
+    expect(transform.style.transform).toContain("rotate(350deg)");
+    expect(transform.style.transform).not.toContain("scale(1) scale(1, 1)");
+    await user.click(
+      screen.getByRole("button", { name: "Rotate X-ray right 10 degrees" }),
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Flip X-ray horizontally" }),
+    );
+    expect(transform.style.transform).toContain("scale(-1, 1)");
+    await user.click(
+      screen.getByRole("button", { name: "Flip X-ray vertically" }),
+    );
+    expect(transform.style.transform).toContain("scale(-1, -1)");
+    await user.click(
+      screen.getByRole("button", { name: "Reset X-ray display" }),
+    );
+
+    expect(transform).toHaveStyle({
+      transform: "scale(1) scale(1, 1) rotate(0deg)",
+    });
+    expect(layered.render).toHaveBeenCalledOnce();
+    expect(useSimulationStore.getState()).toMatchObject(physicalState);
+  });
+
+  it("keeps the last valid artifact and toolbar visible during a physical rerender and its error", async () => {
+    const replacement = deferred<ProjectionOutput>();
+    const compatibility: ProjectionRenderer<AnatomyProjectionInput> = {
+      dispose: vi.fn(),
+      render: vi
+        .fn<ProjectionRenderer<AnatomyProjectionInput>["render"]>()
+        .mockResolvedValueOnce(output("Last valid X-ray", "last-valid"))
+        .mockImplementationOnce(() => replacement.promise),
+    };
+    const factories: ProjectionRendererFactories = {
+      createCompatibility: () => compatibility,
+      createLayered: () =>
+        renderer(output("Layered", "layered-mesh-thickness")),
+      createSilhouette: () => renderer(output("Silhouette", "mesh-silhouette")),
+      createSimplified: () =>
+        renderer(output("Unavailable", "simplified-procedural")),
+    };
+
+    renderProjection(factories, {
+      precision: null,
+      reason: "webgl2-required",
+      strategy: "mesh-silhouette",
+    });
+    expect(
+      await screen.findByRole("img", { name: "Last valid X-ray" }),
+    ).toBeVisible();
+
+    act(() =>
+      useSimulationStore.getState().setCArmParameter("translationX", 8),
+    );
+    await waitFor(() => expect(compatibility.render).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole("img", { name: "Last valid X-ray" })).toBeVisible();
+    expect(
+      screen.getByRole("toolbar", { name: "X-ray display controls" }),
+    ).toBeVisible();
+    expect(screen.getByTestId("projection-detector-display")).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+
+    await act(async () => replacement.reject(new Error("replacement failed")));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "replacement failed",
+    );
+    expect(screen.getByRole("img", { name: "Last valid X-ray" })).toBeVisible();
+    expect(screen.getByTestId("projection-detector-display")).toHaveAttribute(
+      "aria-busy",
+      "false",
+    );
+  });
+
   it("rerenders from final physical setup geometry", async () => {
     const layered = renderer<AnatomyProjectionInput>(
       output("Physical setup", "physical-setup"),
     );
     const factories: ProjectionRendererFactories = {
       createLayered: () => layered,
-      createSilhouette: () =>
-        renderer(output("Silhouette", "mesh-silhouette")),
+      createSilhouette: () => renderer(output("Silhouette", "mesh-silhouette")),
       createSimplified: () =>
         renderer(output("Unavailable", "simplified-procedural")),
     };

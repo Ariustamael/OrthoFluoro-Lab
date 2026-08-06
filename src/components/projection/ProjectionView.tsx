@@ -32,6 +32,12 @@ import {
   type QualityPreset,
 } from "../../state/simulationStore";
 import { AnatomyPoseStatus } from "../controls/AnatomyPoseStatus";
+import { XrayDisplayToolbar } from "./XrayDisplayToolbar";
+import {
+  normalizeDisplayDegrees,
+  xrayDisplayFitScale,
+  xrayDisplayTransform,
+} from "./xrayDisplayOrientation";
 
 const DETECTOR_RENDER_SCALE: Readonly<Record<QualityPreset, number>> = {
   low: 0.6,
@@ -77,6 +83,12 @@ function usePointerInteraction(): boolean {
   useEffect(() => {
     const activePointerIds = pointerIds.current;
     const handlePointerDown = (event: PointerEvent) => {
+      if (
+        event.target instanceof Element &&
+        event.target.closest("a, button, input, select, textarea") !== null
+      ) {
+        return;
+      }
       activePointerIds.add(event.pointerId);
       setIsInteracting(true);
     };
@@ -207,10 +219,11 @@ export interface ProjectionViewProps {
   readonly rendererFactories?: ProjectionRendererFactories;
 }
 
-type ProjectionState =
-  | { readonly status: "pending" }
-  | { readonly status: "ready"; readonly output: ProjectionOutput }
-  | { readonly status: "error"; readonly message: string };
+interface ProjectionState {
+  readonly status: "pending" | "ready" | "error";
+  readonly output: ProjectionOutput | null;
+  readonly message: string | null;
+}
 
 interface ActiveRenderer {
   readonly renderer: AnatomyRenderer | FrameRenderer;
@@ -305,12 +318,13 @@ export function ProjectionView({
   const anatomy = useAnatomyAsset();
   const retryAnatomy = anatomy.retry;
   const cArmPose = useSimulationStore((state) => state.cArmPose);
-  const physicalSetup = useSimulationStore(
-    (state) => state.cArmPhysicalSetup,
-  );
+  const physicalSetup = useSimulationStore((state) => state.cArmPhysicalSetup);
   const cArmMode = useSimulationStore((state) => state.cArmMode);
   const hipAnatomyPose = useSimulationStore((state) => state.hipAnatomyPose);
   const quality = useSimulationStore((state) => state.quality);
+  const xrayDisplayOrientation = useSimulationStore(
+    (state) => state.xrayDisplayOrientation,
+  );
   const isInteracting = usePointerInteraction();
   const preset = C_ARM_RIG_PRESETS[cArmMode];
   const geometry = useMemo(
@@ -332,6 +346,8 @@ export function ProjectionView({
   const [capabilitySnapshot, setCapabilitySnapshot] =
     useState<CapabilitySnapshot | null>(null);
   const [projectionState, setProjectionState] = useState<ProjectionState>({
+    message: null,
+    output: null,
     status: "pending",
   });
   const effectiveFactories = useMemo<ProjectionRendererFactories>(
@@ -429,7 +445,7 @@ export function ProjectionView({
         if (!mounted) return;
         rendererRef.current = null;
         setActiveRenderer(null);
-        setProjectionState({ status: "pending" });
+        setProjectionState({ message: null, output: null, status: "pending" });
       });
       return () => {
         mounted = false;
@@ -468,6 +484,7 @@ export function ProjectionView({
         } else {
           setProjectionState({
             message: failureMessage(error),
+            output: null,
             status: "error",
           });
         }
@@ -480,7 +497,7 @@ export function ProjectionView({
     rendererRef.current = nextRenderer;
     queueMicrotask(() => {
       if (!mounted || rendererRef.current !== nextRenderer) return;
-      setProjectionState({ status: "pending" });
+      setProjectionState({ message: null, output: null, status: "pending" });
       setActiveRenderer(nextRenderer);
     });
     return () => {
@@ -509,7 +526,7 @@ export function ProjectionView({
       contextLostRef.current = true;
       requestIdRef.current += 1;
       disposeRendererOnce(activeRenderer, disposedRenderersRef.current);
-      setProjectionState({ status: "pending" });
+      setProjectionState({ message: null, output: null, status: "pending" });
     };
     const handleContextRestored = () => {
       if (rendererRef.current !== activeRenderer || !contextLostRef.current) {
@@ -546,7 +563,11 @@ export function ProjectionView({
       }
       const requestId = requestIdRef.current + 1;
       requestIdRef.current = requestId;
-      setProjectionState({ status: "pending" });
+      setProjectionState((current) => ({
+        message: null,
+        output: current.output,
+        status: "pending",
+      }));
       void renderProjection(activeRenderer, frameInput, anatomyInput).then(
         (output) => {
           if (
@@ -555,7 +576,7 @@ export function ProjectionView({
             rendererRef.current === activeRenderer &&
             !contextLostRef.current
           ) {
-            setProjectionState({ output, status: "ready" });
+            setProjectionState({ message: null, output, status: "ready" });
           }
         },
         (error: unknown) => {
@@ -576,10 +597,11 @@ export function ProjectionView({
             });
             return;
           }
-          setProjectionState({
+          setProjectionState((current) => ({
             message: failureMessage(error),
+            output: current.output,
             status: "error",
-          });
+          }));
         },
       );
     });
@@ -589,11 +611,20 @@ export function ProjectionView({
   }, [activeRenderer, anatomyInput, frameInput]);
 
   const renderScale = effectiveDetectorRenderScale(quality, isInteracting);
-  const projectionOutput =
-    projectionState.status === "ready" ? projectionState.output : null;
+  const projectionOutput = projectionState.output;
   const description =
     projectionOutput?.description ?? "Preparing detector projection…";
   const methodStatus = projectionMethodStatus(activeRenderer, projectionOutput);
+  const displayDegrees = normalizeDisplayDegrees(
+    xrayDisplayOrientation.rotationSteps,
+  );
+  const displayFitScale = xrayDisplayFitScale(
+    displayDimensions.width,
+    displayDimensions.height,
+    displayDimensions.width,
+    displayDimensions.height,
+    displayDegrees,
+  );
 
   return (
     <section
@@ -620,6 +651,7 @@ export function ProjectionView({
           </p>
         )}
       </header>
+      <XrayDisplayToolbar />
       <div
         aria-busy={projectionState.status === "pending"}
         className="projection-view__detector"
@@ -631,40 +663,51 @@ export function ProjectionView({
           position: "relative",
         }}
       >
-        {projectionState.status === "error" ? (
-          <p role="alert">{projectionState.message}</p>
-        ) : projectionState.status === "pending" ? (
+        {projectionOutput === null && projectionState.status === "pending" ? (
           <p role="status">Preparing detector projection…</p>
-        ) : (
-          <>
-            {/* A strategy-owned data URL cannot use framework image optimization. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              alt={projectionState.output.description}
-              className="projection-view__surface"
-              height={displayDimensions.height}
-              src={projectionState.output.artifact.dataUrl}
+        ) : null}
+        {projectionOutput === null ? null : (
+          <div className="projection-view__display-stage">
+            <div
+              className="projection-view__display-transform"
+              data-testid="xray-display-transform"
               style={{
-                blockSize: "100%",
-                inlineSize: "100%",
-                objectFit: "contain",
+                transform: xrayDisplayTransform(
+                  xrayDisplayOrientation,
+                  displayFitScale,
+                ),
               }}
-              width={displayDimensions.width}
-            />
-            <DetectorOverlay
-              artifactHeight={projectionState.output.artifact.height}
-              artifactWidth={projectionState.output.artifact.width}
-            />
-          </>
+            >
+              {/* A strategy-owned data URL cannot use framework image optimization. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                alt={projectionOutput.description}
+                className="projection-view__surface"
+                height={displayDimensions.height}
+                src={projectionOutput.artifact.dataUrl}
+                style={{
+                  blockSize: "100%",
+                  inlineSize: "100%",
+                  objectFit: "contain",
+                }}
+                width={displayDimensions.width}
+              />
+              <DetectorOverlay
+                artifactHeight={projectionOutput.artifact.height}
+                artifactWidth={projectionOutput.artifact.width}
+              />
+            </div>
+          </div>
         )}
+        {projectionState.status === "error" ? (
+          <p className="projection-view__display-error" role="alert">
+            {projectionState.message}
+          </p>
+        ) : null}
       </div>
       <p aria-label="Projection status" role="status">
         Orbit {cArmPose.orbitDegrees.toFixed(1)}° · Magnification{" "}
         {projectionMagnification.toFixed(2)}× · Render scale {renderScale}
-      </p>
-      <p>
-        The first projection is a geometric visualisation, not a clinically
-        realistic X-ray simulation.
       </p>
     </section>
   );
