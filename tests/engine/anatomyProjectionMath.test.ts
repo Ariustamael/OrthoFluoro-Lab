@@ -155,6 +155,45 @@ describe("detector-aligned off-axis projection", () => {
   });
 
   it.each([
+    ["left", "detector-over"],
+    ["left", "source-over"],
+    ["right", "detector-over"],
+    ["right", "source-over"],
+  ] as const)(
+    "maps detector corners for the %s/%s physical setup",
+    (approachSide, tubeOrientation) => {
+      const geometry = buildCArmGeometry(
+        {
+          ...REFERENCE_C_ARM_POSE,
+          translationX: 37,
+          translationY: -21,
+          translationZ: 48,
+          orbitDegrees: 27,
+          cranialCaudalDegrees: 13,
+          swivelDegrees: -18,
+        },
+        undefined,
+        { approachSide, tubeOrientation },
+      );
+      const projection = createDetectorAlignedProjection(geometry);
+      const halfWidth = geometry.detector.width / 2;
+      const halfHeight = geometry.detector.height / 2;
+      const corners = [
+        [-halfWidth, -halfHeight, -1, -1],
+        [halfWidth, -halfHeight, 1, -1],
+        [halfWidth, halfHeight, 1, 1],
+        [-halfWidth, halfHeight, -1, 1],
+      ] as const;
+
+      corners.forEach(([u, v, expectedX, expectedY]) => {
+        const ndc = projectDetectorPointToNdc(projection, u, v);
+        expect(ndc[0]).toBeCloseTo(expectedX, 5);
+        expect(ndc[1]).toBeCloseTo(expectedY, 5);
+      });
+    },
+  );
+
+  it.each([
     ["orbitDegrees", 35],
     ["cranialCaudalDegrees", 22],
     ["swivelDegrees", -24],

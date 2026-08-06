@@ -1,20 +1,72 @@
-import { MathUtils, Quaternion, Vector3 } from "three";
+import { MathUtils, Matrix4, Quaternion, Vector3 } from "three";
 import { deriveCArmRigGeometry } from "./cArmRigGeometry";
 import { C_ARM_RIG_PRESETS } from "./cArmRigPresets";
+import {
+  normalize,
+  scale as scaleTuple,
+  subtract,
+} from "./coordinateSystems";
 import { detectorRayToWorld } from "./detectorGeometry";
 import type {
   CArmGeometry,
+  CArmPhysicalSetup,
   CArmPose,
   CArmRigPreset,
   Quat4,
   Vec3,
 } from "./geometryTypes";
+import { REFERENCE_C_ARM_PHYSICAL_SETUP } from "./geometryTypes";
 
 const toTuple = (vector: Vector3): Vec3 =>
   [vector.x, vector.y, vector.z] as const;
 
 const toQuaternionTuple = (quaternion: Quaternion): Quat4 =>
   [quaternion.x, quaternion.y, quaternion.z, quaternion.w] as const;
+
+function transformPoint(matrix: Matrix4, point: Vec3): Vec3 {
+  return toTuple(new Vector3(...point).applyMatrix4(matrix));
+}
+
+function transformDirection(matrix: Matrix4, axis: Vec3): Vec3 {
+  return toTuple(new Vector3(...axis).transformDirection(matrix).normalize());
+}
+
+function setupMatrix(
+  poseMatrix: Matrix4,
+  localIsocentre: Vec3,
+  localDetectorU: Vec3,
+  setup: CArmPhysicalSetup,
+): Matrix4 {
+  const posedIsocentre = new Vector3(...localIsocentre).applyMatrix4(
+    poseMatrix,
+  );
+  const approach =
+    setup.approachSide === "right"
+      ? new Matrix4().makeScale(-1, 1, 1)
+      : new Matrix4().identity();
+  const approached = approach.clone().multiply(poseMatrix);
+  if (setup.tubeOrientation === "detector-over") return approached;
+
+  const approachedCentre = posedIsocentre.applyMatrix4(approach);
+  const approachedU = new Vector3(...localDetectorU)
+    .transformDirection(approached)
+    .normalize();
+  const tubeSwitch = new Matrix4()
+    .makeTranslation(
+      approachedCentre.x,
+      approachedCentre.y,
+      approachedCentre.z,
+    )
+    .multiply(new Matrix4().makeRotationAxis(approachedU, Math.PI))
+    .multiply(
+      new Matrix4().makeTranslation(
+        -approachedCentre.x,
+        -approachedCentre.y,
+        -approachedCentre.z,
+      ),
+    );
+  return tubeSwitch.multiply(approached);
+}
 
 export const C_ARM_POSE_BOUNDS = Object.freeze({
   translationX: Object.freeze({ min: -500, max: 500 }),
@@ -80,6 +132,7 @@ export function clampCArmPose(pose: CArmPose): CArmPose {
 export function buildCArmGeometry(
   inputPose: CArmPose,
   preset: CArmRigPreset = C_ARM_RIG_PRESETS.isocentric,
+  setup: CArmPhysicalSetup = REFERENCE_C_ARM_PHYSICAL_SETUP,
 ): CArmGeometry {
   const pose = clampCArmPose(inputPose);
   const local = deriveCArmRigGeometry(preset);
@@ -108,31 +161,65 @@ export function buildCArmGeometry(
     .clone()
     .sub(pivot.clone().applyQuaternion(orientation))
     .add(translation);
+  const poseMatrix = new Matrix4().compose(
+    rigPosition,
+    orientation,
+    new Vector3(1, 1, 1),
+  );
+  const finalMatrix = setupMatrix(
+    poseMatrix,
+    local.isocentre,
+    local.detectorUAxis,
+    setup,
+  );
+  const isReferenceSetup =
+    setup.approachSide === "left" &&
+    setup.tubeOrientation === "detector-over";
+  const transformFinalPoint = isReferenceSetup
+    ? (point: Vec3): Vec3 =>
+        toTuple(
+          new Vector3(...point)
+            .applyQuaternion(orientation)
+            .add(rigPosition),
+        )
+    : (point: Vec3): Vec3 => transformPoint(finalMatrix, point);
+  const transformFinalDirection = isReferenceSetup
+    ? (axis: Vec3): Vec3 =>
+        toTuple(new Vector3(...axis).applyQuaternion(orientation))
+    : (axis: Vec3): Vec3 => transformDirection(finalMatrix, axis);
+  const position = new Vector3();
+  const quaternion = new Quaternion();
+  const scale = new Vector3();
+  finalMatrix.decompose(position, quaternion, scale);
 
-  const transformPoint = (point: Vec3): Vec3 =>
-    toTuple(new Vector3(...point).applyQuaternion(orientation).add(rigPosition));
-  const transformAxis = (axis: Vec3): Vec3 =>
-    toTuple(new Vector3(...axis).applyQuaternion(orientation));
-
-  const isocentre = transformPoint(local.isocentre);
+  const source = transformFinalPoint(local.source);
+  const detectorCenter = transformFinalPoint(local.detectorCenter);
+  const forward = normalize(subtract(detectorCenter, source));
+  const reflected = finalMatrix.determinant() < 0;
+  const rawU = transformFinalDirection(local.detectorUAxis);
+  const uAxis = reflected ? scaleTuple(rawU, -1) : rawU;
+  const vAxis = transformFinalDirection(local.detectorVAxis);
+  const isocentre = transformFinalPoint(local.isocentre);
 
   return {
-    source: transformPoint(local.source),
+    source,
     detector: {
-      center: transformPoint(local.detectorCenter),
-      normal: transformAxis([0, 1, 0]),
-      uAxis: transformAxis(local.detectorUAxis),
-      vAxis: transformAxis(local.detectorVAxis),
+      center: detectorCenter,
+      normal: forward,
+      uAxis,
+      vAxis,
       width: preset.detectorWidth,
       height: preset.detectorHeight,
     },
     isocentre,
     referenceCentre: isocentre,
-    mechanicalPivot: toTuple(pivot.add(translation)),
+    mechanicalPivot: isReferenceSetup
+      ? toTuple(pivot.add(translation))
+      : transformFinalPoint(preset.mechanicalPivotOffset),
     rigTransform: {
-      position: toTuple(rigPosition),
-      quaternion: toQuaternionTuple(orientation),
-      scale: [1, 1, 1],
+      position: toTuple(position),
+      quaternion: toQuaternionTuple(quaternion),
+      scale: toTuple(scale),
     },
     sourceDetectorDistance: preset.sourceDetectorDistance,
   };

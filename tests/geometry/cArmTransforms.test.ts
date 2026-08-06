@@ -31,6 +31,7 @@ import {
   type DetectorPoint,
 } from "../../src/engine/geometry/geometryTypes";
 import { projectPointToDetector } from "../../src/engine/geometry/projectionMath";
+import { createDetectorAlignedCamera } from "../../src/engine/projection/anatomyProjectionMath";
 
 const ISO = C_ARM_RIG_PRESETS.isocentric;
 const NON_ISO = C_ARM_RIG_PRESETS["non-isocentric"];
@@ -312,6 +313,91 @@ describe("authoritative C-arm world geometry", () => {
       ),
     ).toThrow('C-arm pose field "translationX" must be finite');
   });
+});
+
+describe("physical C-arm setup", () => {
+  const posed: CArmPose = {
+    ...REFERENCE_C_ARM_POSE,
+    translationX: 70,
+    translationY: -25,
+    translationZ: 35,
+    orbitDegrees: 28,
+    cranialCaudalDegrees: -11,
+    swivelDegrees: 17,
+  };
+
+  it("mirrors the complete posed rig across patient X = 0", () => {
+    const left = buildCArmGeometry(posed, ISO, {
+      approachSide: "left",
+      tubeOrientation: "detector-over",
+    });
+    const right = buildCArmGeometry(posed, ISO, {
+      approachSide: "right",
+      tubeOrientation: "detector-over",
+    });
+
+    for (const key of ["source", "isocentre", "mechanicalPivot"] as const) {
+      expect(right[key]).toEqual([
+        expect.closeTo(-left[key][0], 8),
+        expect.closeTo(left[key][1], 8),
+        expect.closeTo(left[key][2], 8),
+      ]);
+    }
+    expect(right.detector.center[0]).toBeCloseTo(-left.detector.center[0], 8);
+    expect(right.detector.center[1]).toBeCloseTo(left.detector.center[1], 8);
+    expect(right.detector.center[2]).toBeCloseTo(left.detector.center[2], 8);
+    expect(right.rigTransform.scale).toContain(-1);
+  });
+
+  it("switches source and detector ends around isocentre without changing approach", () => {
+    const standard = buildCArmGeometry(posed, ISO, {
+      approachSide: "right",
+      tubeOrientation: "detector-over",
+    });
+    const switched = buildCArmGeometry(posed, ISO, {
+      approachSide: "right",
+      tubeOrientation: "source-over",
+    });
+    const oppositeSource = new Vector3(...standard.isocentre)
+      .multiplyScalar(2)
+      .sub(new Vector3(...standard.source));
+
+    expectVectorClose(switched.source, oppositeSource);
+    expect(
+      magnitude(subtract(switched.detector.center, switched.source)),
+    ).toBeCloseTo(standard.sourceDetectorDistance, 8);
+    expect(switched.detector.width).toBe(standard.detector.width);
+    expect(switched.detector.height).toBe(standard.detector.height);
+    expect(switched.rigTransform.scale[0]).toBeLessThan(0);
+  });
+
+  it.each([
+    ["left", "detector-over"],
+    ["left", "source-over"],
+    ["right", "detector-over"],
+    ["right", "source-over"],
+  ] as const)(
+    "keeps a valid detector basis for %s/%s",
+    (approachSide, tubeOrientation) => {
+      const geometry = buildCArmGeometry(posed, ISO, {
+        approachSide,
+        tubeOrientation,
+      });
+
+      expect(() => createDetectorAlignedCamera(geometry)).not.toThrow();
+      expect(magnitude(geometry.detector.uAxis)).toBeCloseTo(1, 8);
+      expect(magnitude(geometry.detector.vAxis)).toBeCloseTo(1, 8);
+      expect(
+        dot(geometry.detector.uAxis, geometry.detector.vAxis),
+      ).toBeCloseTo(0, 8);
+      expect(
+        dot(
+          cross(geometry.detector.uAxis, geometry.detector.vAxis),
+          geometry.detector.normal,
+        ),
+      ).toBeCloseTo(-1, 8);
+    },
+  );
 });
 
 describe("anatomical reference views", () => {
