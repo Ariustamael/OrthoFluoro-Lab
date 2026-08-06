@@ -87,6 +87,28 @@ export function projectWorldAxisToScreen(
   ];
 }
 
+export function finiteDifferenceScreenTangent(
+  startWorld: Vec3,
+  positiveWorld: Vec3,
+  camera: Camera,
+  viewport: ScreenViewport,
+  fallback: ScreenPoint,
+): ScreenPoint {
+  const start = projectWorldPointToScreen(startWorld, camera, viewport);
+  const positive = projectWorldPointToScreen(positiveWorld, camera, viewport);
+  const dx = positive[0] - start[0];
+  const dy = positive[1] - start[1];
+  const magnitude = Math.hypot(dx, dy);
+  if (Number.isFinite(magnitude) && magnitude > 1e-4) {
+    return [dx / magnitude, dy / magnitude];
+  }
+  const fallbackMagnitude = Math.hypot(...fallback);
+  if (Math.abs(fallbackMagnitude - 1) <= EPSILON) return fallback;
+  return fallbackMagnitude > EPSILON
+    ? [fallback[0] / fallbackMagnitude, fallback[1] / fallbackMagnitude]
+    : [0, 0];
+}
+
 export function screenTangentDelta(
   start: ScreenPoint,
   current: ScreenPoint,

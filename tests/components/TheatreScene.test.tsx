@@ -16,26 +16,27 @@ import {
   applyCArmManipulatorDelta,
   applyDragModifiers,
   constantScreenScale,
+  finiteDifferenceScreenTangent,
   projectWorldAxisToScreen,
   projectWorldPointToScreen,
   rayPassesWithinWorldRadius,
   screenTangentDelta,
-  signedScreenAngle,
 } from "../../src/components/scene/cArmManipulatorMath";
 import {
   C_ARM_CUE_GEOMETRY,
   C_ARM_CUE_HIT_TARGET_LAYOUT,
   C_ARM_MANIPULATOR_CONTROL_DEFINITIONS,
+  cancelCArmDragForPhysicalSetupChange,
   cArmManipulatorScreenDragDelta,
   cArmCueGlyphMaximumExtent,
   cArmCueHitTargetContainsPoint,
   cArmCueTargetMinimumExtent,
+  cueScreenFallback,
   cueAppearance,
   createCArmDragController,
   createCArmManipulatorRenderModel,
   createTranslationHitTargetRaycastLayout,
   isCArmCancelKey,
-  resolveCArmManipulatorScreenTangent,
   selectTranslationHitTargetForRay,
   shouldRaycastTranslationHitTarget,
   teardownCArmManipulatorInteraction,
@@ -310,15 +311,29 @@ describe("six-DoF C-arm manipulator math", () => {
     expect(C_ARM_CUE_GEOMETRY.circular.hitShape).toBe("filled-disc");
   });
 
-  it("keeps every edge-on linear cue draggable without changing another pose field", () => {
-    const start = { ...REFERENCE_C_ARM_POSE };
-    const linearControls = C_ARM_MANIPULATOR_CONTROL_DEFINITIONS.filter(
-      (definition) =>
-        definition.id === "tilt" || definition.kind === "translation",
-    );
+  it("uses the drawn cue direction when the physical tangent is edge-on", () => {
+    const camera = new PerspectiveCamera(60, 1, 0.1, 100);
+    camera.position.set(0, 0, 10);
+    camera.lookAt(0, 0, 0);
+    camera.updateMatrixWorld();
+    camera.updateProjectionMatrix();
 
-    linearControls.forEach((definition) => {
-      const tangent = resolveCArmManipulatorScreenTangent(definition, [0, 0]);
+    expect(
+      finiteDifferenceScreenTangent(
+        [0, 0, 0],
+        [0, 0, 1],
+        camera,
+        { width: 1000, height: 1000 },
+        [Math.SQRT1_2, Math.SQRT1_2],
+      ),
+    ).toEqual([Math.SQRT1_2, Math.SQRT1_2]);
+  });
+
+  it("keeps every edge-on cue draggable without changing another pose field", () => {
+    const start = { ...REFERENCE_C_ARM_POSE };
+
+    C_ARM_MANIPULATOR_CONTROL_DEFINITIONS.forEach((definition) => {
+      const tangent = cueScreenFallback(definition);
       expect(Math.hypot(...tangent)).toBeGreaterThan(0);
 
       const delta = cArmManipulatorScreenDragDelta(
@@ -340,6 +355,215 @@ describe("six-DoF C-arm manipulator math", () => {
         }
       });
     });
+  });
+
+  const cameraCases = [
+    ["side", [1450, 280, 1650]],
+    ["oblique", [-1450, 280, 1650]],
+    ["detector-facing", [0, 280, 2200]],
+  ] as const;
+  const physicalSetupCases = [
+    { approachSide: "left", tubeOrientation: "detector-over" },
+    { approachSide: "right", tubeOrientation: "detector-over" },
+    { approachSide: "left", tubeOrientation: "source-over" },
+    { approachSide: "right", tubeOrientation: "source-over" },
+  ] as const satisfies readonly CArmPhysicalSetup[];
+
+  it.each(cameraCases)(
+    "maps positive model motion to positive pointer travel from the %s camera",
+    (_name, position) => {
+      const camera = new PerspectiveCamera(42, 1.5, 1, 8000);
+      camera.position.fromArray(position);
+      camera.lookAt(...DEFAULT_THEATRE_TARGET);
+      camera.updateMatrixWorld();
+      camera.updateProjectionMatrix();
+      const viewport = { width: 1200, height: 800 };
+      const tangent = finiteDifferenceScreenTangent(
+        [-300, 100, 0],
+        [-290, 108, 0],
+        camera,
+        viewport,
+        [1, 0],
+      );
+      const start = [100, 100] as const;
+      const current = [
+        start[0] + tangent[0] * 25,
+        start[1] + tangent[1] * 25,
+      ] as const;
+
+      expect(screenTangentDelta(start, current, tangent)).toBeGreaterThan(0);
+    },
+  );
+
+  it.each(
+    cameraCases.flatMap(([cameraName, cameraPosition]) =>
+      physicalSetupCases.flatMap((setup) =>
+        C_ARM_MANIPULATOR_CONTROL_DEFINITIONS.map((definition) => ({
+          cameraName,
+          cameraPosition,
+          definition,
+          setup,
+        })),
+      ),
+    ),
+  )(
+    "increases only $definition.parameter for $cameraName, $setup.approachSide, $setup.tubeOrientation",
+    ({ cameraPosition, definition, setup }) => {
+      const camera = new PerspectiveCamera(42, 1.5, 1, 8000);
+      camera.position.fromArray(cameraPosition);
+      camera.lookAt(...DEFAULT_THEATRE_TARGET);
+      camera.updateMatrixWorld();
+      camera.updateProjectionMatrix();
+      const viewport = { width: 1200, height: 800 };
+      const preset = C_ARM_RIG_PRESETS.isocentric;
+      const local = deriveCArmRigGeometry(preset);
+      const startPose = {
+        ...REFERENCE_C_ARM_POSE,
+        orbitDegrees: 17,
+        cranialCaudalDegrees: -11,
+        swivelDegrees: 9,
+        translationX: 31,
+        translationY: -23,
+        translationZ: 19,
+      };
+      const epsilon = definition.kind === "rotation" ? 0.25 : 1;
+      const positivePose = applyCArmManipulatorDelta(
+        startPose,
+        definition.parameter,
+        epsilon,
+      );
+      const startModel = createCArmManipulatorRenderModel(
+        local,
+        preset,
+        buildCArmGeometry(startPose, preset, setup),
+        "move-carm",
+      );
+      const positiveModel = createCArmManipulatorRenderModel(
+        local,
+        preset,
+        buildCArmGeometry(positivePose, preset, setup),
+        "move-carm",
+      );
+      const groupName =
+        definition.id === "swivel"
+          ? "Wig-wag cue"
+          : definition.kind === "translation"
+            ? "Translation cue"
+            : "Orbit and tilt cue";
+      const startAnchor = startModel.groups.find(
+        ({ name }) => name === groupName,
+      )!.position;
+      const positiveAnchor = positiveModel.groups.find(
+        ({ name }) => name === groupName,
+      )!.position;
+      const tangent = finiteDifferenceScreenTangent(
+        startAnchor,
+        positiveAnchor,
+        camera,
+        viewport,
+        cueScreenFallback(definition),
+      );
+      const projectedStart = projectWorldPointToScreen(
+        startAnchor,
+        camera,
+        viewport,
+      );
+      const projectedPositive = projectWorldPointToScreen(
+        positiveAnchor,
+        camera,
+        viewport,
+      );
+      const projectedDelta = [
+        projectedPositive[0] - projectedStart[0],
+        projectedPositive[1] - projectedStart[1],
+      ] as const;
+      const projectedMagnitude = Math.hypot(...projectedDelta);
+      if (projectedMagnitude > 1e-4) {
+        expect(tangent[0]).toBeCloseTo(
+          projectedDelta[0] / projectedMagnitude,
+          10,
+        );
+        expect(tangent[1]).toBeCloseTo(
+          projectedDelta[1] / projectedMagnitude,
+          10,
+        );
+      } else {
+        expect(tangent).toEqual(cueScreenFallback(definition));
+      }
+      const startPointer = [100, 100] as const;
+      const currentPointer = [
+        startPointer[0] + tangent[0] * 25,
+        startPointer[1] + tangent[1] * 25,
+      ] as const;
+      const delta = cArmManipulatorScreenDragDelta(
+        definition,
+        startPointer,
+        currentPointer,
+        tangent,
+      );
+      const nextPose = applyCArmManipulatorDelta(
+        startPose,
+        definition.parameter,
+        delta,
+      );
+
+      expect(nextPose[definition.parameter]).toBeGreaterThan(
+        startPose[definition.parameter],
+      );
+      (Object.keys(startPose) as (keyof typeof startPose)[]).forEach(
+        (parameter) => {
+          if (parameter !== definition.parameter) {
+            expect(nextPose[parameter]).toBe(startPose[parameter]);
+          }
+        },
+      );
+    },
+  );
+
+  it("moves wig-wag in the pointer direction", () => {
+    const definition = C_ARM_MANIPULATOR_CONTROL_DEFINITIONS.find(
+      ({ id }) => id === "swivel",
+    )!;
+    const camera = new PerspectiveCamera(42, 1.5, 1, 8000);
+    camera.position.set(1450, 280, 1650);
+    camera.lookAt(...DEFAULT_THEATRE_TARGET);
+    camera.updateMatrixWorld();
+    camera.updateProjectionMatrix();
+    const preset = C_ARM_RIG_PRESETS.isocentric;
+    const local = deriveCArmRigGeometry(preset);
+    const positivePose = applyCArmManipulatorDelta(
+      REFERENCE_C_ARM_POSE,
+      "swivelDegrees",
+      0.25,
+    );
+    const startAnchor = createCArmManipulatorRenderModel(
+      local,
+      preset,
+      buildCArmGeometry(REFERENCE_C_ARM_POSE, preset),
+      "move-carm",
+    ).groups[1]!.position;
+    const positiveAnchor = createCArmManipulatorRenderModel(
+      local,
+      preset,
+      buildCArmGeometry(positivePose, preset),
+      "move-carm",
+    ).groups[1]!.position;
+    const tangent = finiteDifferenceScreenTangent(
+      startAnchor,
+      positiveAnchor,
+      camera,
+      { width: 1200, height: 800 },
+      cueScreenFallback(definition),
+    );
+
+    expect(
+      cArmManipulatorScreenDragDelta(
+        definition,
+        [100, 100],
+        [100 + tangent[0] * 25, 100 + tangent[1] * 25],
+        tangent,
+      ),
+    ).toBeGreaterThan(0);
   });
 
   it("separates independent cue targets while covering each linear arrow tip", () => {
@@ -571,6 +795,52 @@ describe("six-DoF C-arm manipulator math", () => {
     expect(controller.cancelKey("Enter")).toBe(false);
   });
 
+  it("cancels an active drag when the physical rig setup changes", () => {
+    const callbacks = {
+      onActiveIdChange: vi.fn(),
+      onDragStateChange: vi.fn(),
+      onHintChange: vi.fn(),
+      setCArmPose: vi.fn(),
+    };
+    const controller = createCArmDragController(callbacks);
+    const target = {
+      hasPointerCapture: vi.fn(() => true),
+      releasePointerCapture: vi.fn(),
+      setPointerCapture: vi.fn(),
+    };
+    controller.start({
+      captureTarget: target,
+      definition: C_ARM_MANIPULATOR_CONTROL_DEFINITIONS[5]!,
+      pointerId: 12,
+      screenTangent: [1, 0],
+      startPointer: [20, 30],
+      startPose: REFERENCE_C_ARM_POSE,
+    });
+
+    cancelCArmDragForPhysicalSetupChange(controller);
+
+    expect(controller.activeDrag()).toBeNull();
+    expect(target.releasePointerCapture).toHaveBeenCalledExactlyOnceWith(12);
+    expect(callbacks.onDragStateChange).toHaveBeenLastCalledWith(false);
+    expect(callbacks.onActiveIdChange).toHaveBeenLastCalledWith(null);
+    expect(callbacks.onHintChange).toHaveBeenLastCalledWith(null);
+    expect(callbacks.setCArmPose).not.toHaveBeenCalled();
+  });
+
+  it("cancels a setup-changing drag in the layout phase before paint", () => {
+    const source = readFileSync(
+      join(
+        process.cwd(),
+        "src/components/scene/CArmManipulators.tsx",
+      ),
+      "utf8",
+    );
+
+    expect(source).toMatch(
+      /useLayoutEffect\(\(\) => \{\s*cancelCArmDragForPhysicalSetupChange\(dragControllerRef\.current!\);\s*\}, \[cArmPhysicalSetup\]\);/,
+    );
+  });
+
   it("keeps inactive cues quiet and prioritizes the hovered or active cue", () => {
     expect(cueAppearance(false, false)).toEqual({
       glyphOpacity: 0.34,
@@ -644,12 +914,6 @@ describe("six-DoF C-arm manipulator math", () => {
     expect(rayPassesWithinWorldRadius(raycaster, [0, 0, 0], 0.8)).toBe(true);
     expect(rayPassesWithinWorldRadius(raycaster, [2, 0, 0], 0.8)).toBe(false);
     expect(rayPassesWithinWorldRadius(raycaster, [0, 0, 0], 0)).toBe(false);
-  });
-
-  it("measures signed swivel angle around the active pivot", () => {
-    expect(signedScreenAngle([0, 0], [10, 0], [0, 10])).toBeCloseTo(90);
-    expect(signedScreenAngle([0, 0], [10, 0], [0, -10])).toBeCloseTo(-90);
-    expect(signedScreenAngle([0, 0], [0, 0], [0, 10])).toBe(0);
   });
 
   it("applies fine movement before rotation and translation snapping", () => {

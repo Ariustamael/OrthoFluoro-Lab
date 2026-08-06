@@ -2,7 +2,14 @@
 
 import type { ThreeEvent } from "@react-three/fiber";
 import { useFrame, useThree } from "@react-three/fiber";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Group,
   MathUtils,
@@ -19,6 +26,7 @@ import type {
   CArmRigPreset,
   Vec3,
 } from "../../engine/geometry/geometryTypes";
+import { buildCArmGeometry } from "../../engine/geometry/cArmTransforms";
 import {
   useSimulationStore,
   type InteractionMode,
@@ -28,12 +36,10 @@ import {
   applyDragModifiers,
   captureHandlePointer,
   constantScreenScale,
-  projectWorldAxisToScreen,
-  projectWorldPointToScreen,
+  finiteDifferenceScreenTangent,
   rayPassesWithinWorldRadius,
   releaseHandlePointer,
   screenTangentDelta,
-  signedScreenAngle,
   type PointerCaptureTarget,
   type ScreenPoint,
 } from "./cArmManipulatorMath";
@@ -109,6 +115,7 @@ export type CArmDragEndReason =
   | "lost-capture"
   | "blur"
   | "mode-exit"
+  | "setup-change"
   | "escape";
 
 export const C_ARM_CUE_GEOMETRY = Object.freeze({
@@ -389,7 +396,6 @@ export function createCArmManipulatorRenderModel(
 
 export interface CArmManipulatorDrag {
   readonly captureTarget: PointerCaptureTarget;
-  readonly center?: ScreenPoint;
   readonly definition: CArmManipulatorControlDefinition;
   readonly pointerId: number;
   readonly screenTangent?: ScreenPoint;
@@ -474,6 +480,12 @@ export function teardownCArmManipulatorInteraction(
   if (!controller.finish(reason)) controller.clearHint();
 }
 
+export function cancelCArmDragForPhysicalSetupChange(
+  controller: CArmDragController,
+): void {
+  teardownCArmManipulatorInteraction(controller, "setup-change");
+}
+
 interface CArmManipulatorsProps {
   geometry: CArmGeometry;
   local: CArmLocalGeometry;
@@ -493,21 +505,27 @@ const AXIS_ROTATIONS = {
   "translate-z": [Math.PI / 2, 0, 0],
 } as const;
 
-const LINEAR_SCREEN_TANGENT_FALLBACKS = {
+const CUE_SCREEN_TANGENT_FALLBACKS = {
+  orbitDegrees: [1, 0],
   cranialCaudalDegrees: [0, 1],
   translationX: [1, 0],
   translationY: [0, 1],
   translationZ: [Math.SQRT1_2, Math.SQRT1_2],
-} as const satisfies Partial<Record<keyof CArmPose, ScreenPoint>>;
+  swivelDegrees: [1, 0],
+} as const satisfies Record<keyof CArmPose, ScreenPoint>;
+
+export function cueScreenFallback(
+  definition: CArmManipulatorControlDefinition,
+): ScreenPoint {
+  return CUE_SCREEN_TANGENT_FALLBACKS[definition.parameter];
+}
 
 export function resolveCArmManipulatorScreenTangent(
   definition: CArmManipulatorControlDefinition,
   projectedTangent: ScreenPoint,
 ): ScreenPoint {
   if (Math.hypot(...projectedTangent) > 0) return projectedTangent;
-  return (
-    LINEAR_SCREEN_TANGENT_FALLBACKS[definition.parameter] ?? projectedTangent
-  );
+  return cueScreenFallback(definition);
 }
 
 export function cArmManipulatorScreenDragDelta(
@@ -532,6 +550,9 @@ export function CArmManipulators({
   preset,
 }: CArmManipulatorsProps) {
   const interactionMode = useSimulationStore((state) => state.interactionMode);
+  const cArmPhysicalSetup = useSimulationStore(
+    (state) => state.cArmPhysicalSetup,
+  );
   const setCArmParameter = useSimulationStore(
     (state) => state.setCArmParameter,
   );
@@ -655,6 +676,10 @@ export function CArmManipulators({
     }
   }, [interactionMode]);
 
+  useLayoutEffect(() => {
+    cancelCArmDragForPhysicalSetupChange(dragControllerRef.current!);
+  }, [cArmPhysicalSetup]);
+
   useEffect(() => {
     const cancelActiveDrag = (event: KeyboardEvent) => {
       if (!dragControllerRef.current!.cancelKey(event.key)) return;
@@ -721,45 +746,58 @@ export function CArmManipulators({
       finishActiveDrag();
       const captureTarget = event.target as unknown as PointerCaptureTarget;
       const startPointer: ScreenPoint = [event.clientX, event.clientY];
-      let screenTangent: ScreenPoint | undefined;
-      let center: ScreenPoint | undefined;
-
-      if (definition.id === "swivel") {
-        center = projectWorldPointToScreen(
-          model.groups.find(({ name }) => name === "Wig-wag cue")!.position,
-          camera,
-          size,
-        );
-      } else {
-        const axis =
-          definition.id === "orbit"
-            ? model.floatingOrbitTangent
-            : definition.id === "tilt"
-              ? model.floatingTiltAxis
-              : definition.worldAxis!;
-        const origin =
-          definition.kind === "translation"
-            ? model.groups.find(({ name }) => name === "Translation cue")!
-                .position
-            : model.groups.find(({ name }) => name === "Orbit and tilt cue")!
-                .position;
-        screenTangent = resolveCArmManipulatorScreenTangent(
-          definition,
-          projectWorldAxisToScreen(axis, camera, size, origin),
-        );
-      }
+      const startPose = { ...useSimulationStore.getState().cArmPose };
+      const epsilon = definition.kind === "rotation" ? 0.25 : 1;
+      const positivePose = applyCArmManipulatorDelta(
+        startPose,
+        definition.parameter,
+        epsilon,
+      );
+      const setup = useSimulationStore.getState().cArmPhysicalSetup;
+      const startGeometry = buildCArmGeometry(startPose, preset, setup);
+      const positiveGeometry = buildCArmGeometry(positivePose, preset, setup);
+      const startModel = createCArmManipulatorRenderModel(
+        local,
+        preset,
+        startGeometry,
+        interactionMode,
+      );
+      const positiveModel = createCArmManipulatorRenderModel(
+        local,
+        preset,
+        positiveGeometry,
+        interactionMode,
+      );
+      const groupName: ManipulatorGroupName =
+        definition.id === "swivel"
+          ? "Wig-wag cue"
+          : definition.kind === "translation"
+            ? "Translation cue"
+            : "Orbit and tilt cue";
+      const startAnchor = startModel.groups.find(
+        ({ name }) => name === groupName,
+      )!.position;
+      const positiveAnchor = positiveModel.groups.find(
+        ({ name }) => name === groupName,
+      )!.position;
+      const screenTangent = finiteDifferenceScreenTangent(
+        startAnchor,
+        positiveAnchor,
+        camera,
+        size,
+        cueScreenFallback(definition),
+      );
 
       dragControllerRef.current!.start({
         captureTarget,
-        center,
         definition,
         pointerId: event.pointerId,
         screenTangent,
         startPointer,
-        startPose: { ...useSimulationStore.getState().cArmPose },
+        startPose,
       });
     },
-    [camera, finishActiveDrag, model, size],
+    [camera, finishActiveDrag, interactionMode, local, preset, size],
   );
 
   const moveDrag = useCallback(
@@ -768,15 +806,12 @@ export function CArmManipulators({
       if (drag === null || drag.pointerId !== event.pointerId) return;
       event.stopPropagation();
       const current: ScreenPoint = [event.clientX, event.clientY];
-      const rawDelta =
-        drag.definition.id === "swivel"
-          ? signedScreenAngle(drag.center!, drag.startPointer, current)
-          : cArmManipulatorScreenDragDelta(
-              drag.definition,
-              drag.startPointer,
-              current,
-              drag.screenTangent!,
-            );
+      const rawDelta = cArmManipulatorScreenDragDelta(
+        drag.definition,
+        drag.startPointer,
+        current,
+        drag.screenTangent!,
+      );
       const delta = applyDragModifiers(rawDelta, drag.definition.kind, event);
       const nextPose = applyCArmManipulatorDelta(
         drag.startPose,
