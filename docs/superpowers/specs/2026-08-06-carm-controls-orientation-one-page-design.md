@@ -231,9 +231,12 @@ discrete physical configurations.
 - Selected leg when both legs are visible
 - Internal/external leg rotation
 - Reset anatomy
+- Compact Open3DModel and CC BY-SA 4.0 attribution links
 
 Control headings, grouping, and keyboard order are identical between desktop
-and mobile even when the columns stack.
+and mobile even when the columns stack. The anatomy attribution is retained to
+satisfy the approved asset-licensing requirements; it is a quiet inline credit,
+not another navigation destination or explanatory page.
 
 ## 8. X-ray display controls
 
@@ -416,6 +419,8 @@ only communication path; sibling controls do not call each other.
 7. Keyboard order, accessible names, selected state, live angle announcement,
    and touch targets pass component and end-to-end checks.
 8. The removed limitation text does not appear on the public page.
+9. The one-page Anatomy section retains the required Open3DModel creator,
+   project, and CC BY-SA 4.0 attribution links.
 
 ## 14. Non-goals
 
