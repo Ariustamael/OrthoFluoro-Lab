@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { C_ARM_RIG_PRESETS } from "../../src/engine/geometry/cArmRigPresets";
 import { buildCArmGeometry } from "../../src/engine/geometry/cArmTransforms";
-import { REFERENCE_C_ARM_POSE } from "../../src/engine/geometry/geometryTypes";
+import {
+  REFERENCE_C_ARM_POSE,
+  type CArmPhysicalSetup,
+} from "../../src/engine/geometry/geometryTypes";
 import {
   createCompatibilityProjectionRenderer,
   SimplifiedProjectionRenderer,
@@ -105,5 +109,64 @@ describe("SimplifiedProjectionRenderer", () => {
     expect(silhouettePoints(changedGeometry.artifact.dataUrl)).not.toEqual(
       silhouettePoints(reference.artifact.dataUrl),
     );
+  });
+
+  it("renders distinct asymmetric anatomy for every physical rig setup", async () => {
+    const resource = anatomyResource();
+    resource.groups.forEach((group, name) => {
+      group.position.set(
+        name.startsWith("left-") ? 68 : -31,
+        name.endsWith("femur") ? 22 : -14,
+        name.endsWith("tibia-fibula") ? 19 : -7,
+      );
+    });
+    const renderer = createCompatibilityProjectionRenderer(
+      "WebGL 2 required",
+    );
+    const pose = {
+      ...REFERENCE_C_ARM_POSE,
+      cranialCaudalDegrees: -19,
+      orbitDegrees: 27,
+      swivelDegrees: 11,
+      translationX: 33,
+      translationY: -21,
+      translationZ: 15,
+    };
+    const anatomyPose = {
+      ...projectionInput(resource).anatomyPose,
+      leftHipRotationDegrees: 23,
+      visibility: "left-only" as const,
+    };
+    const setups = [
+      { approachSide: "left", tubeOrientation: "detector-over" },
+      { approachSide: "right", tubeOrientation: "detector-over" },
+      { approachSide: "left", tubeOrientation: "source-over" },
+      { approachSide: "right", tubeOrientation: "source-over" },
+    ] satisfies readonly CArmPhysicalSetup[];
+    const outputs = await Promise.all(
+      setups.map((setup) =>
+        renderer.render({
+          anatomy: resource,
+          anatomyPose,
+          geometry: buildCArmGeometry(
+            pose,
+            C_ARM_RIG_PRESETS.isocentric,
+            setup,
+          ),
+          height: 180,
+          width: 240,
+        }),
+      ),
+    );
+
+    expect(new Set(outputs.map(({ artifact }) => artifact.dataUrl)).size).toBe(
+      setups.length,
+    );
+    outputs.forEach((output) => {
+      expect(silhouettePoints(output.artifact.dataUrl).length).toBeGreaterThan(
+        0,
+      );
+    });
+    renderer.dispose();
   });
 });

@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   Color,
+  Group,
   OrthographicCamera,
   PerspectiveCamera,
   Quaternion,
@@ -46,6 +47,7 @@ import {
   calculateIncrementalHandleValue,
   C_ARM_INTEGRATED_MATERIAL,
   captureHandlePointer,
+  createCArmRigGroupProps,
   createCArmRigRenderModel,
   createCArmRigResources,
   disposeCArmRigResources,
@@ -73,6 +75,7 @@ import { buildCArmGeometry } from "../../src/engine/geometry/cArmTransforms";
 import {
   REFERENCE_C_ARM_POSE,
   type CArmGeometry,
+  type CArmPhysicalSetup,
   type CArmRigPreset,
   type Vec3,
 } from "../../src/engine/geometry/geometryTypes";
@@ -98,6 +101,45 @@ function transformCueAnchor(anchor: Vec3, geometry: CArmGeometry): Vec3 {
 
 function colorLightness(color: string): number {
   return new Color(color).getHSL({ h: 0, l: 0, s: 0 }).l;
+}
+
+function expectPointClose(
+  actual: Vector3,
+  expected: Vec3,
+  precision = 8,
+): void {
+  expect(actual.x).toBeCloseTo(expected[0], precision);
+  expect(actual.y).toBeCloseTo(expected[1], precision);
+  expect(actual.z).toBeCloseTo(expected[2], precision);
+}
+
+function detectorCornerPoints(geometry: CArmGeometry): readonly Vector3[] {
+  const centre = new Vector3(...geometry.detector.center);
+  const halfU = new Vector3(...geometry.detector.uAxis).multiplyScalar(
+    geometry.detector.width / 2,
+  );
+  const halfV = new Vector3(...geometry.detector.vAxis).multiplyScalar(
+    geometry.detector.height / 2,
+  );
+  return [
+    centre.clone().sub(halfU).sub(halfV),
+    centre.clone().add(halfU).sub(halfV),
+    centre.clone().add(halfU).add(halfV),
+    centre.clone().sub(halfU).add(halfV),
+  ];
+}
+
+function expectSamePointSet(
+  actual: readonly Vector3[],
+  expected: readonly Vector3[],
+  tolerance = 1e-7,
+): void {
+  expect(actual).toHaveLength(expected.length);
+  actual.forEach((point) => {
+    expect(
+      expected.some((candidate) => candidate.distanceTo(point) < tolerance),
+    ).toBe(true);
+  });
 }
 
 describe("default theatre visual contracts", () => {
@@ -768,6 +810,108 @@ describe("six-DoF C-arm manipulator math", () => {
 });
 
 describe("integrated C-arm renderer", () => {
+  it.each([
+    { approachSide: "left", tubeOrientation: "detector-over" },
+    { approachSide: "right", tubeOrientation: "detector-over" },
+    { approachSide: "left", tubeOrientation: "source-over" },
+    { approachSide: "right", tubeOrientation: "source-over" },
+  ] satisfies readonly CArmPhysicalSetup[])(
+    "keeps every rig vertex and cue coherent for $approachSide/$tubeOrientation",
+    (setup) => {
+      const preset = C_ARM_RIG_PRESETS.isocentric;
+      const resources = createCArmRigResources(preset);
+      const pose = {
+        ...REFERENCE_C_ARM_POSE,
+        cranialCaudalDegrees: -17,
+        orbitDegrees: 29,
+        swivelDegrees: 13,
+        translationX: 41,
+        translationY: -23,
+        translationZ: 37,
+      };
+      const model = createCArmRigRenderModel(
+        pose,
+        preset,
+        resources,
+        true,
+        setup,
+      );
+      const rigProps = createCArmRigGroupProps(model.rigTransform);
+      const rig = new Group();
+      rig.position.fromArray(rigProps.position);
+      rig.quaternion.fromArray(rigProps.quaternion);
+      rig.scale.fromArray(rigProps.scale);
+
+      const sourceNode = model.nodes.find(
+        ({ name }) => name === "Source aperture",
+      )!;
+      const sourceChild = new Group();
+      sourceChild.position.fromArray(sourceNode.position!);
+      rig.add(sourceChild);
+      rig.updateMatrixWorld(true);
+
+      const authoritative = buildCArmGeometry(pose, preset, setup);
+      expectPointClose(
+        new Vector3(...resources.local.source).applyMatrix4(rig.matrixWorld),
+        authoritative.source,
+      );
+      expectPointClose(
+        new Vector3(...resources.local.detectorCenter).applyMatrix4(
+          rig.matrixWorld,
+        ),
+        authoritative.detector.center,
+      );
+      expectPointClose(
+        sourceChild.getWorldPosition(new Vector3()),
+        authoritative.source,
+      );
+
+      const expectedDetectorCorners = detectorCornerPoints(authoritative);
+      const transformedDetectorCorners = resources.local.detectorCorners.map(
+        (corner) => new Vector3(...corner).applyMatrix4(rig.matrixWorld),
+      );
+      expectSamePointSet(transformedDetectorCorners, expectedDetectorCorners);
+
+      const beamPositions = resources.beamGeometry.getAttribute("position");
+      expectPointClose(
+        new Vector3().fromBufferAttribute(beamPositions, 0).applyMatrix4(
+          rig.matrixWorld,
+        ),
+        authoritative.source,
+        4,
+      );
+      const transformedBeamCorners = [1, 2, 3, 4].map((index) =>
+        new Vector3()
+          .fromBufferAttribute(beamPositions, index)
+          .applyMatrix4(rig.matrixWorld),
+      );
+      expectSamePointSet(
+        transformedBeamCorners,
+        expectedDetectorCorners,
+        1e-4,
+      );
+
+      const cues = createCArmManipulatorRenderModel(
+        resources.local,
+        preset,
+        authoritative,
+        "move-carm",
+      );
+      [
+        [cues.localAnchors.orbitTilt, cues.groups[0]!.position],
+        [cues.localAnchors.swivel, cues.groups[1]!.position],
+        [cues.localAnchors.translation, cues.groups[2]!.position],
+      ].forEach(([localAnchor, worldAnchor]) => {
+        expectPointClose(
+          new Vector3(...localAnchor).applyMatrix4(rig.matrixWorld),
+          worldAnchor,
+        );
+      });
+
+      disposeCArmRigResources(resources);
+    },
+  );
+
   it("uses the same complete affine transform for every rig node", () => {
     const resources = createCArmRigResources(C_ARM_RIG_PRESETS.isocentric);
     const setup = {

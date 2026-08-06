@@ -150,6 +150,17 @@ export interface CArmRigRenderModel {
   readonly rigTransform: RigTransform;
 }
 
+export type CArmRigGroupProps = Pick<
+  RigTransform,
+  "position" | "quaternion" | "scale"
+>;
+
+export function createCArmRigGroupProps(
+  rigTransform: RigTransform,
+): CArmRigGroupProps {
+  return rigTransform;
+}
+
 export function buildDetectorActiveFaceGeometry(
   local: CArmLocalGeometry,
 ): BufferGeometry {
@@ -331,15 +342,11 @@ export function CArmRig({
       ),
     [physicalSetup, pose, preset, resources, showBeam],
   );
+  const rigGroupProps = createCArmRigGroupProps(model.rigTransform);
 
   return (
     <>
-      <group
-        name="C-arm rig"
-        position={model.rigTransform.position}
-        quaternion={model.rigTransform.quaternion}
-        scale={model.rigTransform.scale}
-      >
+      <group {...rigGroupProps} name="C-arm rig">
         <mesh castShadow name="C arc and detector" receiveShadow>
           <primitive
             attach="geometry"
