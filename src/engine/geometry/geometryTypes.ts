@@ -1,6 +1,19 @@
 export type Vec3 = readonly [number, number, number];
 export type Quat4 = readonly [number, number, number, number];
 export type CArmKinematicMode = "isocentric" | "non-isocentric";
+export type CArmApproachSide = "left" | "right";
+export type CArmTubeOrientation = "detector-over" | "source-over";
+
+export interface CArmPhysicalSetup {
+  readonly approachSide: CArmApproachSide;
+  readonly tubeOrientation: CArmTubeOrientation;
+}
+
+export const REFERENCE_C_ARM_PHYSICAL_SETUP: Readonly<CArmPhysicalSetup> =
+  Object.freeze({
+    approachSide: "left",
+    tubeOrientation: "detector-over",
+  });
 
 export interface CArmPose {
   readonly translationX: number;
@@ -36,6 +49,7 @@ export interface DetectorPlane {
 export interface RigTransform {
   readonly position: Vec3;
   readonly quaternion: Quat4;
+  readonly scale: Vec3;
 }
 
 export interface CArmGeometry {

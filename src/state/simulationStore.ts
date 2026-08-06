@@ -11,16 +11,26 @@ import {
 } from "../anatomy/anatomyTypes";
 import { clampCArmPose } from "../engine/geometry/cArmTransforms";
 import {
+  REFERENCE_C_ARM_PHYSICAL_SETUP,
   REFERENCE_C_ARM_POSE,
+  type CArmApproachSide,
   type CArmKinematicMode,
+  type CArmPhysicalSetup,
   type CArmPose,
+  type CArmTubeOrientation,
 } from "../engine/geometry/geometryTypes";
+import {
+  REFERENCE_XRAY_DISPLAY_ORIENTATION,
+  type XrayDisplayOrientation,
+} from "../components/projection/xrayDisplayOrientation";
 
 export type InteractionMode = "inspect" | "move-carm";
 export type QualityPreset = "low" | "medium" | "high";
 
 export interface SimulationState {
   cArmPose: CArmPose;
+  cArmPhysicalSetup: CArmPhysicalSetup;
+  xrayDisplayOrientation: XrayDisplayOrientation;
   cArmMode: CArmKinematicMode;
   showBeam: boolean;
   hipAnatomyPose: HipAnatomyPose;
@@ -37,6 +47,11 @@ export interface SimulationState {
     snap?: number,
   ) => void;
   setCArmMode: (mode: CArmKinematicMode) => void;
+  setApproachSide: (approachSide: CArmApproachSide) => void;
+  setTubeOrientation: (tubeOrientation: CArmTubeOrientation) => void;
+  rotateXrayDisplay: (stepDelta: number) => void;
+  toggleXrayFlip: (axis: "horizontal" | "vertical") => void;
+  resetXrayDisplay: () => void;
   setShowBeam: (show: boolean) => void;
   setAnatomyVisibility: (visibility: AnatomyVisibility) => void;
   setSelectedAnatomySide: (side: AnatomySide) => void;
@@ -67,6 +82,8 @@ function snapInDirection(value: number, delta: number, snap?: number): number {
 
 export const useSimulationStore = create<SimulationState>((set) => ({
   cArmPose: { ...REFERENCE_C_ARM_POSE },
+  cArmPhysicalSetup: { ...REFERENCE_C_ARM_PHYSICAL_SETUP },
+  xrayDisplayOrientation: { ...REFERENCE_XRAY_DISPLAY_ORIENTATION },
   cArmMode: "isocentric",
   showBeam: true,
   hipAnatomyPose: createReferenceHipAnatomyPose(),
@@ -93,6 +110,36 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   setCArmMode: (cArmMode) => {
     set({ cArmMode });
   },
+  setApproachSide: (approachSide) =>
+    set((state) => ({
+      cArmPhysicalSetup: { ...state.cArmPhysicalSetup, approachSide },
+    })),
+  setTubeOrientation: (tubeOrientation) =>
+    set((state) => ({
+      cArmPhysicalSetup: { ...state.cArmPhysicalSetup, tubeOrientation },
+    })),
+  rotateXrayDisplay: (stepDelta) =>
+    set((state) => ({
+      xrayDisplayOrientation: {
+        ...state.xrayDisplayOrientation,
+        rotationSteps:
+          state.xrayDisplayOrientation.rotationSteps +
+          (Number.isFinite(stepDelta) ? Math.trunc(stepDelta) : 0),
+      },
+    })),
+  toggleXrayFlip: (axis) =>
+    set((state) => ({
+      xrayDisplayOrientation: {
+        ...state.xrayDisplayOrientation,
+        ...(axis === "horizontal"
+          ? { flipHorizontal: !state.xrayDisplayOrientation.flipHorizontal }
+          : { flipVertical: !state.xrayDisplayOrientation.flipVertical }),
+      },
+    })),
+  resetXrayDisplay: () =>
+    set({
+      xrayDisplayOrientation: { ...REFERENCE_XRAY_DISPLAY_ORIENTATION },
+    }),
   setShowBeam: (showBeam) => {
     set({ showBeam });
   },
@@ -149,6 +196,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   resetGeometry: () => {
     set({
       cArmPose: { ...REFERENCE_C_ARM_POSE },
+      cArmPhysicalSetup: { ...REFERENCE_C_ARM_PHYSICAL_SETUP },
       cArmMode: "isocentric",
       showBeam: true,
       hipAnatomyPose: createReferenceHipAnatomyPose(),

@@ -7,13 +7,19 @@ import {
   AP_C_ARM_POSE,
   LATERAL_C_ARM_POSE,
 } from "../../src/engine/geometry/anatomicalAxes";
-import { REFERENCE_C_ARM_POSE } from "../../src/engine/geometry/geometryTypes";
+import {
+  REFERENCE_C_ARM_PHYSICAL_SETUP,
+  REFERENCE_C_ARM_POSE,
+} from "../../src/engine/geometry/geometryTypes";
 import { REFERENCE_HIP_ANATOMY_POSE } from "../../src/anatomy/anatomyTypes";
+import { REFERENCE_XRAY_DISPLAY_ORIENTATION } from "../../src/components/projection/xrayDisplayOrientation";
 import { useSimulationStore } from "../../src/state/simulationStore";
 
 beforeEach(() => {
   useSimulationStore.setState({
     cArmPose: { ...REFERENCE_C_ARM_POSE },
+    cArmPhysicalSetup: { ...REFERENCE_C_ARM_PHYSICAL_SETUP },
+    xrayDisplayOrientation: { ...REFERENCE_XRAY_DISPLAY_ORIENTATION },
     hipAnatomyPose: {
       ...REFERENCE_HIP_ANATOMY_POSE,
       rootPosition: [...REFERENCE_HIP_ANATOMY_POSE.rootPosition],
@@ -27,6 +33,49 @@ beforeEach(() => {
 });
 
 describe("simulation store", () => {
+  it("keeps physical setup and X-ray display orientation independent", () => {
+    const store = useSimulationStore.getState();
+    store.setApproachSide("right");
+    store.setTubeOrientation("source-over");
+    store.rotateXrayDisplay(1);
+    store.toggleXrayFlip("horizontal");
+
+    expect(useSimulationStore.getState()).toMatchObject({
+      cArmPhysicalSetup: {
+        approachSide: "right",
+        tubeOrientation: "source-over",
+      },
+      xrayDisplayOrientation: {
+        rotationSteps: 1,
+        flipHorizontal: true,
+        flipVertical: false,
+      },
+    });
+  });
+
+  it("resets geometry and X-ray display independently", () => {
+    const store = useSimulationStore.getState();
+    store.setApproachSide("right");
+    store.setTubeOrientation("source-over");
+    store.rotateXrayDisplay(-1);
+    store.toggleXrayFlip("vertical");
+    store.resetGeometry();
+
+    expect(useSimulationStore.getState().cArmPhysicalSetup).toEqual(
+      REFERENCE_C_ARM_PHYSICAL_SETUP,
+    );
+    expect(useSimulationStore.getState().xrayDisplayOrientation).toEqual({
+      rotationSteps: -1,
+      flipHorizontal: false,
+      flipVertical: true,
+    });
+
+    useSimulationStore.getState().resetXrayDisplay();
+    expect(useSimulationStore.getState().xrayDisplayOrientation).toEqual(
+      REFERENCE_XRAY_DISPLAY_ORIENTATION,
+    );
+  });
+
   it("starts from a serializable anatomy pose without aliasing reference arrays", () => {
     const current = useSimulationStore.getState().hipAnatomyPose;
 

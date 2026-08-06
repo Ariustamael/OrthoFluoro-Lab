@@ -132,6 +132,7 @@ export function buildCArmGeometry(
     rigTransform: {
       position: toTuple(rigPosition),
       quaternion: toQuaternionTuple(orientation),
+      scale: [1, 1, 1],
     },
     sourceDetectorDistance: preset.sourceDetectorDistance,
   };
