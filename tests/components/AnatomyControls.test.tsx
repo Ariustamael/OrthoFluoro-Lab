@@ -36,7 +36,7 @@ describe("AnatomyControls", () => {
 
     expect(screen.getByRole("group", { name: "Anatomy" })).toBeVisible();
     expect(
-      screen.queryByRole("button", { name: "Anatomy", exact: true }),
+      screen.queryByRole("button", { name: "Anatomy" }),
     ).not.toBeInTheDocument();
   });
 

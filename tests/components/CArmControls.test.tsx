@@ -287,7 +287,7 @@ describe("CArmControls", () => {
     expect(screen.getByRole("group", { name: "Rig setup" })).toBeVisible();
     expect(screen.getByRole("group", { name: "Anatomy" })).toBeVisible();
     expect(
-      screen.queryByRole("button", { name: "Anatomy", exact: true }),
+      screen.queryByRole("button", { name: "Anatomy" }),
     ).not.toBeInTheDocument();
     expect(
       screen.getByRole("radio", { name: "Left approach" }),
