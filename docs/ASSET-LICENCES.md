@@ -2,12 +2,13 @@
 
 ## Current registry
 
-| Asset                            | Origin                                 | Licence                  | Notes                                  |
-| -------------------------------- | -------------------------------------- | ------------------------ | -------------------------------------- |
-| Synthetic detector output       | Generated at runtime from the anatomy GLB | Source anatomy: CC BY-SA 4.0; renderer code: project source licence | Relative mesh thickness or anatomy-derived silhouette |
-| Interface graphics and C-arm rig | Generated with HTML/CSS/Three.js code  | Project source licence   | No proprietary vendor design           |
-| Open3DModel overview skeleton    | [AnatomyTOOL Open3DModel][open3dmodel] | [CC BY-SA 4.0][cc-by-sa] | Locally derived skeletal-only GLB      |
-| Open3DModel hip and lower limbs  | [AnatomyTOOL Open3DModel][open3dmodel] | [CC BY-SA 4.0][cc-by-sa] | Locally derived bilateral skeletal GLB |
+| Asset                            | Origin                                    | Licence                                                             | Notes                                                 |
+| -------------------------------- | ----------------------------------------- | ------------------------------------------------------------------- | ----------------------------------------------------- |
+| Synthetic detector output        | Generated at runtime from the anatomy GLB | Source anatomy: CC BY-SA 4.0; renderer code: project source licence | Relative mesh thickness or anatomy-derived silhouette |
+| Interface graphics and C-arm rig | Generated with HTML/CSS/Three.js code     | Project source licence                                              | No proprietary vendor design                          |
+| Open3DModel overview skeleton    | [AnatomyTOOL Open3DModel][open3dmodel]    | [CC BY-SA 4.0][cc-by-sa]                                            | Locally derived skeletal-only GLB                     |
+| Open3DModel hip and lower limbs  | [AnatomyTOOL Open3DModel][open3dmodel]    | [CC BY-SA 4.0][cc-by-sa]                                            | Locally derived bilateral skeletal GLB                |
+| Open3DModel regional lower limbs | [AnatomyTOOL Open3DModel][open3dmodel]    | [CC BY-SA 4.0][cc-by-sa]                                            | Locally derived display-only regional GLB             |
 
 ## Open3DModel skeletal anatomy
 
@@ -39,6 +40,17 @@ The source and derived identities are recorded in
 - `lower-limb-glb.zip`, 5,492,015 bytes, SHA-256
   `E080EBEF16B2A3F53C7F6005515FAC39EDD941FB0AEBC79FF4B9F59FFFF8D416`.
 
+The regional derivative is committed as
+`public/anatomy/open3dmodel-hip-lower-limbs-regional.glb`, 6,521,264 bytes,
+SHA-256
+`10FA60D39ED30EC19A940F0AA460743B9778483E8A63FA498E34E10046F1C2F2`.
+It contains the six contextual T12/L1-L5 bones plus every structure in the
+pinned lower-limb Cartilages, Ligaments, Muscles, Fascia, Arteries, Veins,
+Nerves, Bursae, and Overlays categories. It uses opaque app-owned category
+materials without external runtime textures. This dissected regional anatomy
+is a theatre-view educational aid, not a skin or intact-body envelope, and it
+is explicitly excluded from X-ray projection.
+
 Preparation bounds each network read by a timeout, a required valid
 `Content-Length`, and the pinned archive byte ceiling before verifying the
 exact byte count and SHA-256. It generates each GLB twice independently from
@@ -56,11 +68,13 @@ the surviving backup instead of deleting recovery evidence and reports the
 original publication error, every rollback error, and the preserved backup
 path for manual recovery.
 
-The build retains bone meshes only, maps source metres and axes to application
-millimetres (`x` patient-left, `y` anterior, `z` headward), repairs winding,
-derives the missing left anatomy by reflection, replaces materials, removes T12
-and L1-L5 from the detailed lower-limb model, centres detailed geometry on the
-bilateral femoral-head midpoint, and Draco-compresses the outputs.
+The build retains bone meshes in the skeletal artifacts and places the omitted
+regional structures in the separate supplement. It maps source metres and axes
+to application millimetres (`x` patient-left, `y` anterior, `z` headward),
+repairs winding, derives the missing left anatomy by reflection, replaces
+materials, centres detailed geometry on the bilateral femoral-head midpoint,
+and Draco-compresses the outputs. T12 and L1-L5 remain absent from the
+skeletal-only file and are included once in the regional supplement.
 The derived files remain licensed under CC BY-SA 4.0 and must be redistributed
 with the same licence and attribution. They are educational anatomical models,
 not patient data, diagnostic devices, or validated 3D-printing assets.

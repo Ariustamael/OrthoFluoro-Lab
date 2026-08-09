@@ -20,6 +20,7 @@ const temporaryRoots: string[] = [];
 const publicationFiles = [
   "anatomy/open3dmodel-overview-skeleton.glb",
   "anatomy/open3dmodel-hip-lower-limbs.glb",
+  "anatomy/open3dmodel-hip-lower-limbs-regional.glb",
   "anatomy/open3dmodel-provenance.json",
   "draco/draco_decoder.js",
   "draco/draco_decoder.wasm",

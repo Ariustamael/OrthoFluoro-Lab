@@ -39,13 +39,14 @@
     }
   ],
   "transformations": [
-    "Retained skeletal meshes only and removed all non-bone roots",
+    "Retained skeletal meshes in the base artifacts and retained all pinned lower-limb regional structure categories in a separate display-only supplement",
     "Mapped source metres [x,y,z] to application millimetres [1000x,1000z,1000y]",
     "Reversed triangle winding after the handedness-changing axis swap and repaired source triangles against transformed normals",
     "Mirrored named right-side meshes across x=0 and reversed winding",
     "Translated detailed hip/lower-limb positions by the negative bilateral femoral-head midpoint so the hip reference is the root origin",
     "Replaced source materials with one opaque neutral bone material",
-    "Removed lower-limb T12 and L1-L5, deduplicated, pruned, and Draco-compressed"
+    "Applied opaque app-owned category materials to the regional supplement without runtime textures",
+    "Moved lower-limb T12 and L1-L5 from the skeletal base into the regional supplement, deduplicated, pruned, and Draco-compressed all outputs"
   ],
   "included": {
     "overview": [
@@ -63,6 +64,11 @@
       "right-patella",
       "right-tibia-fibula",
       "right-foot"
+    ],
+    "regional": [
+      "regional-midline",
+      "regional-left",
+      "regional-right"
     ]
   },
   "excluded": {
@@ -85,8 +91,4815 @@
       "Nerves",
       "Bursae",
       "Overlays"
+    ],
+    "regional": [
+      "The 34 skeletal source structures retained by the hip base"
     ]
   },
+  "lowerLimbSourceAccounting": [
+    {
+      "key": "Bones/Calcaneus.r",
+      "category": "Bones",
+      "name": "Calcaneus.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Coccyx",
+      "category": "Bones",
+      "name": "Coccyx",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Cuboid bone.r",
+      "category": "Bones",
+      "name": "Cuboid bone.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Distal phalanx of fifth finger of foot.r",
+      "category": "Bones",
+      "name": "Distal phalanx of fifth finger of foot.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Distal phalanx of first finger of foot.r",
+      "category": "Bones",
+      "name": "Distal phalanx of first finger of foot.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Distal phalanx of fourth finger of foot.r",
+      "category": "Bones",
+      "name": "Distal phalanx of fourth finger of foot.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Distal phalanx of second finger of foot.r",
+      "category": "Bones",
+      "name": "Distal phalanx of second finger of foot.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Distal phalanx of third finger of foot.r",
+      "category": "Bones",
+      "name": "Distal phalanx of third finger of foot.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Femur.r",
+      "category": "Bones",
+      "name": "Femur.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Fibula.r",
+      "category": "Bones",
+      "name": "Fibula.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Fifth metatarsal bone.r",
+      "category": "Bones",
+      "name": "Fifth metatarsal bone.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/First metatarsal bone.r",
+      "category": "Bones",
+      "name": "First metatarsal bone.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Fourth metatarsal bone.r",
+      "category": "Bones",
+      "name": "Fourth metatarsal bone.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Hip bone.r",
+      "category": "Bones",
+      "name": "Hip bone.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Intermediate cuneiform bone.r",
+      "category": "Bones",
+      "name": "Intermediate cuneiform bone.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Lateral cuneiform bone.r",
+      "category": "Bones",
+      "name": "Lateral cuneiform bone.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Lumbar vertebra (L1)",
+      "category": "Bones",
+      "name": "Lumbar vertebra (L1)",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bones",
+        "side": "midline",
+        "mirrorToLeft": false
+      }
+    },
+    {
+      "key": "Bones/Lumbar vertebra (L2)",
+      "category": "Bones",
+      "name": "Lumbar vertebra (L2)",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bones",
+        "side": "midline",
+        "mirrorToLeft": false
+      }
+    },
+    {
+      "key": "Bones/Lumbar vertebra (L3)",
+      "category": "Bones",
+      "name": "Lumbar vertebra (L3)",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bones",
+        "side": "midline",
+        "mirrorToLeft": false
+      }
+    },
+    {
+      "key": "Bones/Lumbar vertebra (L4)",
+      "category": "Bones",
+      "name": "Lumbar vertebra (L4)",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bones",
+        "side": "midline",
+        "mirrorToLeft": false
+      }
+    },
+    {
+      "key": "Bones/Lumbar vertebra (L5)",
+      "category": "Bones",
+      "name": "Lumbar vertebra (L5)",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bones",
+        "side": "midline",
+        "mirrorToLeft": false
+      }
+    },
+    {
+      "key": "Bones/Medial cuneiform bone.r",
+      "category": "Bones",
+      "name": "Medial cuneiform bone.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Middle phalanx of fifth finger of foot.r",
+      "category": "Bones",
+      "name": "Middle phalanx of fifth finger of foot.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Middle phalanx of fourth finger of foot.r",
+      "category": "Bones",
+      "name": "Middle phalanx of fourth finger of foot.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Middle phalanx of second finger of foot.r",
+      "category": "Bones",
+      "name": "Middle phalanx of second finger of foot.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Middle phalanx of third finger of foot.r",
+      "category": "Bones",
+      "name": "Middle phalanx of third finger of foot.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Navicular bone.r",
+      "category": "Bones",
+      "name": "Navicular bone.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Patella.r",
+      "category": "Bones",
+      "name": "Patella.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Proximal phalanx of fifth finger of foot.r",
+      "category": "Bones",
+      "name": "Proximal phalanx of fifth finger of foot.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Proximal phalanx of first finger of foot.r",
+      "category": "Bones",
+      "name": "Proximal phalanx of first finger of foot.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Proximal phalanx of fourth finger of foot.r",
+      "category": "Bones",
+      "name": "Proximal phalanx of fourth finger of foot.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Proximal phalanx of second finger of foot.r",
+      "category": "Bones",
+      "name": "Proximal phalanx of second finger of foot.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Proximal phalanx of third finger of foot.r",
+      "category": "Bones",
+      "name": "Proximal phalanx of third finger of foot.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Sacrum",
+      "category": "Bones",
+      "name": "Sacrum",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Second metatarsal bone.r",
+      "category": "Bones",
+      "name": "Second metatarsal bone.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Sesamoid bones of foot.r",
+      "category": "Bones",
+      "name": "Sesamoid bones of foot.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Talus.r",
+      "category": "Bones",
+      "name": "Talus.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Third metatarsal bone.r",
+      "category": "Bones",
+      "name": "Third metatarsal bone.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Bones/Thoracic vertebra (T12)",
+      "category": "Bones",
+      "name": "Thoracic vertebra (T12)",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bones",
+        "side": "midline",
+        "mirrorToLeft": false
+      }
+    },
+    {
+      "key": "Bones/Tibia.r",
+      "category": "Bones",
+      "name": "Tibia.r",
+      "disposition": "base"
+    },
+    {
+      "key": "Cartilages/Acetabular labrum.r",
+      "category": "Cartilages",
+      "name": "Acetabular labrum.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Cartilages/Annulus fibrosus L1 L2",
+      "category": "Cartilages",
+      "name": "Annulus fibrosus L1 L2",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "midline",
+        "mirrorToLeft": false
+      }
+    },
+    {
+      "key": "Cartilages/Annulus fibrosus L2 L3",
+      "category": "Cartilages",
+      "name": "Annulus fibrosus L2 L3",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "midline",
+        "mirrorToLeft": false
+      }
+    },
+    {
+      "key": "Cartilages/Annulus fibrosus L3 L4",
+      "category": "Cartilages",
+      "name": "Annulus fibrosus L3 L4",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "midline",
+        "mirrorToLeft": false
+      }
+    },
+    {
+      "key": "Cartilages/Annulus fibrosus L4 L5",
+      "category": "Cartilages",
+      "name": "Annulus fibrosus L4 L5",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "midline",
+        "mirrorToLeft": false
+      }
+    },
+    {
+      "key": "Cartilages/Annulus fibrosus L5 S1",
+      "category": "Cartilages",
+      "name": "Annulus fibrosus L5 S1",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "midline",
+        "mirrorToLeft": false
+      }
+    },
+    {
+      "key": "Cartilages/Annulus fibrosus T12 L1",
+      "category": "Cartilages",
+      "name": "Annulus fibrosus T12 L1",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "midline",
+        "mirrorToLeft": false
+      }
+    },
+    {
+      "key": "Cartilages/Art cart of calcaneus.r ",
+      "category": "Cartilages",
+      "name": "Art cart of calcaneus.r ",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Cartilages/Art cart of cuboid bone.r",
+      "category": "Cartilages",
+      "name": "Art cart of cuboid bone.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Cartilages/Art cart of femur distal end.r",
+      "category": "Cartilages",
+      "name": "Art cart of femur distal end.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Cartilages/Art cart of femur head.r",
+      "category": "Cartilages",
+      "name": "Art cart of femur head.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Cartilages/Art cart of fibula proximal tibiofibular joint.r",
+      "category": "Cartilages",
+      "name": "Art cart of fibula proximal tibiofibular joint.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Cartilages/Art cart of fibula talofibular joint.r",
+      "category": "Cartilages",
+      "name": "Art cart of fibula talofibular joint.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Cartilages/Art cart of hip bone pubis.r ",
+      "category": "Cartilages",
+      "name": "Art cart of hip bone pubis.r ",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Cartilages/Art cart of intermediate cuneiform bone.r",
+      "category": "Cartilages",
+      "name": "Art cart of intermediate cuneiform bone.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Cartilages/Art cart of lateral cuneiform bone.r",
+      "category": "Cartilages",
+      "name": "Art cart of lateral cuneiform bone.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Cartilages/Art cart of medial cuneiform bone.r ",
+      "category": "Cartilages",
+      "name": "Art cart of medial cuneiform bone.r ",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Cartilages/Art cart of navicular bone.r",
+      "category": "Cartilages",
+      "name": "Art cart of navicular bone.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Cartilages/Art cart of patella.r",
+      "category": "Cartilages",
+      "name": "Art cart of patella.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Cartilages/Art cart of sacrococcygeal joint on coccyx",
+      "category": "Cartilages",
+      "name": "Art cart of sacrococcygeal joint on coccyx",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "midline",
+        "mirrorToLeft": false
+      }
+    },
+    {
+      "key": "Cartilages/Art cart of sacrococcygeal joint on sacrum",
+      "category": "Cartilages",
+      "name": "Art cart of sacrococcygeal joint on sacrum",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "midline",
+        "mirrorToLeft": false
+      }
+    },
+    {
+      "key": "Cartilages/Art cart of sacroiliac joint on hip bone",
+      "category": "Cartilages",
+      "name": "Art cart of sacroiliac joint on hip bone",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Cartilages/Art cart of sacroiliac joint on sacrum",
+      "category": "Cartilages",
+      "name": "Art cart of sacroiliac joint on sacrum",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Cartilages/Art cart of Sesamoid bones.r",
+      "category": "Cartilages",
+      "name": "Art cart of Sesamoid bones.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Cartilages/Art cart of talus.r ​",
+      "category": "Cartilages",
+      "name": "Art cart of talus.r ​",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Cartilages/Art cart of tibia distal end.r\t",
+      "category": "Cartilages",
+      "name": "Art cart of tibia distal end.r\t",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Cartilages/Art cart of tibia proximal end.r",
+      "category": "Cartilages",
+      "name": "Art cart of tibia proximal end.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Cartilages/Art cart of tibia proximal tibiofibular joint.r​",
+      "category": "Cartilages",
+      "name": "Art cart of tibia proximal tibiofibular joint.r​",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Cartilages/Art carts of distal phalanges of foot.r",
+      "category": "Cartilages",
+      "name": "Art carts of distal phalanges of foot.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Cartilages/Art carts of metatarsal bones.r",
+      "category": "Cartilages",
+      "name": "Art carts of metatarsal bones.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Cartilages/Art carts of middle phalanges of foot.r",
+      "category": "Cartilages",
+      "name": "Art carts of middle phalanges of foot.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Cartilages/Art carts of proximal phalanges of foot.r",
+      "category": "Cartilages",
+      "name": "Art carts of proximal phalanges of foot.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Cartilages/Lateral meniscus.r",
+      "category": "Cartilages",
+      "name": "Lateral meniscus.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Cartilages/Medial meniscus.r",
+      "category": "Cartilages",
+      "name": "Medial meniscus.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Cartilages/Symphysis of sacrococcygeal joint",
+      "category": "Cartilages",
+      "name": "Symphysis of sacrococcygeal joint",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "midline",
+        "mirrorToLeft": false
+      }
+    },
+    {
+      "key": "Cartilages/Synovial membranes of knee.r",
+      "category": "Cartilages",
+      "name": "Synovial membranes of knee.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Cartilages",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Anterior cruciate ligament.r",
+      "category": "Ligaments",
+      "name": "Anterior cruciate ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Anterior horn of Lateral meniscus.r",
+      "category": "Ligaments",
+      "name": "Anterior horn of Lateral meniscus.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Anterior horn of Medial meniscus.r",
+      "category": "Ligaments",
+      "name": "Anterior horn of Medial meniscus.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Anterior sacro-iliac ligament.r",
+      "category": "Ligaments",
+      "name": "Anterior sacro-iliac ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Anterior talocalcaneal ligament.r",
+      "category": "Ligaments",
+      "name": "Anterior talocalcaneal ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Anterior talofibular ligament.r",
+      "category": "Ligaments",
+      "name": "Anterior talofibular ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Anterior tibiofibular ligament.r",
+      "category": "Ligaments",
+      "name": "Anterior tibiofibular ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Anterior tibiotalar ligament (Tibiospring lig.).r",
+      "category": "Ligaments",
+      "name": "Anterior tibiotalar ligament (Tibiospring lig.).r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Articular capsule of knee joint.r",
+      "category": "Ligaments",
+      "name": "Articular capsule of knee joint.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Articular capsules of distal interphalangeal joints",
+      "category": "Ligaments",
+      "name": "Articular capsules of distal interphalangeal joints",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Articular capsules of metatarsophalangeal joints.r",
+      "category": "Ligaments",
+      "name": "Articular capsules of metatarsophalangeal joints.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Articular capsules of proximal interphalangeal.r",
+      "category": "Ligaments",
+      "name": "Articular capsules of proximal interphalangeal.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Articular cartilage of hip bone acetabulum.r",
+      "category": "Ligaments",
+      "name": "Articular cartilage of hip bone acetabulum.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Bifurcatum ligament",
+      "category": "Ligaments",
+      "name": "Bifurcatum ligament",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Calcaneofibular ligament.r",
+      "category": "Ligaments",
+      "name": "Calcaneofibular ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Capsule of talocrural joint.r",
+      "category": "Ligaments",
+      "name": "Capsule of talocrural joint.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Cervical ligament (anterior talocalcaneal ligament).r",
+      "category": "Ligaments",
+      "name": "Cervical ligament (anterior talocalcaneal ligament).r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Cuneometatarsal interosseus ligaments.r",
+      "category": "Ligaments",
+      "name": "Cuneometatarsal interosseus ligaments.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Deep transverse metatarsal ligament.r",
+      "category": "Ligaments",
+      "name": "Deep transverse metatarsal ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Dorsal calcaneocuboid ligament.r",
+      "category": "Ligaments",
+      "name": "Dorsal calcaneocuboid ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Dorsal cuboidonavicular ligament.r",
+      "category": "Ligaments",
+      "name": "Dorsal cuboidonavicular ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Dorsal cuneocuboid ligament.r",
+      "category": "Ligaments",
+      "name": "Dorsal cuneocuboid ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Dorsal cuneonavicular ligaments.r",
+      "category": "Ligaments",
+      "name": "Dorsal cuneonavicular ligaments.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Dorsal intercuneiform ligaments.r",
+      "category": "Ligaments",
+      "name": "Dorsal intercuneiform ligaments.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Dorsal metatarsal ligaments.r",
+      "category": "Ligaments",
+      "name": "Dorsal metatarsal ligaments.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Dorsal tarsometatarsal ligaments.r",
+      "category": "Ligaments",
+      "name": "Dorsal tarsometatarsal ligaments.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Extensor apparatus of 1st toe.r",
+      "category": "Ligaments",
+      "name": "Extensor apparatus of 1st toe.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Extensor apparatus of 2nd toe.r",
+      "category": "Ligaments",
+      "name": "Extensor apparatus of 2nd toe.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Extensor apparatus of 3rd toe.r",
+      "category": "Ligaments",
+      "name": "Extensor apparatus of 3rd toe.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Extensor apparatus of 4th toe.r",
+      "category": "Ligaments",
+      "name": "Extensor apparatus of 4th toe.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Extensor apparatus of 5th toe.r",
+      "category": "Ligaments",
+      "name": "Extensor apparatus of 5th toe.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Fibular collateral ligament.r",
+      "category": "Ligaments",
+      "name": "Fibular collateral ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Hip joint capsule.r",
+      "category": "Ligaments",
+      "name": "Hip joint capsule.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Iliolumbar ligament .r",
+      "category": "Ligaments",
+      "name": "Iliolumbar ligament .r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Intercornual ligament.r",
+      "category": "Ligaments",
+      "name": "Intercornual ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Intercuneiform interosseus ligaments.r",
+      "category": "Ligaments",
+      "name": "Intercuneiform interosseus ligaments.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Interossea / Posterior sacro-iliac ligament.r",
+      "category": "Ligaments",
+      "name": "Interossea / Posterior sacro-iliac ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Interosseous membrane of leg.r",
+      "category": "Ligaments",
+      "name": "Interosseous membrane of leg.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Interosseus talocalcaneal ligament.r",
+      "category": "Ligaments",
+      "name": "Interosseus talocalcaneal ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Interpubic disc",
+      "category": "Ligaments",
+      "name": "Interpubic disc",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "midline",
+        "mirrorToLeft": false
+      }
+    },
+    {
+      "key": "Ligaments/Intersesamoid ligament.r",
+      "category": "Ligaments",
+      "name": "Intersesamoid ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Ligament of head of femur.r",
+      "category": "Ligaments",
+      "name": "Ligament of head of femur.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Ligaments of fibular head.r",
+      "category": "Ligaments",
+      "name": "Ligaments of fibular head.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Long plantar ligament.r",
+      "category": "Ligaments",
+      "name": "Long plantar ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Medial talocalcaneal ligament.r",
+      "category": "Ligaments",
+      "name": "Medial talocalcaneal ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Metatarsal interosseous ligaments.r",
+      "category": "Ligaments",
+      "name": "Metatarsal interosseous ligaments.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Obturator membrane.r",
+      "category": "Ligaments",
+      "name": "Obturator membrane.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Plantar calcaneocuboid ligament.r",
+      "category": "Ligaments",
+      "name": "Plantar calcaneocuboid ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Plantar calcaneonavicular ligament.r",
+      "category": "Ligaments",
+      "name": "Plantar calcaneonavicular ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Plantar cuboideonavicular ligament.r",
+      "category": "Ligaments",
+      "name": "Plantar cuboideonavicular ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Plantar cuneocuboid ligament.r",
+      "category": "Ligaments",
+      "name": "Plantar cuneocuboid ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Plantar cuneonavicular ligaments.r",
+      "category": "Ligaments",
+      "name": "Plantar cuneonavicular ligaments.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Plantar intercuneiform ligaments.r",
+      "category": "Ligaments",
+      "name": "Plantar intercuneiform ligaments.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Plantar metatarsal ligaments.r",
+      "category": "Ligaments",
+      "name": "Plantar metatarsal ligaments.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Plantar tarsometatarsal ligaments.r",
+      "category": "Ligaments",
+      "name": "Plantar tarsometatarsal ligaments.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Posterior cruciate ligament.r",
+      "category": "Ligaments",
+      "name": "Posterior cruciate ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Posterior horn of Lateral meniscus.r",
+      "category": "Ligaments",
+      "name": "Posterior horn of Lateral meniscus.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Posterior horn of Medial meniscus.r",
+      "category": "Ligaments",
+      "name": "Posterior horn of Medial meniscus.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Posterior meniscofemoral ligament.r",
+      "category": "Ligaments",
+      "name": "Posterior meniscofemoral ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Posterior talocalcaneal ligament.r",
+      "category": "Ligaments",
+      "name": "Posterior talocalcaneal ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Posterior tibiofibular ligament.r",
+      "category": "Ligaments",
+      "name": "Posterior tibiofibular ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Posterior tibiotalar ligament.r",
+      "category": "Ligaments",
+      "name": "Posterior tibiotalar ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Sacrospinous ligament.r",
+      "category": "Ligaments",
+      "name": "Sacrospinous ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Sacrotuberal ligament.r",
+      "category": "Ligaments",
+      "name": "Sacrotuberal ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Sup, Inf, Ant, Post, Pubic ligaments",
+      "category": "Ligaments",
+      "name": "Sup, Inf, Ant, Post, Pubic ligaments",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "midline",
+        "mirrorToLeft": false
+      }
+    },
+    {
+      "key": "Ligaments/Superficial transverse metatarsal ligament.r",
+      "category": "Ligaments",
+      "name": "Superficial transverse metatarsal ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Talonavicular ligament.r",
+      "category": "Ligaments",
+      "name": "Talonavicular ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Tibiocalcaneal ligament.r",
+      "category": "Ligaments",
+      "name": "Tibiocalcaneal ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Tibionavicular ligament.r",
+      "category": "Ligaments",
+      "name": "Tibionavicular ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Transverse acetabular ligament.r",
+      "category": "Ligaments",
+      "name": "Transverse acetabular ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Transverse ligament of knee.r",
+      "category": "Ligaments",
+      "name": "Transverse ligament of knee.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Ligaments/Transverse tibiofibular ligament.r",
+      "category": "Ligaments",
+      "name": "Transverse tibiofibular ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Ligaments",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/1st Dorsal interossei muscles of foot.r",
+      "category": "Muscles",
+      "name": "1st Dorsal interossei muscles of foot.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/2nd Dorsal interossei muscles of foot.r",
+      "category": "Muscles",
+      "name": "2nd Dorsal interossei muscles of foot.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/3rd Dorsal interossei muscles of foot.r",
+      "category": "Muscles",
+      "name": "3rd Dorsal interossei muscles of foot.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/4th Dorsal interossei muscles of foot.r",
+      "category": "Muscles",
+      "name": "4th Dorsal interossei muscles of foot.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Abductor digiti minimi of foot.r",
+      "category": "Muscles",
+      "name": "Abductor digiti minimi of foot.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Abductor hallucis.r",
+      "category": "Muscles",
+      "name": "Abductor hallucis.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Adductor brevis.r",
+      "category": "Muscles",
+      "name": "Adductor brevis.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Adductor longus.r",
+      "category": "Muscles",
+      "name": "Adductor longus.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Adductor magnus.r",
+      "category": "Muscles",
+      "name": "Adductor magnus.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Articularis genus.r",
+      "category": "Muscles",
+      "name": "Articularis genus.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Calcaneal tendon.r",
+      "category": "Muscles",
+      "name": "Calcaneal tendon.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Coccygeus muscle.r",
+      "category": "Muscles",
+      "name": "Coccygeus muscle.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Common tendon of biceps femoris.r",
+      "category": "Muscles",
+      "name": "Common tendon of biceps femoris.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Common tendon of Semitendinosus and Long head of biceps femoris",
+      "category": "Muscles",
+      "name": "Common tendon of Semitendinosus and Long head of biceps femoris",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Extensor digitorum brevis.r",
+      "category": "Muscles",
+      "name": "Extensor digitorum brevis.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Extensor digitorum longus tendons.r",
+      "category": "Muscles",
+      "name": "Extensor digitorum longus tendons.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Extensor digitorum longus.r",
+      "category": "Muscles",
+      "name": "Extensor digitorum longus.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Extensor hallucis brevis.r",
+      "category": "Muscles",
+      "name": "Extensor hallucis brevis.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Extensor hallucis longus.r",
+      "category": "Muscles",
+      "name": "Extensor hallucis longus.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Fibularis brevis muscle.r",
+      "category": "Muscles",
+      "name": "Fibularis brevis muscle.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Fibularis longus muscle.r",
+      "category": "Muscles",
+      "name": "Fibularis longus muscle.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Fibularis tertius muscle.r",
+      "category": "Muscles",
+      "name": "Fibularis tertius muscle.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Flexor digiti minimi brevis of foot.r",
+      "category": "Muscles",
+      "name": "Flexor digiti minimi brevis of foot.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Flexor digitorum brevis.r",
+      "category": "Muscles",
+      "name": "Flexor digitorum brevis.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Flexor digitorum longus.r",
+      "category": "Muscles",
+      "name": "Flexor digitorum longus.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Flexor hallucis longus.r",
+      "category": "Muscles",
+      "name": "Flexor hallucis longus.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Gluteus maximus muscle.r",
+      "category": "Muscles",
+      "name": "Gluteus maximus muscle.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Gluteus medius muscle.r",
+      "category": "Muscles",
+      "name": "Gluteus medius muscle.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Gluteus minimus muscle.r",
+      "category": "Muscles",
+      "name": "Gluteus minimus muscle.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Gracilis muscle.r",
+      "category": "Muscles",
+      "name": "Gracilis muscle.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Iliacus muscle.r",
+      "category": "Muscles",
+      "name": "Iliacus muscle.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Inferior gemellus muscle.r",
+      "category": "Muscles",
+      "name": "Inferior gemellus muscle.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Infrapatellar fat pad.r",
+      "category": "Muscles",
+      "name": "Infrapatellar fat pad.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Lateral head of flexor hallucis brevis.r",
+      "category": "Muscles",
+      "name": "Lateral head of flexor hallucis brevis.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Lateral head of gastrocnemius.r",
+      "category": "Muscles",
+      "name": "Lateral head of gastrocnemius.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Long head of biceps femoris.r",
+      "category": "Muscles",
+      "name": "Long head of biceps femoris.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Lumbrical muscles of foot.r",
+      "category": "Muscles",
+      "name": "Lumbrical muscles of foot.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Medial head of flexor hallucis brevis.r",
+      "category": "Muscles",
+      "name": "Medial head of flexor hallucis brevis.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Medial head of gastrocnemius.r",
+      "category": "Muscles",
+      "name": "Medial head of gastrocnemius.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Oblique head of adductor hallucis.r",
+      "category": "Muscles",
+      "name": "Oblique head of adductor hallucis.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Obturator externus.r",
+      "category": "Muscles",
+      "name": "Obturator externus.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Obturator internus.r",
+      "category": "Muscles",
+      "name": "Obturator internus.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Opponens digiti minimi muscle of foot.r",
+      "category": "Muscles",
+      "name": "Opponens digiti minimi muscle of foot.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Pectineus muscle.r",
+      "category": "Muscles",
+      "name": "Pectineus muscle.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Pes anserinus common tendon.r",
+      "category": "Muscles",
+      "name": "Pes anserinus common tendon.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Piriformis muscle.r",
+      "category": "Muscles",
+      "name": "Piriformis muscle.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Plantar aponeurosis.r",
+      "category": "Muscles",
+      "name": "Plantar aponeurosis.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Plantar interossei muscles.r",
+      "category": "Muscles",
+      "name": "Plantar interossei muscles.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Plantaris muscle.r",
+      "category": "Muscles",
+      "name": "Plantaris muscle.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Popliteus muscle.r",
+      "category": "Muscles",
+      "name": "Popliteus muscle.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Psoas major.r",
+      "category": "Muscles",
+      "name": "Psoas major.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Psoas minor.r",
+      "category": "Muscles",
+      "name": "Psoas minor.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Quadratus femoris muscle.r",
+      "category": "Muscles",
+      "name": "Quadratus femoris muscle.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Quadratus plantae muscle.r",
+      "category": "Muscles",
+      "name": "Quadratus plantae muscle.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Quadriceps common tendon and patellar ligament.r",
+      "category": "Muscles",
+      "name": "Quadriceps common tendon and patellar ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Rectus femoris.r",
+      "category": "Muscles",
+      "name": "Rectus femoris.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Sartorius muscle.r",
+      "category": "Muscles",
+      "name": "Sartorius muscle.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Semimembranosus muscle tendon.r",
+      "category": "Muscles",
+      "name": "Semimembranosus muscle tendon.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Semimembranosus muscle.r",
+      "category": "Muscles",
+      "name": "Semimembranosus muscle.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Semitendinosus muscle.r",
+      "category": "Muscles",
+      "name": "Semitendinosus muscle.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Short head of biceps femoris.r",
+      "category": "Muscles",
+      "name": "Short head of biceps femoris.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Soleus muscle.r",
+      "category": "Muscles",
+      "name": "Soleus muscle.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Superior gemellus muscle.r",
+      "category": "Muscles",
+      "name": "Superior gemellus muscle.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Synovial sheaths of toes.r",
+      "category": "Muscles",
+      "name": "Synovial sheaths of toes.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Tensor fasciae latae.r",
+      "category": "Muscles",
+      "name": "Tensor fasciae latae.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Tibialis anterior muscle.r",
+      "category": "Muscles",
+      "name": "Tibialis anterior muscle.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Tibialis posterior muscle.r",
+      "category": "Muscles",
+      "name": "Tibialis posterior muscle.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Transverse head of adductor hallucis.r",
+      "category": "Muscles",
+      "name": "Transverse head of adductor hallucis.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Vastus intermedius muscle.r",
+      "category": "Muscles",
+      "name": "Vastus intermedius muscle.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Vastus lateralis muscle.r",
+      "category": "Muscles",
+      "name": "Vastus lateralis muscle.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Muscles/Vastus medialis muscle.r",
+      "category": "Muscles",
+      "name": "Vastus medialis muscle.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Muscles",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Fascia/Anterior intermuscular septum of leg.r",
+      "category": "Fascia",
+      "name": "Anterior intermuscular septum of leg.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Fascia",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Fascia/Crural fascia.r",
+      "category": "Fascia",
+      "name": "Crural fascia.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Fascia",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Fascia/Fascia lata.r",
+      "category": "Fascia",
+      "name": "Fascia lata.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Fascia",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Fascia/Flexor retinaculum of ankle.r",
+      "category": "Fascia",
+      "name": "Flexor retinaculum of ankle.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Fascia",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Fascia/Gluteal aponeurosis.r",
+      "category": "Fascia",
+      "name": "Gluteal aponeurosis.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Fascia",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Fascia/Iliotibial tract.r",
+      "category": "Fascia",
+      "name": "Iliotibial tract.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Fascia",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Fascia/Inferior extensor retinaculum.r",
+      "category": "Fascia",
+      "name": "Inferior extensor retinaculum.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Fascia",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Fascia/Inferior fibular retinaculum.r",
+      "category": "Fascia",
+      "name": "Inferior fibular retinaculum.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Fascia",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Fascia/Lateral femoral intermuscular septum.r",
+      "category": "Fascia",
+      "name": "Lateral femoral intermuscular septum.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Fascia",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Fascia/Medial femoral intermuscular septum.r",
+      "category": "Fascia",
+      "name": "Medial femoral intermuscular septum.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Fascia",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Fascia/Posterior intermuscular septum of leg.r",
+      "category": "Fascia",
+      "name": "Posterior intermuscular septum of leg.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Fascia",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Fascia/Superior extensor retinaculum of ankle.r",
+      "category": "Fascia",
+      "name": "Superior extensor retinaculum of ankle.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Fascia",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Fascia/Superior fibular retinaculum.r",
+      "category": "Fascia",
+      "name": "Superior fibular retinaculum.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Fascia",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Fascia/Transverse intermuscular septum of leg.r",
+      "category": "Fascia",
+      "name": "Transverse intermuscular septum of leg.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Fascia",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/1th to 4th perforating branches of the deep femoral artery.r",
+      "category": "Arteries",
+      "name": "1th to 4th perforating branches of the deep femoral artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Anterior lateral malleolar artery.r",
+      "category": "Arteries",
+      "name": "Anterior lateral malleolar artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Anterior medial malleolar artery.r",
+      "category": "Arteries",
+      "name": "Anterior medial malleolar artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Anterior tibial artery.r",
+      "category": "Arteries",
+      "name": "Anterior tibial artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Anterior tibial recurrent artery.r",
+      "category": "Arteries",
+      "name": "Anterior tibial recurrent artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Arcuate artery.r",
+      "category": "Arteries",
+      "name": "Arcuate artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Ascending branch of lateral circumflex femoral artery.r",
+      "category": "Arteries",
+      "name": "Ascending branch of lateral circumflex femoral artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Communicating br.of Posterior tibial a. and Femoral a..r",
+      "category": "Arteries",
+      "name": "Communicating br.of Posterior tibial a. and Femoral a..r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Deep artery of the thigh.r",
+      "category": "Arteries",
+      "name": "Deep artery of the thigh.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Deep branch of Medial plantar artery.r",
+      "category": "Arteries",
+      "name": "Deep branch of Medial plantar artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Deep plantar arch.r",
+      "category": "Arteries",
+      "name": "Deep plantar arch.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Deep plantar artery.r",
+      "category": "Arteries",
+      "name": "Deep plantar artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Descending branch of lateral circumflex femoral artery.r",
+      "category": "Arteries",
+      "name": "Descending branch of lateral circumflex femoral artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Descending genicular artery.r",
+      "category": "Arteries",
+      "name": "Descending genicular artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Dorsal digital arteries of foot.r",
+      "category": "Arteries",
+      "name": "Dorsal digital arteries of foot.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Dorsal metatarsal arteries.r",
+      "category": "Arteries",
+      "name": "Dorsal metatarsal arteries.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Dorsal pedis artery.r",
+      "category": "Arteries",
+      "name": "Dorsal pedis artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Femoral artery.r",
+      "category": "Arteries",
+      "name": "Femoral artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Femoral neck vessels.r",
+      "category": "Arteries",
+      "name": "Femoral neck vessels.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Fibular artery.r",
+      "category": "Arteries",
+      "name": "Fibular artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Inferior lateral genicular artery.r",
+      "category": "Arteries",
+      "name": "Inferior lateral genicular artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Inferior medial genicular artery.r",
+      "category": "Arteries",
+      "name": "Inferior medial genicular artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Lateral calcaneal branch of fibular artery.r",
+      "category": "Arteries",
+      "name": "Lateral calcaneal branch of fibular artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Lateral circumflex femoral artery.r",
+      "category": "Arteries",
+      "name": "Lateral circumflex femoral artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Lateral malleolar branches of Fibular artery.r",
+      "category": "Arteries",
+      "name": "Lateral malleolar branches of Fibular artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Lateral plantar artery.r",
+      "category": "Arteries",
+      "name": "Lateral plantar artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Lateral tarsal artery.r",
+      "category": "Arteries",
+      "name": "Lateral tarsal artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Medial calcaneal artery.r",
+      "category": "Arteries",
+      "name": "Medial calcaneal artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Medial circumflex femoral artery.r",
+      "category": "Arteries",
+      "name": "Medial circumflex femoral artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Medial malleolar artery of Posterior tibial artery.r",
+      "category": "Arteries",
+      "name": "Medial malleolar artery of Posterior tibial artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Medial plantar artery.r",
+      "category": "Arteries",
+      "name": "Medial plantar artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Medial tarsal arteries.r",
+      "category": "Arteries",
+      "name": "Medial tarsal arteries.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Middle genicular artery.r",
+      "category": "Arteries",
+      "name": "Middle genicular artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Perforating br. between Arcuate a. and Deep plantar arch.r",
+      "category": "Arteries",
+      "name": "Perforating br. between Arcuate a. and Deep plantar arch.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Perforating branches of fibular artery.r",
+      "category": "Arteries",
+      "name": "Perforating branches of fibular artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Plantar metatarsal arteries.r",
+      "category": "Arteries",
+      "name": "Plantar metatarsal arteries.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Popliteal artery.r",
+      "category": "Arteries",
+      "name": "Popliteal artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Posterior tibial artery.r",
+      "category": "Arteries",
+      "name": "Posterior tibial artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Posterior tibial recurrent artery.r",
+      "category": "Arteries",
+      "name": "Posterior tibial recurrent artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Superficial branch of Medial planter artery.r",
+      "category": "Arteries",
+      "name": "Superficial branch of Medial planter artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Superficial circumflex iliac artery.r",
+      "category": "Arteries",
+      "name": "Superficial circumflex iliac artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Superficial epigastric artery.r",
+      "category": "Arteries",
+      "name": "Superficial epigastric artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Superficial external pudendal artery.r",
+      "category": "Arteries",
+      "name": "Superficial external pudendal artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Superior lateral genicular artery.r",
+      "category": "Arteries",
+      "name": "Superior lateral genicular artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Superior medial genicular artery.r",
+      "category": "Arteries",
+      "name": "Superior medial genicular artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Arteries/Sural artery.r",
+      "category": "Arteries",
+      "name": "Sural artery.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Arteries",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/1th to 4th perforating branches of the deep femoral vein.r",
+      "category": "Veins",
+      "name": "1th to 4th perforating branches of the deep femoral vein.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Accessory saphenous vein.r",
+      "category": "Veins",
+      "name": "Accessory saphenous vein.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Accompanying veins of arcuate and dorsal arteries.r",
+      "category": "Veins",
+      "name": "Accompanying veins of arcuate and dorsal arteries.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Accompanying veins of dorsal digital metatarsal arteries.r",
+      "category": "Veins",
+      "name": "Accompanying veins of dorsal digital metatarsal arteries.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Anterior femoral cutaneous vein.r",
+      "category": "Veins",
+      "name": "Anterior femoral cutaneous vein.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Anterior tibial vein.r",
+      "category": "Veins",
+      "name": "Anterior tibial vein.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Deep femoral vein.r",
+      "category": "Veins",
+      "name": "Deep femoral vein.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Dorsal digital vein of medial side of great toe.r",
+      "category": "Veins",
+      "name": "Dorsal digital vein of medial side of great toe.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Dorsal digital veins.r",
+      "category": "Veins",
+      "name": "Dorsal digital veins.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Dorsal metatarsal veins.r",
+      "category": "Veins",
+      "name": "Dorsal metatarsal veins.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Dorsal venous arch of foot.r",
+      "category": "Veins",
+      "name": "Dorsal venous arch of foot.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Dorsal venous network of foot.r",
+      "category": "Veins",
+      "name": "Dorsal venous network of foot.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Femoral vein.r",
+      "category": "Veins",
+      "name": "Femoral vein.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Fibular vein.r",
+      "category": "Veins",
+      "name": "Fibular vein.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Great saphenous vein.r",
+      "category": "Veins",
+      "name": "Great saphenous vein.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Inferior lateral genicular vein.r",
+      "category": "Veins",
+      "name": "Inferior lateral genicular vein.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Inferior medial genicular vein.r",
+      "category": "Veins",
+      "name": "Inferior medial genicular vein.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Intercapitular veins of foot.r",
+      "category": "Veins",
+      "name": "Intercapitular veins of foot.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Lateral circumflex femoral vein.r",
+      "category": "Veins",
+      "name": "Lateral circumflex femoral vein.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Lateral marginal vein.r",
+      "category": "Veins",
+      "name": "Lateral marginal vein.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Lateral plantar vein.r",
+      "category": "Veins",
+      "name": "Lateral plantar vein.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Medial circumflex femoral vein.r",
+      "category": "Veins",
+      "name": "Medial circumflex femoral vein.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Medial marginal vein.r",
+      "category": "Veins",
+      "name": "Medial marginal vein.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Medial plantar vein.r",
+      "category": "Veins",
+      "name": "Medial plantar vein.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Middle genicular vein.r",
+      "category": "Veins",
+      "name": "Middle genicular vein.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Perforating branches (Boyd's veins).r",
+      "category": "Veins",
+      "name": "Perforating branches (Boyd's veins).r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Perforating branches (Cockett's veins).r",
+      "category": "Veins",
+      "name": "Perforating branches (Cockett's veins).r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Perforating branches (Dodd's veins).r",
+      "category": "Veins",
+      "name": "Perforating branches (Dodd's veins).r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Plantar digital veins.r",
+      "category": "Veins",
+      "name": "Plantar digital veins.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Plantar metatarsal veins.r",
+      "category": "Veins",
+      "name": "Plantar metatarsal veins.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Plantar venous arch.r",
+      "category": "Veins",
+      "name": "Plantar venous arch.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Popliteal vein.r",
+      "category": "Veins",
+      "name": "Popliteal vein.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Posterior arch veins.r",
+      "category": "Veins",
+      "name": "Posterior arch veins.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Posterior tibial vein.r",
+      "category": "Veins",
+      "name": "Posterior tibial vein.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Small saphenous vein.r",
+      "category": "Veins",
+      "name": "Small saphenous vein.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Superficial circumflex iliac vein.r",
+      "category": "Veins",
+      "name": "Superficial circumflex iliac vein.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Superficial epigastric vein.r",
+      "category": "Veins",
+      "name": "Superficial epigastric vein.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Superficial external pudendal vein.r",
+      "category": "Veins",
+      "name": "Superficial external pudendal vein.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Superior lateral genicular vein.r",
+      "category": "Veins",
+      "name": "Superior lateral genicular vein.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Superior medial genicular vein.r",
+      "category": "Veins",
+      "name": "Superior medial genicular vein.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Sural vein.r",
+      "category": "Veins",
+      "name": "Sural vein.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Veins/Tributary veins of Great and small saphenous veins.r",
+      "category": "Veins",
+      "name": "Tributary veins of Great and small saphenous veins.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Veins",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Anterior branch of Iliohypogastric nerve.r",
+      "category": "Nerves",
+      "name": "Anterior branch of Iliohypogastric nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Anterior branch of Obturator nerve.r",
+      "category": "Nerves",
+      "name": "Anterior branch of Obturator nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Anterior cutaneous branches of Femoral nerve.r",
+      "category": "Nerves",
+      "name": "Anterior cutaneous branches of Femoral nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Common fibular nerve.r",
+      "category": "Nerves",
+      "name": "Common fibular nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Common plantar digital nerves.r",
+      "category": "Nerves",
+      "name": "Common plantar digital nerves.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Cutaneous br of Anterior br of Obturator nerve.r",
+      "category": "Nerves",
+      "name": "Cutaneous br of Anterior br of Obturator nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Deep branch of Lateral plantar nerve.r",
+      "category": "Nerves",
+      "name": "Deep branch of Lateral plantar nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Deep fibular nerve.r",
+      "category": "Nerves",
+      "name": "Deep fibular nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Dorsal digital branches of deep fibular nerve.r",
+      "category": "Nerves",
+      "name": "Dorsal digital branches of deep fibular nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Dorsal digital branches of superficial fibular nerve.r",
+      "category": "Nerves",
+      "name": "Dorsal digital branches of superficial fibular nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Femoral branch of Genitofemoral nerve.r",
+      "category": "Nerves",
+      "name": "Femoral branch of Genitofemoral nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Femoral nerve.r",
+      "category": "Nerves",
+      "name": "Femoral nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Genital branch of Genitofemoral nerve.r",
+      "category": "Nerves",
+      "name": "Genital branch of Genitofemoral nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Ilioinguinal nerve.r",
+      "category": "Nerves",
+      "name": "Ilioinguinal nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Inferior clunial br of post cutaneous nerve of the thigh.r",
+      "category": "Nerves",
+      "name": "Inferior clunial br of post cutaneous nerve of the thigh.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Inferior gluteal nerve.r",
+      "category": "Nerves",
+      "name": "Inferior gluteal nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Infrapatellar branch of Saphenous nerve.r",
+      "category": "Nerves",
+      "name": "Infrapatellar branch of Saphenous nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Lateral branch of deep fibular nerve.r",
+      "category": "Nerves",
+      "name": "Lateral branch of deep fibular nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Lateral calcaneal nerves.r",
+      "category": "Nerves",
+      "name": "Lateral calcaneal nerves.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Lateral cutaneous branch of Iliohypogaticus nerve.r",
+      "category": "Nerves",
+      "name": "Lateral cutaneous branch of Iliohypogaticus nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Lateral dorsal cutaneous nerve (Sural n).r",
+      "category": "Nerves",
+      "name": "Lateral dorsal cutaneous nerve (Sural n).r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Lateral dorsal cutaneous nerve.r",
+      "category": "Nerves",
+      "name": "Lateral dorsal cutaneous nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Lateral femoral cuteneous nerve.r",
+      "category": "Nerves",
+      "name": "Lateral femoral cuteneous nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Lateral plantar cutaneous nerve (Sural n).r",
+      "category": "Nerves",
+      "name": "Lateral plantar cutaneous nerve (Sural n).r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Lateral plantar nerve.r",
+      "category": "Nerves",
+      "name": "Lateral plantar nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Lateral sural cutaneous nerve.r",
+      "category": "Nerves",
+      "name": "Lateral sural cutaneous nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Medial branch of deep fibular nerve.r",
+      "category": "Nerves",
+      "name": "Medial branch of deep fibular nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Medial calcaneal branches of Tibial nerve.r",
+      "category": "Nerves",
+      "name": "Medial calcaneal branches of Tibial nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Medial dorsal cutaneous nerve.r",
+      "category": "Nerves",
+      "name": "Medial dorsal cutaneous nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Medial plantar nerve.r",
+      "category": "Nerves",
+      "name": "Medial plantar nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Medial sural cutaneous nerve.r",
+      "category": "Nerves",
+      "name": "Medial sural cutaneous nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Muscular branches of the Femoral nerve.r",
+      "category": "Nerves",
+      "name": "Muscular branches of the Femoral nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Obturator nerve.r",
+      "category": "Nerves",
+      "name": "Obturator nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Plexus lumbaris.r",
+      "category": "Nerves",
+      "name": "Plexus lumbaris.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Posterior branch of Obturator nerve.r",
+      "category": "Nerves",
+      "name": "Posterior branch of Obturator nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Posterior cutaneous nerve of the thigh.r",
+      "category": "Nerves",
+      "name": "Posterior cutaneous nerve of the thigh.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Proper plantar digital branches (Lateral plantar nerve).r",
+      "category": "Nerves",
+      "name": "Proper plantar digital branches (Lateral plantar nerve).r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Proper plantar digital branches (Medial plantar nerve).r",
+      "category": "Nerves",
+      "name": "Proper plantar digital branches (Medial plantar nerve).r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Saphenous branch of Femoralis nerve.r",
+      "category": "Nerves",
+      "name": "Saphenous branch of Femoralis nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Saphenous nerve (Medial crural cutaneous branches).r",
+      "category": "Nerves",
+      "name": "Saphenous nerve (Medial crural cutaneous branches).r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Schiatic nerve.r",
+      "category": "Nerves",
+      "name": "Schiatic nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Superficial branch of Lateral plantar nerve.r",
+      "category": "Nerves",
+      "name": "Superficial branch of Lateral plantar nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Superficial fibular nerve.r",
+      "category": "Nerves",
+      "name": "Superficial fibular nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Superior clunial nerve (posterior rami).r",
+      "category": "Nerves",
+      "name": "Superior clunial nerve (posterior rami).r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Superior gluteal nerve.r",
+      "category": "Nerves",
+      "name": "Superior gluteal nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Sural nerve.r",
+      "category": "Nerves",
+      "name": "Sural nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Nerves/Tibial nerve.r",
+      "category": "Nerves",
+      "name": "Tibial nerve.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Nerves",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Bursa of piriformis.r",
+      "category": "Bursae",
+      "name": "Bursa of piriformis.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Common tendon sheath of fibularis muscles.r",
+      "category": "Bursae",
+      "name": "Common tendon sheath of fibularis muscles.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Deep Infrapatellar bursa.r",
+      "category": "Bursae",
+      "name": "Deep Infrapatellar bursa.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Extensor digitorum longus-fibularis tertius vaginae tendinum.r",
+      "category": "Bursae",
+      "name": "Extensor digitorum longus-fibularis tertius vaginae tendinum.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Extensor hallucis longus tendon sheath.r",
+      "category": "Bursae",
+      "name": "Extensor hallucis longus tendon sheath.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Flexor digitorum longus tendon sheath.r",
+      "category": "Bursae",
+      "name": "Flexor digitorum longus tendon sheath.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Flexor hallucis longus tendon sheath.r",
+      "category": "Bursae",
+      "name": "Flexor hallucis longus tendon sheath.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Iliopectineal bursa.r",
+      "category": "Bursae",
+      "name": "Iliopectineal bursa.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Inferior subtendinous bursa of biceps femoris.r",
+      "category": "Bursae",
+      "name": "Inferior subtendinous bursa of biceps femoris.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Intermuscular gluteal bursae.r",
+      "category": "Bursae",
+      "name": "Intermuscular gluteal bursae.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Lateral subtendinous bursa of gastrocnemius muscle.r",
+      "category": "Bursae",
+      "name": "Lateral subtendinous bursa of gastrocnemius muscle.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Medial subtendinous bursa of gastrocnemius muscle.r",
+      "category": "Bursae",
+      "name": "Medial subtendinous bursa of gastrocnemius muscle.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Pes anserine bursa.r",
+      "category": "Bursae",
+      "name": "Pes anserine bursa.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Plantar tendinous sheath of fibularis longus.r",
+      "category": "Bursae",
+      "name": "Plantar tendinous sheath of fibularis longus.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Sciatic bursa of gluteus maximus (Ischiogluteal bursa).r",
+      "category": "Bursae",
+      "name": "Sciatic bursa of gluteus maximus (Ischiogluteal bursa).r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Sciatic bursa of obturator internus.r",
+      "category": "Bursae",
+      "name": "Sciatic bursa of obturator internus.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Semimembranosus bursa deep to tendon.r",
+      "category": "Bursae",
+      "name": "Semimembranosus bursa deep to tendon.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Subcutaneous bursa of  medial malleolus.r",
+      "category": "Bursae",
+      "name": "Subcutaneous bursa of  medial malleolus.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Subcutaneous bursa of lateral malleolus.r",
+      "category": "Bursae",
+      "name": "Subcutaneous bursa of lateral malleolus.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Subcutaneous bursa of tuberosity of tibia.r",
+      "category": "Bursae",
+      "name": "Subcutaneous bursa of tuberosity of tibia.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Subcutaneous calcaneal bursa.r",
+      "category": "Bursae",
+      "name": "Subcutaneous calcaneal bursa.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Subcutaneous Infrapatellar bursa.r",
+      "category": "Bursae",
+      "name": "Subcutaneous Infrapatellar bursa.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Subcutaneous prepatellar bursa.r",
+      "category": "Bursae",
+      "name": "Subcutaneous prepatellar bursa.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Subcutaneous trochanteric bursa.r",
+      "category": "Bursae",
+      "name": "Subcutaneous trochanteric bursa.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Subfascial prepatellar bursa.r",
+      "category": "Bursae",
+      "name": "Subfascial prepatellar bursa.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Subpopliteal recess.r",
+      "category": "Bursae",
+      "name": "Subpopliteal recess.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Subtendinous bursa of iliacus.r",
+      "category": "Bursae",
+      "name": "Subtendinous bursa of iliacus.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Subtendinous bursa of obturator internus.r",
+      "category": "Bursae",
+      "name": "Subtendinous bursa of obturator internus.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Subtendinous bursa of sartorius.r",
+      "category": "Bursae",
+      "name": "Subtendinous bursa of sartorius.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Subtendinous bursa of tibialis anterior.r",
+      "category": "Bursae",
+      "name": "Subtendinous bursa of tibialis anterior.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Subtendinous calcaneal bursa.r",
+      "category": "Bursae",
+      "name": "Subtendinous calcaneal bursa.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Subtendinous prepatellar bursa.r",
+      "category": "Bursae",
+      "name": "Subtendinous prepatellar bursa.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Superior bursa of biceps femoris.r",
+      "category": "Bursae",
+      "name": "Superior bursa of biceps femoris.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Tibialis anterior tendon sheath.r",
+      "category": "Bursae",
+      "name": "Tibialis anterior tendon sheath.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Tibialis posterior tendon sheath.r",
+      "category": "Bursae",
+      "name": "Tibialis posterior tendon sheath.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Trochanteric bursa of gluteus maximus.r",
+      "category": "Bursae",
+      "name": "Trochanteric bursa of gluteus maximus.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Trochanteric bursa of gluteus minimus.r",
+      "category": "Bursae",
+      "name": "Trochanteric bursa of gluteus minimus.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Bursae/Trochanteric bursae of gluteus medius.r",
+      "category": "Bursae",
+      "name": "Trochanteric bursae of gluteus medius.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Bursae",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Adductor canal.r",
+      "category": "Overlays",
+      "name": "Adductor canal.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Adductor hiatus.r",
+      "category": "Overlays",
+      "name": "Adductor hiatus.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Adductor minimus overlay.r",
+      "category": "Overlays",
+      "name": "Adductor minimus overlay.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Annular ligaments of 1st toe A1-A5.r",
+      "category": "Overlays",
+      "name": "Annular ligaments of 1st toe A1-A5.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Annular ligaments of 2nd toe A1-A5.r",
+      "category": "Overlays",
+      "name": "Annular ligaments of 2nd toe A1-A5.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Annular ligaments of 3rd toe A1-A5.r",
+      "category": "Overlays",
+      "name": "Annular ligaments of 3rd toe A1-A5.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Annular ligaments of 4th toe A1-A5.r",
+      "category": "Overlays",
+      "name": "Annular ligaments of 4th toe A1-A5.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Annular ligaments of 5th toe A1-A5.r",
+      "category": "Overlays",
+      "name": "Annular ligaments of 5th toe A1-A5.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Anterior ligament of fibular head.r",
+      "category": "Overlays",
+      "name": "Anterior ligament of fibular head.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Anterior pubic ligament",
+      "category": "Overlays",
+      "name": "Anterior pubic ligament",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "midline",
+        "mirrorToLeft": false
+      }
+    },
+    {
+      "key": "Overlays/Arcuate ligament.r",
+      "category": "Overlays",
+      "name": "Arcuate ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Calcaneocuboid ligament.r",
+      "category": "Overlays",
+      "name": "Calcaneocuboid ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Calcaneonavicular ligament.r",
+      "category": "Overlays",
+      "name": "Calcaneonavicular ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Collateral ligament of proximal interphalangeal joints.r",
+      "category": "Overlays",
+      "name": "Collateral ligament of proximal interphalangeal joints.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Collateral ligaments of distal interphalangeal joints.r",
+      "category": "Overlays",
+      "name": "Collateral ligaments of distal interphalangeal joints.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Collateral ligaments of metatarsophalangeal joints.r",
+      "category": "Overlays",
+      "name": "Collateral ligaments of metatarsophalangeal joints.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Cruciform ligaments or 1st toe.r",
+      "category": "Overlays",
+      "name": "Cruciform ligaments or 1st toe.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Cruciform ligaments or 2nd toe.r",
+      "category": "Overlays",
+      "name": "Cruciform ligaments or 2nd toe.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Cruciform ligaments or 3rd toe.r",
+      "category": "Overlays",
+      "name": "Cruciform ligaments or 3rd toe.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Cruciform ligaments or 4th toe.r",
+      "category": "Overlays",
+      "name": "Cruciform ligaments or 4th toe.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Cruciform ligaments or 5th toe.r",
+      "category": "Overlays",
+      "name": "Cruciform ligaments or 5th toe.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Descending part of Iliofemoral ligament.r",
+      "category": "Overlays",
+      "name": "Descending part of Iliofemoral ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Femoral canal.r",
+      "category": "Overlays",
+      "name": "Femoral canal.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Femoral ring.r",
+      "category": "Overlays",
+      "name": "Femoral ring.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Femoral triangle.r",
+      "category": "Overlays",
+      "name": "Femoral triangle.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Fibrous sheath of toes.r",
+      "category": "Overlays",
+      "name": "Fibrous sheath of toes.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Ishciofemoral ligament.r",
+      "category": "Overlays",
+      "name": "Ishciofemoral ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Lateral patellar retinaculum (horizontal part).r",
+      "category": "Overlays",
+      "name": "Lateral patellar retinaculum (horizontal part).r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Lateral patellar retinaculum (vertical part).r",
+      "category": "Overlays",
+      "name": "Lateral patellar retinaculum (vertical part).r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Medial collatertal ligament.r",
+      "category": "Overlays",
+      "name": "Medial collatertal ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Medial patellar retinaculum (horizontal part).r",
+      "category": "Overlays",
+      "name": "Medial patellar retinaculum (horizontal part).r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Medial patellar retinaculum (vertical part).r",
+      "category": "Overlays",
+      "name": "Medial patellar retinaculum (vertical part).r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Oblique popliteal ligament.r",
+      "category": "Overlays",
+      "name": "Oblique popliteal ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Palmar ligament of proximal interphalangeal joints.r",
+      "category": "Overlays",
+      "name": "Palmar ligament of proximal interphalangeal joints.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Palmar ligaments of distal interphalangeal joints.r",
+      "category": "Overlays",
+      "name": "Palmar ligaments of distal interphalangeal joints.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Palmar ligaments of metatarsophalangeal joints.r",
+      "category": "Overlays",
+      "name": "Palmar ligaments of metatarsophalangeal joints.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Posterior ligament of fibular head.r",
+      "category": "Overlays",
+      "name": "Posterior ligament of fibular head.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Posterior pubic ligament",
+      "category": "Overlays",
+      "name": "Posterior pubic ligament",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "midline",
+        "mirrorToLeft": false
+      }
+    },
+    {
+      "key": "Overlays/Posterior talofibular ligament.r",
+      "category": "Overlays",
+      "name": "Posterior talofibular ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Pubofemoral ligament.r",
+      "category": "Overlays",
+      "name": "Pubofemoral ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Quadriceps common tendon and patellar ligament",
+      "category": "Overlays",
+      "name": "Quadriceps common tendon and patellar ligament",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Saphenous opening.r",
+      "category": "Overlays",
+      "name": "Saphenous opening.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Suprapatellar bursa overlay.r",
+      "category": "Overlays",
+      "name": "Suprapatellar bursa overlay.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Tendinous arch of soleus.r",
+      "category": "Overlays",
+      "name": "Tendinous arch of soleus.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Transverse part of Iliofemoral ligament.r",
+      "category": "Overlays",
+      "name": "Transverse part of Iliofemoral ligament.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    },
+    {
+      "key": "Overlays/Zona orbicularis of hip joint.r",
+      "category": "Overlays",
+      "name": "Zona orbicularis of hip joint.r",
+      "disposition": "supplement",
+      "classification": {
+        "category": "Overlays",
+        "side": "right",
+        "mirrorToLeft": true
+      }
+    }
+  ],
   "generationVerification": {
     "method": "Two independent generation passes from the same pinned downloaded inputs are compared byte-for-byte before publication",
     "independentGenerationPasses": 2,
@@ -184,6 +4997,42 @@
         "committedSha256": "10D744127633B61B166478ADAAA007D15B71EE10D948CEDEADB92EBEC6437D72"
       },
       "includedBoneCount": 66,
+      "sourceKeys": [
+        "Bones/Calcaneus.r",
+        "Bones/Coccyx",
+        "Bones/Cuboid bone.r",
+        "Bones/Distal phalanx of fifth finger of foot.r",
+        "Bones/Distal phalanx of first finger of foot.r",
+        "Bones/Distal phalanx of fourth finger of foot.r",
+        "Bones/Distal phalanx of second finger of foot.r",
+        "Bones/Distal phalanx of third finger of foot.r",
+        "Bones/Femur.r",
+        "Bones/Fibula.r",
+        "Bones/Fifth metatarsal bone.r",
+        "Bones/First metatarsal bone.r",
+        "Bones/Fourth metatarsal bone.r",
+        "Bones/Hip bone.r",
+        "Bones/Intermediate cuneiform bone.r",
+        "Bones/Lateral cuneiform bone.r",
+        "Bones/Medial cuneiform bone.r",
+        "Bones/Middle phalanx of fifth finger of foot.r",
+        "Bones/Middle phalanx of fourth finger of foot.r",
+        "Bones/Middle phalanx of second finger of foot.r",
+        "Bones/Middle phalanx of third finger of foot.r",
+        "Bones/Navicular bone.r",
+        "Bones/Patella.r",
+        "Bones/Proximal phalanx of fifth finger of foot.r",
+        "Bones/Proximal phalanx of first finger of foot.r",
+        "Bones/Proximal phalanx of fourth finger of foot.r",
+        "Bones/Proximal phalanx of second finger of foot.r",
+        "Bones/Proximal phalanx of third finger of foot.r",
+        "Bones/Sacrum",
+        "Bones/Second metatarsal bone.r",
+        "Bones/Sesamoid bones of foot.r",
+        "Bones/Talus.r",
+        "Bones/Third metatarsal bone.r",
+        "Bones/Tibia.r"
+      ],
       "groups": [
         "pelvis",
         "left-femur",
@@ -353,6 +5202,554 @@
           -859.0283934018823
         ]
       }
+    },
+    "regional": {
+      "path": "public/anatomy/open3dmodel-hip-lower-limbs-regional.glb",
+      "bytes": 6521264,
+      "sha256": "10FA60D39ED30EC19A940F0AA460743B9778483E8A63FA498E34E10046F1C2F2",
+      "buildHashes": {
+        "firstBuildSha256": "10FA60D39ED30EC19A940F0AA460743B9778483E8A63FA498E34E10046F1C2F2",
+        "secondBuildSha256": "10FA60D39ED30EC19A940F0AA460743B9778483E8A63FA498E34E10046F1C2F2",
+        "committedSha256": "10FA60D39ED30EC19A940F0AA460743B9778483E8A63FA498E34E10046F1C2F2"
+      },
+      "sourceCount": 418,
+      "meshCount": 817,
+      "sourceKeys": [
+        "Bones/Lumbar vertebra (L1)",
+        "Bones/Lumbar vertebra (L2)",
+        "Bones/Lumbar vertebra (L3)",
+        "Bones/Lumbar vertebra (L4)",
+        "Bones/Lumbar vertebra (L5)",
+        "Bones/Thoracic vertebra (T12)",
+        "Cartilages/Acetabular labrum.r",
+        "Cartilages/Annulus fibrosus L1 L2",
+        "Cartilages/Annulus fibrosus L2 L3",
+        "Cartilages/Annulus fibrosus L3 L4",
+        "Cartilages/Annulus fibrosus L4 L5",
+        "Cartilages/Annulus fibrosus L5 S1",
+        "Cartilages/Annulus fibrosus T12 L1",
+        "Cartilages/Art cart of calcaneus.r ",
+        "Cartilages/Art cart of cuboid bone.r",
+        "Cartilages/Art cart of femur distal end.r",
+        "Cartilages/Art cart of femur head.r",
+        "Cartilages/Art cart of fibula proximal tibiofibular joint.r",
+        "Cartilages/Art cart of fibula talofibular joint.r",
+        "Cartilages/Art cart of hip bone pubis.r ",
+        "Cartilages/Art cart of intermediate cuneiform bone.r",
+        "Cartilages/Art cart of lateral cuneiform bone.r",
+        "Cartilages/Art cart of medial cuneiform bone.r ",
+        "Cartilages/Art cart of navicular bone.r",
+        "Cartilages/Art cart of patella.r",
+        "Cartilages/Art cart of sacrococcygeal joint on coccyx",
+        "Cartilages/Art cart of sacrococcygeal joint on sacrum",
+        "Cartilages/Art cart of sacroiliac joint on hip bone",
+        "Cartilages/Art cart of sacroiliac joint on sacrum",
+        "Cartilages/Art cart of Sesamoid bones.r",
+        "Cartilages/Art cart of talus.r ​",
+        "Cartilages/Art cart of tibia distal end.r\t",
+        "Cartilages/Art cart of tibia proximal end.r",
+        "Cartilages/Art cart of tibia proximal tibiofibular joint.r​",
+        "Cartilages/Art carts of distal phalanges of foot.r",
+        "Cartilages/Art carts of metatarsal bones.r",
+        "Cartilages/Art carts of middle phalanges of foot.r",
+        "Cartilages/Art carts of proximal phalanges of foot.r",
+        "Cartilages/Lateral meniscus.r",
+        "Cartilages/Medial meniscus.r",
+        "Cartilages/Symphysis of sacrococcygeal joint",
+        "Cartilages/Synovial membranes of knee.r",
+        "Ligaments/Anterior cruciate ligament.r",
+        "Ligaments/Anterior horn of Lateral meniscus.r",
+        "Ligaments/Anterior horn of Medial meniscus.r",
+        "Ligaments/Anterior sacro-iliac ligament.r",
+        "Ligaments/Anterior talocalcaneal ligament.r",
+        "Ligaments/Anterior talofibular ligament.r",
+        "Ligaments/Anterior tibiofibular ligament.r",
+        "Ligaments/Anterior tibiotalar ligament (Tibiospring lig.).r",
+        "Ligaments/Articular capsule of knee joint.r",
+        "Ligaments/Articular capsules of distal interphalangeal joints",
+        "Ligaments/Articular capsules of metatarsophalangeal joints.r",
+        "Ligaments/Articular capsules of proximal interphalangeal.r",
+        "Ligaments/Articular cartilage of hip bone acetabulum.r",
+        "Ligaments/Bifurcatum ligament",
+        "Ligaments/Calcaneofibular ligament.r",
+        "Ligaments/Capsule of talocrural joint.r",
+        "Ligaments/Cervical ligament (anterior talocalcaneal ligament).r",
+        "Ligaments/Cuneometatarsal interosseus ligaments.r",
+        "Ligaments/Deep transverse metatarsal ligament.r",
+        "Ligaments/Dorsal calcaneocuboid ligament.r",
+        "Ligaments/Dorsal cuboidonavicular ligament.r",
+        "Ligaments/Dorsal cuneocuboid ligament.r",
+        "Ligaments/Dorsal cuneonavicular ligaments.r",
+        "Ligaments/Dorsal intercuneiform ligaments.r",
+        "Ligaments/Dorsal metatarsal ligaments.r",
+        "Ligaments/Dorsal tarsometatarsal ligaments.r",
+        "Ligaments/Extensor apparatus of 1st toe.r",
+        "Ligaments/Extensor apparatus of 2nd toe.r",
+        "Ligaments/Extensor apparatus of 3rd toe.r",
+        "Ligaments/Extensor apparatus of 4th toe.r",
+        "Ligaments/Extensor apparatus of 5th toe.r",
+        "Ligaments/Fibular collateral ligament.r",
+        "Ligaments/Hip joint capsule.r",
+        "Ligaments/Iliolumbar ligament .r",
+        "Ligaments/Intercornual ligament.r",
+        "Ligaments/Intercuneiform interosseus ligaments.r",
+        "Ligaments/Interossea / Posterior sacro-iliac ligament.r",
+        "Ligaments/Interosseous membrane of leg.r",
+        "Ligaments/Interosseus talocalcaneal ligament.r",
+        "Ligaments/Interpubic disc",
+        "Ligaments/Intersesamoid ligament.r",
+        "Ligaments/Ligament of head of femur.r",
+        "Ligaments/Ligaments of fibular head.r",
+        "Ligaments/Long plantar ligament.r",
+        "Ligaments/Medial talocalcaneal ligament.r",
+        "Ligaments/Metatarsal interosseous ligaments.r",
+        "Ligaments/Obturator membrane.r",
+        "Ligaments/Plantar calcaneocuboid ligament.r",
+        "Ligaments/Plantar calcaneonavicular ligament.r",
+        "Ligaments/Plantar cuboideonavicular ligament.r",
+        "Ligaments/Plantar cuneocuboid ligament.r",
+        "Ligaments/Plantar cuneonavicular ligaments.r",
+        "Ligaments/Plantar intercuneiform ligaments.r",
+        "Ligaments/Plantar metatarsal ligaments.r",
+        "Ligaments/Plantar tarsometatarsal ligaments.r",
+        "Ligaments/Posterior cruciate ligament.r",
+        "Ligaments/Posterior horn of Lateral meniscus.r",
+        "Ligaments/Posterior horn of Medial meniscus.r",
+        "Ligaments/Posterior meniscofemoral ligament.r",
+        "Ligaments/Posterior talocalcaneal ligament.r",
+        "Ligaments/Posterior tibiofibular ligament.r",
+        "Ligaments/Posterior tibiotalar ligament.r",
+        "Ligaments/Sacrospinous ligament.r",
+        "Ligaments/Sacrotuberal ligament.r",
+        "Ligaments/Sup, Inf, Ant, Post, Pubic ligaments",
+        "Ligaments/Superficial transverse metatarsal ligament.r",
+        "Ligaments/Talonavicular ligament.r",
+        "Ligaments/Tibiocalcaneal ligament.r",
+        "Ligaments/Tibionavicular ligament.r",
+        "Ligaments/Transverse acetabular ligament.r",
+        "Ligaments/Transverse ligament of knee.r",
+        "Ligaments/Transverse tibiofibular ligament.r",
+        "Muscles/1st Dorsal interossei muscles of foot.r",
+        "Muscles/2nd Dorsal interossei muscles of foot.r",
+        "Muscles/3rd Dorsal interossei muscles of foot.r",
+        "Muscles/4th Dorsal interossei muscles of foot.r",
+        "Muscles/Abductor digiti minimi of foot.r",
+        "Muscles/Abductor hallucis.r",
+        "Muscles/Adductor brevis.r",
+        "Muscles/Adductor longus.r",
+        "Muscles/Adductor magnus.r",
+        "Muscles/Articularis genus.r",
+        "Muscles/Calcaneal tendon.r",
+        "Muscles/Coccygeus muscle.r",
+        "Muscles/Common tendon of biceps femoris.r",
+        "Muscles/Common tendon of Semitendinosus and Long head of biceps femoris",
+        "Muscles/Extensor digitorum brevis.r",
+        "Muscles/Extensor digitorum longus tendons.r",
+        "Muscles/Extensor digitorum longus.r",
+        "Muscles/Extensor hallucis brevis.r",
+        "Muscles/Extensor hallucis longus.r",
+        "Muscles/Fibularis brevis muscle.r",
+        "Muscles/Fibularis longus muscle.r",
+        "Muscles/Fibularis tertius muscle.r",
+        "Muscles/Flexor digiti minimi brevis of foot.r",
+        "Muscles/Flexor digitorum brevis.r",
+        "Muscles/Flexor digitorum longus.r",
+        "Muscles/Flexor hallucis longus.r",
+        "Muscles/Gluteus maximus muscle.r",
+        "Muscles/Gluteus medius muscle.r",
+        "Muscles/Gluteus minimus muscle.r",
+        "Muscles/Gracilis muscle.r",
+        "Muscles/Iliacus muscle.r",
+        "Muscles/Inferior gemellus muscle.r",
+        "Muscles/Infrapatellar fat pad.r",
+        "Muscles/Lateral head of flexor hallucis brevis.r",
+        "Muscles/Lateral head of gastrocnemius.r",
+        "Muscles/Long head of biceps femoris.r",
+        "Muscles/Lumbrical muscles of foot.r",
+        "Muscles/Medial head of flexor hallucis brevis.r",
+        "Muscles/Medial head of gastrocnemius.r",
+        "Muscles/Oblique head of adductor hallucis.r",
+        "Muscles/Obturator externus.r",
+        "Muscles/Obturator internus.r",
+        "Muscles/Opponens digiti minimi muscle of foot.r",
+        "Muscles/Pectineus muscle.r",
+        "Muscles/Pes anserinus common tendon.r",
+        "Muscles/Piriformis muscle.r",
+        "Muscles/Plantar aponeurosis.r",
+        "Muscles/Plantar interossei muscles.r",
+        "Muscles/Plantaris muscle.r",
+        "Muscles/Popliteus muscle.r",
+        "Muscles/Psoas major.r",
+        "Muscles/Psoas minor.r",
+        "Muscles/Quadratus femoris muscle.r",
+        "Muscles/Quadratus plantae muscle.r",
+        "Muscles/Quadriceps common tendon and patellar ligament.r",
+        "Muscles/Rectus femoris.r",
+        "Muscles/Sartorius muscle.r",
+        "Muscles/Semimembranosus muscle tendon.r",
+        "Muscles/Semimembranosus muscle.r",
+        "Muscles/Semitendinosus muscle.r",
+        "Muscles/Short head of biceps femoris.r",
+        "Muscles/Soleus muscle.r",
+        "Muscles/Superior gemellus muscle.r",
+        "Muscles/Synovial sheaths of toes.r",
+        "Muscles/Tensor fasciae latae.r",
+        "Muscles/Tibialis anterior muscle.r",
+        "Muscles/Tibialis posterior muscle.r",
+        "Muscles/Transverse head of adductor hallucis.r",
+        "Muscles/Vastus intermedius muscle.r",
+        "Muscles/Vastus lateralis muscle.r",
+        "Muscles/Vastus medialis muscle.r",
+        "Fascia/Anterior intermuscular septum of leg.r",
+        "Fascia/Crural fascia.r",
+        "Fascia/Fascia lata.r",
+        "Fascia/Flexor retinaculum of ankle.r",
+        "Fascia/Gluteal aponeurosis.r",
+        "Fascia/Iliotibial tract.r",
+        "Fascia/Inferior extensor retinaculum.r",
+        "Fascia/Inferior fibular retinaculum.r",
+        "Fascia/Lateral femoral intermuscular septum.r",
+        "Fascia/Medial femoral intermuscular septum.r",
+        "Fascia/Posterior intermuscular septum of leg.r",
+        "Fascia/Superior extensor retinaculum of ankle.r",
+        "Fascia/Superior fibular retinaculum.r",
+        "Fascia/Transverse intermuscular septum of leg.r",
+        "Arteries/1th to 4th perforating branches of the deep femoral artery.r",
+        "Arteries/Anterior lateral malleolar artery.r",
+        "Arteries/Anterior medial malleolar artery.r",
+        "Arteries/Anterior tibial artery.r",
+        "Arteries/Anterior tibial recurrent artery.r",
+        "Arteries/Arcuate artery.r",
+        "Arteries/Ascending branch of lateral circumflex femoral artery.r",
+        "Arteries/Communicating br.of Posterior tibial a. and Femoral a..r",
+        "Arteries/Deep artery of the thigh.r",
+        "Arteries/Deep branch of Medial plantar artery.r",
+        "Arteries/Deep plantar arch.r",
+        "Arteries/Deep plantar artery.r",
+        "Arteries/Descending branch of lateral circumflex femoral artery.r",
+        "Arteries/Descending genicular artery.r",
+        "Arteries/Dorsal digital arteries of foot.r",
+        "Arteries/Dorsal metatarsal arteries.r",
+        "Arteries/Dorsal pedis artery.r",
+        "Arteries/Femoral artery.r",
+        "Arteries/Femoral neck vessels.r",
+        "Arteries/Fibular artery.r",
+        "Arteries/Inferior lateral genicular artery.r",
+        "Arteries/Inferior medial genicular artery.r",
+        "Arteries/Lateral calcaneal branch of fibular artery.r",
+        "Arteries/Lateral circumflex femoral artery.r",
+        "Arteries/Lateral malleolar branches of Fibular artery.r",
+        "Arteries/Lateral plantar artery.r",
+        "Arteries/Lateral tarsal artery.r",
+        "Arteries/Medial calcaneal artery.r",
+        "Arteries/Medial circumflex femoral artery.r",
+        "Arteries/Medial malleolar artery of Posterior tibial artery.r",
+        "Arteries/Medial plantar artery.r",
+        "Arteries/Medial tarsal arteries.r",
+        "Arteries/Middle genicular artery.r",
+        "Arteries/Perforating br. between Arcuate a. and Deep plantar arch.r",
+        "Arteries/Perforating branches of fibular artery.r",
+        "Arteries/Plantar metatarsal arteries.r",
+        "Arteries/Popliteal artery.r",
+        "Arteries/Posterior tibial artery.r",
+        "Arteries/Posterior tibial recurrent artery.r",
+        "Arteries/Superficial branch of Medial planter artery.r",
+        "Arteries/Superficial circumflex iliac artery.r",
+        "Arteries/Superficial epigastric artery.r",
+        "Arteries/Superficial external pudendal artery.r",
+        "Arteries/Superior lateral genicular artery.r",
+        "Arteries/Superior medial genicular artery.r",
+        "Arteries/Sural artery.r",
+        "Veins/1th to 4th perforating branches of the deep femoral vein.r",
+        "Veins/Accessory saphenous vein.r",
+        "Veins/Accompanying veins of arcuate and dorsal arteries.r",
+        "Veins/Accompanying veins of dorsal digital metatarsal arteries.r",
+        "Veins/Anterior femoral cutaneous vein.r",
+        "Veins/Anterior tibial vein.r",
+        "Veins/Deep femoral vein.r",
+        "Veins/Dorsal digital vein of medial side of great toe.r",
+        "Veins/Dorsal digital veins.r",
+        "Veins/Dorsal metatarsal veins.r",
+        "Veins/Dorsal venous arch of foot.r",
+        "Veins/Dorsal venous network of foot.r",
+        "Veins/Femoral vein.r",
+        "Veins/Fibular vein.r",
+        "Veins/Great saphenous vein.r",
+        "Veins/Inferior lateral genicular vein.r",
+        "Veins/Inferior medial genicular vein.r",
+        "Veins/Intercapitular veins of foot.r",
+        "Veins/Lateral circumflex femoral vein.r",
+        "Veins/Lateral marginal vein.r",
+        "Veins/Lateral plantar vein.r",
+        "Veins/Medial circumflex femoral vein.r",
+        "Veins/Medial marginal vein.r",
+        "Veins/Medial plantar vein.r",
+        "Veins/Middle genicular vein.r",
+        "Veins/Perforating branches (Boyd's veins).r",
+        "Veins/Perforating branches (Cockett's veins).r",
+        "Veins/Perforating branches (Dodd's veins).r",
+        "Veins/Plantar digital veins.r",
+        "Veins/Plantar metatarsal veins.r",
+        "Veins/Plantar venous arch.r",
+        "Veins/Popliteal vein.r",
+        "Veins/Posterior arch veins.r",
+        "Veins/Posterior tibial vein.r",
+        "Veins/Small saphenous vein.r",
+        "Veins/Superficial circumflex iliac vein.r",
+        "Veins/Superficial epigastric vein.r",
+        "Veins/Superficial external pudendal vein.r",
+        "Veins/Superior lateral genicular vein.r",
+        "Veins/Superior medial genicular vein.r",
+        "Veins/Sural vein.r",
+        "Veins/Tributary veins of Great and small saphenous veins.r",
+        "Nerves/Anterior branch of Iliohypogastric nerve.r",
+        "Nerves/Anterior branch of Obturator nerve.r",
+        "Nerves/Anterior cutaneous branches of Femoral nerve.r",
+        "Nerves/Common fibular nerve.r",
+        "Nerves/Common plantar digital nerves.r",
+        "Nerves/Cutaneous br of Anterior br of Obturator nerve.r",
+        "Nerves/Deep branch of Lateral plantar nerve.r",
+        "Nerves/Deep fibular nerve.r",
+        "Nerves/Dorsal digital branches of deep fibular nerve.r",
+        "Nerves/Dorsal digital branches of superficial fibular nerve.r",
+        "Nerves/Femoral branch of Genitofemoral nerve.r",
+        "Nerves/Femoral nerve.r",
+        "Nerves/Genital branch of Genitofemoral nerve.r",
+        "Nerves/Ilioinguinal nerve.r",
+        "Nerves/Inferior clunial br of post cutaneous nerve of the thigh.r",
+        "Nerves/Inferior gluteal nerve.r",
+        "Nerves/Infrapatellar branch of Saphenous nerve.r",
+        "Nerves/Lateral branch of deep fibular nerve.r",
+        "Nerves/Lateral calcaneal nerves.r",
+        "Nerves/Lateral cutaneous branch of Iliohypogaticus nerve.r",
+        "Nerves/Lateral dorsal cutaneous nerve (Sural n).r",
+        "Nerves/Lateral dorsal cutaneous nerve.r",
+        "Nerves/Lateral femoral cuteneous nerve.r",
+        "Nerves/Lateral plantar cutaneous nerve (Sural n).r",
+        "Nerves/Lateral plantar nerve.r",
+        "Nerves/Lateral sural cutaneous nerve.r",
+        "Nerves/Medial branch of deep fibular nerve.r",
+        "Nerves/Medial calcaneal branches of Tibial nerve.r",
+        "Nerves/Medial dorsal cutaneous nerve.r",
+        "Nerves/Medial plantar nerve.r",
+        "Nerves/Medial sural cutaneous nerve.r",
+        "Nerves/Muscular branches of the Femoral nerve.r",
+        "Nerves/Obturator nerve.r",
+        "Nerves/Plexus lumbaris.r",
+        "Nerves/Posterior branch of Obturator nerve.r",
+        "Nerves/Posterior cutaneous nerve of the thigh.r",
+        "Nerves/Proper plantar digital branches (Lateral plantar nerve).r",
+        "Nerves/Proper plantar digital branches (Medial plantar nerve).r",
+        "Nerves/Saphenous branch of Femoralis nerve.r",
+        "Nerves/Saphenous nerve (Medial crural cutaneous branches).r",
+        "Nerves/Schiatic nerve.r",
+        "Nerves/Superficial branch of Lateral plantar nerve.r",
+        "Nerves/Superficial fibular nerve.r",
+        "Nerves/Superior clunial nerve (posterior rami).r",
+        "Nerves/Superior gluteal nerve.r",
+        "Nerves/Sural nerve.r",
+        "Nerves/Tibial nerve.r",
+        "Bursae/Bursa of piriformis.r",
+        "Bursae/Common tendon sheath of fibularis muscles.r",
+        "Bursae/Deep Infrapatellar bursa.r",
+        "Bursae/Extensor digitorum longus-fibularis tertius vaginae tendinum.r",
+        "Bursae/Extensor hallucis longus tendon sheath.r",
+        "Bursae/Flexor digitorum longus tendon sheath.r",
+        "Bursae/Flexor hallucis longus tendon sheath.r",
+        "Bursae/Iliopectineal bursa.r",
+        "Bursae/Inferior subtendinous bursa of biceps femoris.r",
+        "Bursae/Intermuscular gluteal bursae.r",
+        "Bursae/Lateral subtendinous bursa of gastrocnemius muscle.r",
+        "Bursae/Medial subtendinous bursa of gastrocnemius muscle.r",
+        "Bursae/Pes anserine bursa.r",
+        "Bursae/Plantar tendinous sheath of fibularis longus.r",
+        "Bursae/Sciatic bursa of gluteus maximus (Ischiogluteal bursa).r",
+        "Bursae/Sciatic bursa of obturator internus.r",
+        "Bursae/Semimembranosus bursa deep to tendon.r",
+        "Bursae/Subcutaneous bursa of  medial malleolus.r",
+        "Bursae/Subcutaneous bursa of lateral malleolus.r",
+        "Bursae/Subcutaneous bursa of tuberosity of tibia.r",
+        "Bursae/Subcutaneous calcaneal bursa.r",
+        "Bursae/Subcutaneous Infrapatellar bursa.r",
+        "Bursae/Subcutaneous prepatellar bursa.r",
+        "Bursae/Subcutaneous trochanteric bursa.r",
+        "Bursae/Subfascial prepatellar bursa.r",
+        "Bursae/Subpopliteal recess.r",
+        "Bursae/Subtendinous bursa of iliacus.r",
+        "Bursae/Subtendinous bursa of obturator internus.r",
+        "Bursae/Subtendinous bursa of sartorius.r",
+        "Bursae/Subtendinous bursa of tibialis anterior.r",
+        "Bursae/Subtendinous calcaneal bursa.r",
+        "Bursae/Subtendinous prepatellar bursa.r",
+        "Bursae/Superior bursa of biceps femoris.r",
+        "Bursae/Tibialis anterior tendon sheath.r",
+        "Bursae/Tibialis posterior tendon sheath.r",
+        "Bursae/Trochanteric bursa of gluteus maximus.r",
+        "Bursae/Trochanteric bursa of gluteus minimus.r",
+        "Bursae/Trochanteric bursae of gluteus medius.r",
+        "Overlays/Adductor canal.r",
+        "Overlays/Adductor hiatus.r",
+        "Overlays/Adductor minimus overlay.r",
+        "Overlays/Annular ligaments of 1st toe A1-A5.r",
+        "Overlays/Annular ligaments of 2nd toe A1-A5.r",
+        "Overlays/Annular ligaments of 3rd toe A1-A5.r",
+        "Overlays/Annular ligaments of 4th toe A1-A5.r",
+        "Overlays/Annular ligaments of 5th toe A1-A5.r",
+        "Overlays/Anterior ligament of fibular head.r",
+        "Overlays/Anterior pubic ligament",
+        "Overlays/Arcuate ligament.r",
+        "Overlays/Calcaneocuboid ligament.r",
+        "Overlays/Calcaneonavicular ligament.r",
+        "Overlays/Collateral ligament of proximal interphalangeal joints.r",
+        "Overlays/Collateral ligaments of distal interphalangeal joints.r",
+        "Overlays/Collateral ligaments of metatarsophalangeal joints.r",
+        "Overlays/Cruciform ligaments or 1st toe.r",
+        "Overlays/Cruciform ligaments or 2nd toe.r",
+        "Overlays/Cruciform ligaments or 3rd toe.r",
+        "Overlays/Cruciform ligaments or 4th toe.r",
+        "Overlays/Cruciform ligaments or 5th toe.r",
+        "Overlays/Descending part of Iliofemoral ligament.r",
+        "Overlays/Femoral canal.r",
+        "Overlays/Femoral ring.r",
+        "Overlays/Femoral triangle.r",
+        "Overlays/Fibrous sheath of toes.r",
+        "Overlays/Ishciofemoral ligament.r",
+        "Overlays/Lateral patellar retinaculum (horizontal part).r",
+        "Overlays/Lateral patellar retinaculum (vertical part).r",
+        "Overlays/Medial collatertal ligament.r",
+        "Overlays/Medial patellar retinaculum (horizontal part).r",
+        "Overlays/Medial patellar retinaculum (vertical part).r",
+        "Overlays/Oblique popliteal ligament.r",
+        "Overlays/Palmar ligament of proximal interphalangeal joints.r",
+        "Overlays/Palmar ligaments of distal interphalangeal joints.r",
+        "Overlays/Palmar ligaments of metatarsophalangeal joints.r",
+        "Overlays/Posterior ligament of fibular head.r",
+        "Overlays/Posterior pubic ligament",
+        "Overlays/Posterior talofibular ligament.r",
+        "Overlays/Pubofemoral ligament.r",
+        "Overlays/Quadriceps common tendon and patellar ligament",
+        "Overlays/Saphenous opening.r",
+        "Overlays/Suprapatellar bursa overlay.r",
+        "Overlays/Tendinous arch of soleus.r",
+        "Overlays/Transverse part of Iliofemoral ligament.r",
+        "Overlays/Zona orbicularis of hip joint.r"
+      ],
+      "sourceCategoryCounts": {
+        "Cartilages": 36,
+        "Ligaments": 72,
+        "Muscles": 71,
+        "Fascia": 14,
+        "Arteries": 46,
+        "Veins": 42,
+        "Nerves": 47,
+        "Bursae": 38,
+        "Overlays": 46,
+        "Bones": 6
+      },
+      "runtimeCategoryCounts": {
+        "Cartilages": 63,
+        "Ligaments": 142,
+        "Muscles": 142,
+        "Fascia": 28,
+        "Arteries": 92,
+        "Veins": 84,
+        "Nerves": 94,
+        "Bursae": 76,
+        "Overlays": 90,
+        "Bones": 6
+      },
+      "groups": [
+        "regional-midline",
+        "regional-left",
+        "regional-right"
+      ],
+      "groupBounds": {
+        "regional-midline": {
+          "min": [
+            -52.801212310791016,
+            -77.84384155273438,
+            -36.812538146972656
+          ],
+          "max": [
+            52.80115509033203,
+            62.79744338989258,
+            306.82867431640625
+          ]
+        },
+        "regional-left": {
+          "min": [
+            -62.06957244873047,
+            -110.18267059326172,
+            -855.1431274414062
+          ],
+          "max": [
+            161.547119140625,
+            140.2072296142578,
+            297.71478271484375
+          ]
+        },
+        "regional-right": {
+          "min": [
+            -161.547119140625,
+            -110.18267059326172,
+            -855.1431274414062
+          ],
+          "max": [
+            62.06957244873047,
+            140.2072296142578,
+            297.71478271484375
+          ]
+        }
+      },
+      "artifact": "hip-lower-limbs-regional",
+      "axes": {
+        "x": "patient-left",
+        "y": "anterior",
+        "z": "headward"
+      },
+      "units": "millimetres",
+      "hipPivots": {
+        "left": [
+          85.58369749004112,
+          0,
+          0
+        ],
+        "right": [
+          -85.58369749004112,
+          0,
+          0
+        ]
+      },
+      "referenceMidpoint": [
+        0,
+        0,
+        0
+      ],
+      "centeringTransform": {
+        "sourceHipPivotsAppMm": {
+          "left": [
+            85.58369749004112,
+            -5.285914477314503,
+            859.0283934018823
+          ],
+          "right": [
+            -85.58369749004112,
+            -5.285914477314503,
+            859.0283934018823
+          ]
+        },
+        "sourceHipMidpointAppMm": [
+          0,
+          -5.285914477314503,
+          859.0283934018823
+        ],
+        "appliedTranslationMm": [
+          0,
+          5.285914477314503,
+          -859.0283934018823
+        ]
+      },
+      "projectionEligible": false
     }
   }
 }

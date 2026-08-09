@@ -10,9 +10,11 @@ import {
   findDuplicateGeometryFingerprints,
   validateBoundsAgainstBaselines,
   validateCommittedAnatomy,
+  validateRegionalSourceManifest,
   validateRecordedBuildHashes,
   validateLateralityEvidence,
   validatePivotCandidateRegion,
+  approximatelyEqual,
 } from "../../scripts/anatomy/validate-anatomy-assets.mjs";
 
 const temporaryRoots: string[] = [];
@@ -69,6 +71,45 @@ describe("independent anatomy validation rules", () => {
     ).toMatch(/second-build hash/i);
   });
 
+  it("rejects empty coordinate vectors instead of accepting them vacuously", () => {
+    expect(approximatelyEqual([], [0, 0, 0])).toBe(false);
+    expect(approximatelyEqual([0, 0, 0], [])).toBe(false);
+  });
+
+  it("pins the complete regional source-name and side manifest", async () => {
+    const provenance = JSON.parse(
+      await readFile(
+        join(process.cwd(), "public", "anatomy", "open3dmodel-provenance.json"),
+        "utf8",
+      ),
+    );
+    const unilateralOverrides = new Set([
+      "Cartilages/Art cart of sacroiliac joint on hip bone",
+      "Cartilages/Art cart of sacroiliac joint on sacrum",
+      "Ligaments/Articular capsules of distal interphalangeal joints",
+      "Ligaments/Bifurcatum ligament",
+      "Muscles/Common tendon of Semitendinosus and Long head of biceps femoris",
+      "Overlays/Quadriceps common tendon and patellar ligament",
+    ]);
+    const manifest = provenance.artifacts.regional.sourceKeys.map(
+      (key: string) => ({
+        key,
+        side:
+          /\.r[\s\u200B]*$/u.test(key) || unilateralOverrides.has(key)
+            ? "right"
+            : "midline",
+      }),
+    );
+    expect(validateRegionalSourceManifest(manifest)).toEqual([]);
+    manifest[0] = {
+      ...manifest[0],
+      side: manifest[0].side === "right" ? "midline" : "right",
+    };
+    expect(validateRegionalSourceManifest(manifest).join(" ")).toMatch(
+      /source-name.*side manifest/i,
+    );
+  });
+
   it("rejects geometry outside independently pinned bounds", () => {
     const bounds = structuredClone(EXPECTED_ASSET_BASELINES.hip.groupBounds);
     expect(validateBoundsAgainstBaselines("hip", bounds)).toEqual([]);
@@ -76,6 +117,17 @@ describe("independent anatomy validation rules", () => {
     expect(validateBoundsAgainstBaselines("hip", bounds).join(" ")).toMatch(
       /right-femur.*bounds/i,
     );
+  });
+
+  it("pins regional bounds independently from generated provenance", () => {
+    const bounds = structuredClone(
+      EXPECTED_ASSET_BASELINES.regional.groupBounds,
+    );
+    expect(validateBoundsAgainstBaselines("regional", bounds)).toEqual([]);
+    bounds["regional-left"].max[2] += 5;
+    expect(
+      validateBoundsAgainstBaselines("regional", bounds).join(" "),
+    ).toMatch(/regional-left.*bounds/i);
   });
 
   it("requires pivots to occupy the proximal-medial femoral-head region", () => {
@@ -148,7 +200,62 @@ describe("independent anatomy validation rules", () => {
 
     const report = await validateCommittedAnatomy(root);
     expect(report.errors.join(" ")).toMatch(/second-build hash/i);
-  }, 15_000);
+  }, 30_000);
+
+  it("rejects regional source overlap and a projection-eligible supplement", async () => {
+    const root = await createCommittedAssetFixture();
+    const provenancePath = join(
+      root,
+      "public",
+      "anatomy",
+      "open3dmodel-provenance.json",
+    );
+    const provenance = JSON.parse(await readFile(provenancePath, "utf8"));
+    provenance.artifacts.regional.projectionEligible = true;
+    provenance.artifacts.regional.sourceKeys = [
+      ...provenance.artifacts.regional.sourceKeys,
+      provenance.artifacts.hip.sourceKeys[0],
+    ];
+    await writeFile(provenancePath, `${JSON.stringify(provenance, null, 2)}\n`);
+
+    const report = await validateCommittedAnatomy(root);
+    expect(report.errors.join(" ")).toMatch(/projection eligible/i);
+    expect(report.errors.join(" ")).toMatch(/base.*supplement.*overlap/i);
+  }, 30_000);
+
+  it("rejects regional pivots or category counts that disagree with committed geometry", async () => {
+    const root = await createCommittedAssetFixture();
+    const provenancePath = join(
+      root,
+      "public",
+      "anatomy",
+      "open3dmodel-provenance.json",
+    );
+    const provenance = JSON.parse(await readFile(provenancePath, "utf8"));
+    provenance.artifacts.regional.hipPivots.left[0] += 20;
+    provenance.artifacts.regional.sourceCategoryCounts.Muscles += 1;
+    await writeFile(provenancePath, `${JSON.stringify(provenance, null, 2)}\n`);
+
+    const report = await validateCommittedAnatomy(root);
+    expect(report.errors.join(" ")).toMatch(/regional.*hip pivots/i);
+    expect(report.errors.join(" ")).toMatch(/regional.*category counts/i);
+  }, 30_000);
+
+  it("rejects an empty regional pivot vector", async () => {
+    const root = await createCommittedAssetFixture();
+    const provenancePath = join(
+      root,
+      "public",
+      "anatomy",
+      "open3dmodel-provenance.json",
+    );
+    const provenance = JSON.parse(await readFile(provenancePath, "utf8"));
+    provenance.artifacts.regional.hipPivots.left = [];
+    await writeFile(provenancePath, `${JSON.stringify(provenance, null, 2)}\n`);
+
+    const report = await validateCommittedAnatomy(root);
+    expect(report.errors.join(" ")).toMatch(/regional.*hip pivots/i);
+  }, 30_000);
 
   it("rejects a modified bundled Draco licence", async () => {
     const root = await createCommittedAssetFixture();
@@ -156,5 +263,5 @@ describe("independent anatomy validation rules", () => {
 
     const report = await validateCommittedAnatomy(root);
     expect(report.errors.join(" ")).toMatch(/Draco LICENSE checksum/i);
-  }, 15_000);
+  }, 30_000);
 });

@@ -45,6 +45,47 @@ describe("committed anatomy assets", () => {
     expect(report.overview.duplicateGeometryCount).toBe(0);
     expect(report.overview.negativeSignedVolumeCount).toBe(0);
     expect(report.overview.triangleCount).toBe(725_968);
+    expect(report.regional.groups).toEqual([
+      "regional-midline",
+      "regional-left",
+      "regional-right",
+    ]);
+    expect(report.regional.projectionEligible).toBe(false);
+    expect(report.regional.nonFiniteAccessorCount).toBe(0);
+    expect(report.regional.duplicateGeometryCount).toBe(0);
+    expect(report.regional.crossArtifactDuplicateGeometryCount).toBe(0);
+    expect(report.regional.materialsOpaqueAndLocal).toBe(true);
+    expect(report.regional.nonAnatomicalResourceCount).toBe(0);
+    expect(report.regional.hipPivots).toEqual(report.hip.hipPivots);
+    expect(report.regional.referenceMidpoint).toEqual([0, 0, 0]);
+    expect(report.regional.rootTransformIsIdentity).toBe(true);
+    expect(report.regional.sourceCategoryCounts).toEqual({
+      Bones: 6,
+      Cartilages: 36,
+      Ligaments: 72,
+      Muscles: 71,
+      Fascia: 14,
+      Arteries: 46,
+      Veins: 42,
+      Nerves: 47,
+      Bursae: 38,
+      Overlays: 46,
+    });
+    expect(report.regional.sourceCount).toBe(418);
+    expect(report.regional.meshCount).toBe(817);
+    expect(report.regional.mirroredPairCount).toBe(399);
+    expect(report.regional.mirroredPairsVerified).toBe(true);
+    expect(report.regional.windingNormalInconsistencyCount).toBe(0);
+    expect(report.regional.sourceManifestVerified).toBe(true);
+    for (const [category, count] of Object.entries(
+      report.regional.sourceCategoryCounts,
+    )) {
+      expect(count, `${category} source count`).toBeGreaterThan(0);
+    }
+    expect(report.sourceAccountingVerified).toBe(true);
+    expect(
+      new Set([...report.hip.sourceKeys, ...report.regional.sourceKeys]).size,
+    ).toBe(report.hip.sourceKeys.length + report.regional.sourceKeys.length);
 
     const provenance = JSON.parse(
       await readFile(
@@ -60,5 +101,24 @@ describe("committed anatomy assets", () => {
     expect(provenance.generationVerification.validatorTrustBoundary).toMatch(
       /recorded.*does not.*rerun generation/i,
     );
-  }, 15_000);
+    expect(provenance.artifacts.regional).toMatchObject({
+      path: "public/anatomy/open3dmodel-hip-lower-limbs-regional.glb",
+      groups: ["regional-midline", "regional-left", "regional-right"],
+      projectionEligible: false,
+      sourceCategoryCounts: report.regional.sourceCategoryCounts,
+    });
+    expect(provenance.artifacts.regional.sourceKeys).toEqual(
+      report.regional.sourceKeys,
+    );
+
+    const licenceRegistry = await readFile(
+      join(process.cwd(), "docs", "ASSET-LICENCES.md"),
+      "utf8",
+    );
+    expect(licenceRegistry).toMatch(
+      /open3dmodel-hip-lower-limbs-regional\.glb/i,
+    );
+    expect(licenceRegistry).toContain(provenance.artifacts.regional.sha256);
+    expect(licenceRegistry).toMatch(/CC BY-SA 4\.0/i);
+  }, 30_000);
 });

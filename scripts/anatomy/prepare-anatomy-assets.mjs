@@ -80,8 +80,33 @@ export const REGIONAL_CONTEXT_BONES = Object.freeze([
   "L4",
   "L5",
 ]);
+export const REGIONAL_GROUPS = Object.freeze([
+  "regional-midline",
+  "regional-left",
+  "regional-right",
+]);
+export const REGIONAL_MATERIALS = Object.freeze({
+  Cartilages: [0.42, 0.72, 0.82, 1],
+  Ligaments: [0.82, 0.75, 0.61, 1],
+  Muscles: [0.58, 0.18, 0.2, 1],
+  Fascia: [0.76, 0.7, 0.59, 1],
+  Arteries: [0.72, 0.08, 0.1, 1],
+  Veins: [0.12, 0.28, 0.58, 1],
+  Nerves: [0.88, 0.63, 0.12, 1],
+  Bursae: [0.12, 0.55, 0.55, 1],
+  Overlays: [0.55, 0.48, 0.42, 1],
+  Bones: [0.82, 0.79, 0.7, 1],
+});
 
 const REGIONAL_SOURCE_CATEGORY_SET = new Set(REGIONAL_SOURCE_CATEGORIES);
+const REGIONAL_RIGHT_SOURCE_OVERRIDES = new Set([
+  "Cartilages/Art cart of sacroiliac joint on hip bone",
+  "Cartilages/Art cart of sacroiliac joint on sacrum",
+  "Ligaments/Articular capsules of distal interphalangeal joints",
+  "Ligaments/Bifurcatum ligament",
+  "Muscles/Common tendon of Semitendinosus and Long head of biceps femoris",
+  "Overlays/Quadriceps common tendon and patellar ligament",
+]);
 const EXCLUDED_LOWER_LIMB_BONE_NAMES = Object.freeze([
   "Thoracic vertebra (T12)",
   "Lumbar vertebra (L1)",
@@ -111,12 +136,18 @@ function canonicalContextBoneName(name) {
 }
 
 export function classifyRegionalSource(name, category) {
-  const right = name.endsWith(".r");
+  const right =
+    /\.r[\s\u200B]*$/u.test(name) ||
+    REGIONAL_RIGHT_SOURCE_OVERRIDES.has(sourceAccountingKey(category, name));
   return {
     category,
     side: right ? "right" : "midline",
     mirrorToLeft: right,
   };
+}
+
+function mirroredRegionalName(name) {
+  return name.replace(/\.r(?=[\s\u200B]*$)/u, ".l");
 }
 
 export function isRegionalSource(name, category) {
@@ -255,7 +286,7 @@ function transformVec3Array(
   return output;
 }
 
-function transformTriangleIndices(array, mirrorX) {
+export function transformTriangleIndices(array, mirrorX) {
   if (array.length % 3 !== 0) {
     throw new Error("Source primitive is not triangular");
   }
@@ -311,6 +342,7 @@ function addBoneNode({
   group,
   mirrorX,
   positionOffset = [0, 0, 0],
+  extras = {},
 }) {
   const targetMesh = document.createMesh(name);
   const sourceMesh = sourceNode.getMesh();
@@ -368,11 +400,15 @@ function addBoneNode({
         .setMaterial(material),
     );
   }
-  const node = document.createNode(name).setMesh(targetMesh).setExtras({
-    anatomyGroup: group,
-    sourceName: sourceNode.getName(),
-    derivedByMirroring: mirrorX,
-  });
+  const node = document
+    .createNode(name)
+    .setMesh(targetMesh)
+    .setExtras({
+      anatomyGroup: group,
+      sourceName: sourceNode.getName(),
+      derivedByMirroring: mirrorX,
+      ...extras,
+    });
   parent.addChild(node);
   return node;
 }
@@ -425,19 +461,9 @@ function classifyLowerLimbBone(name) {
   return "foot";
 }
 
-async function buildHipArtifact(sourceDocument, io) {
-  const bonesRoot = findUniqueNode(sourceDocument, "Bones");
-  const sourceBones = exactChildMap(bonesRoot);
-  const classified = [...sourceBones].filter(([name]) =>
-    classifyLowerLimbBone(name),
-  );
-  if (classified.length !== 34 || sourceBones.size !== 40) {
-    throw new Error(
-      `Unexpected lower-limb Bones structure: ${sourceBones.size} total, ${classified.length} included`,
-    );
-  }
-
+function hipReferenceFromSourceBones(sourceBones) {
   const femurSource = sourceBones.get("Femur.r");
+  if (!femurSource) throw new Error("Lower-limb source femur is absent");
   const femurPositions = femurSource
     .getMesh()
     .listPrimitives()
@@ -455,13 +481,29 @@ async function buildHipArtifact(sourceDocument, io) {
       }
       return points;
     });
-  const candidates = selectFemoralHeadCandidates(femurPositions);
-  const fitted = fitSphere(candidates);
+  const fitted = fitSphere(selectFemoralHeadCandidates(femurPositions));
   const sourceHipPivots = {
     left: [-fitted.center[0], fitted.center[1], fitted.center[2]],
     right: fitted.center,
   };
   const centredReference = centerHipReference(sourceHipPivots);
+  return { sourceHipPivots, centredReference };
+}
+
+async function buildHipArtifact(sourceDocument, io) {
+  const bonesRoot = findUniqueNode(sourceDocument, "Bones");
+  const sourceBones = exactChildMap(bonesRoot);
+  const classified = [...sourceBones].filter(([name]) =>
+    classifyLowerLimbBone(name),
+  );
+  if (classified.length !== 34 || sourceBones.size !== 40) {
+    throw new Error(
+      `Unexpected lower-limb Bones structure: ${sourceBones.size} total, ${classified.length} included`,
+    );
+  }
+
+  const { sourceHipPivots, centredReference } =
+    hipReferenceFromSourceBones(sourceBones);
   const hipPivots = centredReference.hipPivots;
   const metadata = {
     artifact: "hip-lower-limbs",
@@ -545,7 +587,147 @@ async function buildHipArtifact(sourceDocument, io) {
     (total, nodes) => total + nodes.length,
     0,
   );
-  return { bytes, metadata, groupBounds, includedBoneCount };
+  return {
+    bytes,
+    metadata,
+    groupBounds,
+    includedBoneCount,
+    sourceKeys: classified.map(([name]) => sourceAccountingKey("Bones", name)),
+  };
+}
+
+function createRegionalMaterials(document) {
+  return new Map(
+    Object.entries(REGIONAL_MATERIALS).map(([category, baseColorFactor]) => [
+      category,
+      document
+        .createMaterial(`Opaque regional ${category}`)
+        .setBaseColorFactor(baseColorFactor)
+        .setRoughnessFactor(0.78)
+        .setMetallicFactor(0),
+    ]),
+  );
+}
+
+async function buildRegionalArtifact(sourceDocument, io) {
+  const sourceRoots = new Map();
+  for (const category of ["Bones", ...REGIONAL_SOURCE_CATEGORIES]) {
+    sourceRoots.set(
+      category,
+      exactChildMap(findUniqueNode(sourceDocument, category)),
+    );
+  }
+  const anatomicalChildren = [...sourceRoots].flatMap(([category, children]) =>
+    [...children.keys()].map((name) => ({ category, name })),
+  );
+  const accounting = createRegionalSourceAccounting({
+    anatomicalChildren,
+    nonAnatomicalExclusions: [],
+  });
+  if (accounting.size !== 452) {
+    throw new Error(
+      `Unexpected lower-limb source structure count: ${accounting.size}`,
+    );
+  }
+  const supplementEntries = [...accounting].filter(
+    ([, entry]) => entry.disposition === "supplement",
+  );
+  if (supplementEntries.length !== 418) {
+    throw new Error(
+      `Unexpected regional supplement source count: ${supplementEntries.length}`,
+    );
+  }
+
+  const sourceBones = sourceRoots.get("Bones");
+  const { sourceHipPivots, centredReference } =
+    hipReferenceFromSourceBones(sourceBones);
+  const metadata = {
+    artifact: "hip-lower-limbs-regional",
+    axes: { x: "patient-left", y: "anterior", z: "headward" },
+    units: "millimetres",
+    groups: REGIONAL_GROUPS,
+    hipPivots: centredReference.hipPivots,
+    referenceMidpoint: [0, 0, 0],
+    centeringTransform: {
+      sourceHipPivotsAppMm: sourceHipPivots,
+      sourceHipMidpointAppMm: centredReference.midpoint,
+      appliedTranslationMm: centredReference.translation,
+    },
+    projectionEligible: false,
+  };
+  const { document, root, buffer } = createTargetDocument(
+    "Open3DModel Hip and Lower Limbs Regional",
+    metadata,
+  );
+  const materials = createRegionalMaterials(document);
+  const groups = new Map(
+    REGIONAL_GROUPS.map((name) => [
+      name,
+      createSemanticGroup(document, root, name),
+    ]),
+  );
+  const groupNodes = new Map(REGIONAL_GROUPS.map((name) => [name, []]));
+  const runtimeCategoryCounts = Object.fromEntries(
+    Object.keys(REGIONAL_MATERIALS).map((category) => [category, 0]),
+  );
+
+  for (const [key, entry] of supplementEntries) {
+    const sourceNode = sourceRoots.get(entry.category).get(entry.name);
+    const sides = entry.classification.mirrorToLeft
+      ? ["right", "left"]
+      : ["midline"];
+    for (const side of sides) {
+      const groupName = `regional-${side}`;
+      const mirrorX = side === "left";
+      const node = addBoneNode({
+        document,
+        buffer,
+        material: materials.get(entry.category),
+        parent: groups.get(groupName),
+        sourceNode,
+        name: mirrorX ? mirroredRegionalName(entry.name) : entry.name,
+        group: groupName,
+        mirrorX,
+        positionOffset: centredReference.midpoint,
+        extras: {
+          anatomyCategory: entry.category,
+          anatomySide: side,
+          sourceKey: key,
+        },
+      });
+      groupNodes.get(groupName).push(node);
+      runtimeCategoryCounts[entry.category] += 1;
+    }
+  }
+
+  const groupBounds = Object.fromEntries(
+    REGIONAL_GROUPS.map((name) => [name, boundsForNodes(groupNodes.get(name))]),
+  );
+  const sourceCategoryCounts = Object.fromEntries(
+    Object.keys(REGIONAL_MATERIALS).map((category) => [
+      category,
+      supplementEntries.filter(([, entry]) => entry.category === category)
+        .length,
+    ]),
+  );
+  await document.transform(dedup(), prune(), draco({ method: "edgebreaker" }));
+  const bytes = await io.writeBinary(document);
+  return {
+    bytes,
+    metadata,
+    groupBounds,
+    sourceKeys: supplementEntries.map(([key]) => key),
+    sourceCategoryCounts,
+    runtimeCategoryCounts,
+    meshCount: [...groupNodes.values()].reduce(
+      (total, nodes) => total + nodes.length,
+      0,
+    ),
+    sourceAccounting: [...accounting].map(([key, entry]) => ({
+      key,
+      ...entry,
+    })),
+  };
 }
 
 async function buildOverviewArtifact(sourceDocument, io) {
@@ -916,13 +1098,14 @@ export async function prepareAnatomyAssets({
       sourcePaths.get("open3dmodel-overview-skeleton"),
     );
     const hipSource = await io.read(sourcePaths.get("open3dmodel-lower-limb"));
-    const [overview, hip] = await Promise.all([
+    const [overview, hip, regional] = await Promise.all([
       buildOverviewArtifact(overviewSource, io),
       buildHipArtifact(hipSource, io),
+      buildRegionalArtifact(hipSource, io),
     ]);
 
     const verificationIO = await createIO();
-    const [overviewAgain, hipAgain] = await Promise.all([
+    const [overviewAgain, hipAgain, regionalAgain] = await Promise.all([
       buildOverviewArtifact(
         await verificationIO.read(
           sourcePaths.get("open3dmodel-overview-skeleton"),
@@ -933,10 +1116,15 @@ export async function prepareAnatomyAssets({
         await verificationIO.read(sourcePaths.get("open3dmodel-lower-limb")),
         verificationIO,
       ),
+      buildRegionalArtifact(
+        await verificationIO.read(sourcePaths.get("open3dmodel-lower-limb")),
+        verificationIO,
+      ),
     ]);
     if (
       !byteIdentical(overview.bytes, overviewAgain.bytes) ||
-      !byteIdentical(hip.bytes, hipAgain.bytes)
+      !byteIdentical(hip.bytes, hipAgain.bytes) ||
+      !byteIdentical(regional.bytes, regionalAgain.bytes)
     ) {
       throw new Error(
         "Derived GLB output is not byte-identical across repeated builds",
@@ -953,10 +1141,16 @@ export async function prepareAnatomyAssets({
       "open3dmodel-overview-skeleton.glb",
     );
     const hipPath = join(anatomyDirectory, "open3dmodel-hip-lower-limbs.glb");
+    const regionalPath = join(
+      anatomyDirectory,
+      "open3dmodel-hip-lower-limbs-regional.glb",
+    );
     await writeFile(overviewPath, overview.bytes);
     await writeFile(hipPath, hip.bytes);
+    await writeFile(regionalPath, regional.bytes);
     const committedOverviewBytes = await readFile(overviewPath);
     const committedHipBytes = await readFile(hipPath);
+    const committedRegionalBytes = await readFile(regionalPath);
     const overviewBuildHashes = {
       firstBuildSha256: sha256(overview.bytes),
       secondBuildSha256: sha256(overviewAgain.bytes),
@@ -966,6 +1160,11 @@ export async function prepareAnatomyAssets({
       firstBuildSha256: sha256(hip.bytes),
       secondBuildSha256: sha256(hipAgain.bytes),
       committedSha256: sha256(committedHipBytes),
+    };
+    const regionalBuildHashes = {
+      firstBuildSha256: sha256(regional.bytes),
+      secondBuildSha256: sha256(regionalAgain.bytes),
+      committedSha256: sha256(committedRegionalBytes),
     };
     for (const name of [
       "draco_decoder.js",
@@ -1018,17 +1217,19 @@ export async function prepareAnatomyAssets({
       },
       sources: SOURCE_ASSETS.map((source) => ({ ...source })),
       transformations: [
-        "Retained skeletal meshes only and removed all non-bone roots",
+        "Retained skeletal meshes in the base artifacts and retained all pinned lower-limb regional structure categories in a separate display-only supplement",
         "Mapped source metres [x,y,z] to application millimetres [1000x,1000z,1000y]",
         "Reversed triangle winding after the handedness-changing axis swap and repaired source triangles against transformed normals",
         "Mirrored named right-side meshes across x=0 and reversed winding",
         "Translated detailed hip/lower-limb positions by the negative bilateral femoral-head midpoint so the hip reference is the root origin",
         "Replaced source materials with one opaque neutral bone material",
-        "Removed lower-limb T12 and L1-L5, deduplicated, pruned, and Draco-compressed",
+        "Applied opaque app-owned category materials to the regional supplement without runtime textures",
+        "Moved lower-limb T12 and L1-L5 from the skeletal base into the regional supplement, deduplicated, pruned, and Draco-compressed all outputs",
       ],
       included: {
         overview: ["Bones", "Bones_right", "mirrored Bones_right"],
         hip: HIP_GROUPS,
+        regional: REGIONAL_GROUPS,
       },
       excluded: {
         overview: ["Cartilages_right"],
@@ -1044,7 +1245,11 @@ export async function prepareAnatomyAssets({
           "Bursae",
           "Overlays",
         ],
+        regional: [
+          "The 34 skeletal source structures retained by the hip base",
+        ],
       },
+      lowerLimbSourceAccounting: regional.sourceAccounting,
       generationVerification: {
         method:
           "Two independent generation passes from the same pinned downloaded inputs are compared byte-for-byte before publication",
@@ -1076,9 +1281,24 @@ export async function prepareAnatomyAssets({
           sha256: sha256(hip.bytes),
           buildHashes: hipBuildHashes,
           includedBoneCount: hip.includedBoneCount,
+          sourceKeys: hip.sourceKeys,
           groups: HIP_GROUPS,
           groupBounds: hip.groupBounds,
           ...hip.metadata,
+        },
+        regional: {
+          path: "public/anatomy/open3dmodel-hip-lower-limbs-regional.glb",
+          bytes: regional.bytes.byteLength,
+          sha256: sha256(regional.bytes),
+          buildHashes: regionalBuildHashes,
+          sourceCount: regional.sourceKeys.length,
+          meshCount: regional.meshCount,
+          sourceKeys: regional.sourceKeys,
+          sourceCategoryCounts: regional.sourceCategoryCounts,
+          runtimeCategoryCounts: regional.runtimeCategoryCounts,
+          groups: REGIONAL_GROUPS,
+          groupBounds: regional.groupBounds,
+          ...regional.metadata,
         },
       },
     };

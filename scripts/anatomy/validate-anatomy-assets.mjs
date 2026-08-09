@@ -18,6 +18,49 @@ const EXPECTED_HIP_GROUPS = [
   "right-tibia-fibula",
   "right-foot",
 ];
+const EXPECTED_REGIONAL_GROUPS = [
+  "regional-midline",
+  "regional-left",
+  "regional-right",
+];
+const EXPECTED_REGIONAL_SOURCE_CATEGORY_COUNTS = Object.freeze({
+  Bones: 6,
+  Cartilages: 36,
+  Ligaments: 72,
+  Muscles: 71,
+  Fascia: 14,
+  Arteries: 46,
+  Veins: 42,
+  Nerves: 47,
+  Bursae: 38,
+  Overlays: 46,
+});
+const EXPECTED_REGIONAL_RUNTIME_CATEGORY_COUNTS = Object.freeze({
+  Bones: 6,
+  Cartilages: 63,
+  Ligaments: 142,
+  Muscles: 142,
+  Fascia: 28,
+  Arteries: 92,
+  Veins: 84,
+  Nerves: 94,
+  Bursae: 76,
+  Overlays: 90,
+});
+const EXPECTED_REGIONAL_SOURCE_MANIFEST_SHA256 =
+  "A2CC25BB6AC07014CBE1955310B835A486625972407BC4E2A19E7A431E1BC7F4";
+const EXPECTED_REGIONAL_MATERIALS = Object.freeze({
+  Cartilages: [0.42, 0.72, 0.82, 1],
+  Ligaments: [0.82, 0.75, 0.61, 1],
+  Muscles: [0.58, 0.18, 0.2, 1],
+  Fascia: [0.76, 0.7, 0.59, 1],
+  Arteries: [0.72, 0.08, 0.1, 1],
+  Veins: [0.12, 0.28, 0.58, 1],
+  Nerves: [0.88, 0.63, 0.12, 1],
+  Bursae: [0.12, 0.55, 0.55, 1],
+  Overlays: [0.55, 0.48, 0.42, 1],
+  Bones: [0.82, 0.79, 0.7, 1],
+});
 const EXPECTED_SOURCES = [
   {
     id: "open3dmodel-overview-skeleton",
@@ -119,10 +162,43 @@ export const EXPECTED_ASSET_BASELINES = Object.freeze({
       },
     },
   }),
+  regional: Object.freeze({
+    meshCount: 817,
+    triangleCount: 2_164_568,
+    overallBounds: {
+      min: [-161.54712, -110.18267, -855.14313],
+      max: [161.54712, 140.20723, 306.82874],
+    },
+    groupBounds: {
+      "regional-midline": {
+        min: [-52.80121, -77.84384, -36.81254],
+        max: [52.80115, 62.79745, 306.82868],
+      },
+      "regional-left": {
+        min: [-62.06957, -110.18267, -855.14313],
+        max: [161.54712, 140.20723, 297.71478],
+      },
+      "regional-right": {
+        min: [-161.54712, -110.18267, -855.14313],
+        max: [62.06957, 140.20723, 297.71478],
+      },
+    },
+  }),
 });
 
 function sha256(bytes) {
   return createHash("sha256").update(bytes).digest("hex").toUpperCase();
+}
+
+export function validateRegionalSourceManifest(entries) {
+  if (!Array.isArray(entries) || entries.length !== 418) {
+    return ["Regional source-name and side manifest has an invalid length"];
+  }
+  const rows = entries.map((entry) => `${entry?.key}\t${entry?.side}`).sort();
+  const digest = sha256(new TextEncoder().encode(rows.join("\n")));
+  return digest === EXPECTED_REGIONAL_SOURCE_MANIFEST_SHA256
+    ? []
+    : ["Regional source-name and side manifest differs from the pinned source"];
 }
 
 export function validateRecordedBuildHashes(recorded, actualSha256) {
@@ -157,7 +233,7 @@ export function validateBoundsAgainstBaselines(assetName, actualGroupBounds) {
       !approximatelyEqual(bounds.max, expectedBounds.max, BOUNDS_TOLERANCE_MM)
     ) {
       errors.push(
-        `${assetName} ${groupName} bounds differ from the pinned baseline`,
+        `${assetName} ${groupName} bounds differ from the pinned baseline: ${JSON.stringify(bounds)}`,
       );
     }
   }
@@ -174,7 +250,9 @@ export function validateBoundsAgainstBaselines(assetName, actualGroupBounds) {
         BOUNDS_TOLERANCE_MM,
       ))
   ) {
-    errors.push(`${assetName} overall bounds differ from the pinned baseline`);
+    errors.push(
+      `${assetName} overall bounds differ from the pinned baseline: ${JSON.stringify(actualGroupBounds.overallBounds)}`,
+    );
   }
   return errors;
 }
@@ -277,9 +355,24 @@ function boundsForMeshes(meshes) {
   return { min, max };
 }
 
-function approximatelyEqual(actual, expected, tolerance = 0.5) {
-  return actual.every(
-    (value, index) => Math.abs(value - expected[index]) <= tolerance,
+export function approximatelyEqual(actual, expected, tolerance = 0.5) {
+  return (
+    Array.isArray(actual) &&
+    Array.isArray(expected) &&
+    actual.length > 0 &&
+    actual.length === expected.length &&
+    [...actual, ...expected].every(Number.isFinite) &&
+    actual.every(
+      (value, index) => Math.abs(value - expected[index]) <= tolerance,
+    )
+  );
+}
+
+function numericRecordEqual(actual, expected) {
+  return (
+    actual &&
+    Object.keys(actual).length === Object.keys(expected).length &&
+    Object.entries(expected).every(([key, value]) => actual[key] === value)
   );
 }
 
@@ -315,13 +408,23 @@ function externalRuntimeURLs(json) {
   return uris;
 }
 
-function validatePrimitive(primitive, meshName, errors) {
+function validatePrimitive(
+  primitive,
+  meshName,
+  errors,
+  { requireClosed = true, requireConsistentNormals = true } = {},
+) {
   const positionAccessor = primitive.getAttribute("POSITION");
   const normalAccessor = primitive.getAttribute("NORMAL");
   const indexAccessor = primitive.getIndices();
   if (!positionAccessor || !normalAccessor || !indexAccessor) {
     errors.push(`${meshName} lacks indexed positions or normals`);
-    return { closed: false, nonFinite: 0, windingErrors: 0 };
+    return {
+      closed: false,
+      nonFinite: 0,
+      windingErrors: 0,
+      degenerateTriangles: 0,
+    };
   }
   const positions = positionAccessor.getArray();
   const normals = normalAccessor.getArray();
@@ -353,6 +456,7 @@ function validatePrimitive(primitive, meshName, errors) {
   );
   const edges = new Map();
   let windingErrors = 0;
+  let degenerateTriangles = 0;
   for (let index = 0; index < indices.length; index += 3) {
     const [a, b, c] = [indices[index], indices[index + 1], indices[index + 2]];
     if ([a, b, c].some((vertex) => vertex >= vertexCount)) continue;
@@ -381,23 +485,37 @@ function validatePrimitive(primitive, meshName, errors) {
       (axis) =>
         normals[3 * a + axis] + normals[3 * b + axis] + normals[3 * c + axis],
     );
-    if (
-      face.reduce((sum, value, axis) => sum + value * averageNormal[axis], 0) <
-      -1e-7
-    ) {
+    const faceLength = Math.hypot(...face);
+    const averageNormalLength = Math.hypot(...averageNormal);
+    // Draco's position quantization can collapse source micro-triangles to a
+    // face area far below display resolution. Account for those separately so
+    // they cannot hide genuine winding defects behind a global error budget.
+    if (faceLength <= 1e-4 || averageNormalLength <= 0.05) {
+      degenerateTriangles += 1;
+      continue;
+    }
+    const normalizedAlignment =
+      face.reduce((sum, value, axis) => sum + value * averageNormal[axis], 0) /
+      (faceLength * averageNormalLength);
+    if (normalizedAlignment < -0.01) {
       windingErrors += 1;
     }
   }
   const badEdges = [...edges.values()].filter((count) => count !== 2).length;
-  if (badEdges)
+  if (badEdges && requireClosed)
     errors.push(
       `${meshName} is not closed (${badEdges} non-manifold boundary edges)`,
     );
-  if (windingErrors)
+  if (windingErrors && requireConsistentNormals)
     errors.push(
       `${meshName} has ${windingErrors} winding/normal inconsistencies`,
     );
-  return { closed: badEdges === 0, nonFinite, windingErrors };
+  return {
+    closed: badEdges === 0,
+    nonFinite,
+    windingErrors,
+    degenerateTriangles,
+  };
 }
 
 function collectSemanticGroups(document) {
@@ -434,15 +552,107 @@ function meshNodesUnder(node) {
 
 function flattenMeshGeometry(mesh) {
   const positions = [];
+  const normals = [];
   const indices = [];
   for (const primitive of mesh.listPrimitives()) {
     const primitivePositions = primitive.getAttribute("POSITION").getArray();
+    const primitiveNormals = primitive.getAttribute("NORMAL").getArray();
     const primitiveIndices = primitive.getIndices().getArray();
     const vertexOffset = positions.length / 3;
     positions.push(...primitivePositions);
+    normals.push(...primitiveNormals);
     indices.push(...[...primitiveIndices].map((index) => index + vertexOffset));
   }
-  return { name: mesh.getName(), positions, indices };
+  return { name: mesh.getName(), positions, normals, indices };
+}
+
+function canonicalOrientedTriangle(vertices) {
+  const rotations = [
+    [vertices[0], vertices[1], vertices[2]],
+    [vertices[1], vertices[2], vertices[0]],
+    [vertices[2], vertices[0], vertices[1]],
+  ].map((rotation) => rotation.flat());
+  return rotations.sort(compareNumericVectors)[0];
+}
+
+function compareNumericVectors(left, right) {
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return left[index] - right[index];
+  }
+  return 0;
+}
+
+function mirroredGeometryRecords(geometry, { mirrorX, reverseWinding }) {
+  const positions = [];
+  const vertexRecords = [];
+  for (let index = 0; index < geometry.positions.length; index += 3) {
+    const position = [
+      mirrorX ? -geometry.positions[index] : geometry.positions[index],
+      geometry.positions[index + 1],
+      geometry.positions[index + 2],
+    ];
+    const normal = [
+      mirrorX ? -geometry.normals[index] : geometry.normals[index],
+      geometry.normals[index + 1],
+      geometry.normals[index + 2],
+    ];
+    positions.push(position);
+    vertexRecords.push([...position, ...normal]);
+  }
+  const triangles = [];
+  for (let index = 0; index < geometry.indices.length; index += 3) {
+    const vertices = [
+      positions[geometry.indices[index]],
+      positions[geometry.indices[index + 1]],
+      positions[geometry.indices[index + 2]],
+    ];
+    if (reverseWinding) [vertices[1], vertices[2]] = [vertices[2], vertices[1]];
+    triangles.push(canonicalOrientedTriangle(vertices));
+  }
+  return {
+    triangles: triangles.sort(compareNumericVectors),
+    vertexRecords: vertexRecords.sort(compareNumericVectors),
+  };
+}
+
+function vectorsMatchWithin(left, right, tolerance) {
+  return (
+    left.length === right.length &&
+    left.every((value, index) => Math.abs(value - right[index]) <= tolerance)
+  );
+}
+
+function validateMirroredNodePair(leftNode, rightNode) {
+  const left = flattenMeshGeometry(leftNode.getMesh());
+  const right = flattenMeshGeometry(rightNode.getMesh());
+  if (
+    left.positions.length !== right.positions.length ||
+    left.indices.length !== right.indices.length
+  ) {
+    return false;
+  }
+  const leftRecords = mirroredGeometryRecords(left, {
+    mirrorX: true,
+    reverseWinding: true,
+  });
+  const rightRecords = mirroredGeometryRecords(right, {
+    mirrorX: false,
+    reverseWinding: false,
+  });
+  return (
+    mirroredBounds(
+      boundsForMeshes([leftNode.getMesh()]),
+      boundsForMeshes([rightNode.getMesh()]),
+    ) &&
+    leftRecords.triangles.length === rightRecords.triangles.length &&
+    leftRecords.triangles.every((triangle, index) =>
+      vectorsMatchWithin(triangle, rightRecords.triangles[index], 0.001),
+    ) &&
+    leftRecords.vertexRecords.length === rightRecords.vertexRecords.length &&
+    leftRecords.vertexRecords.every((record, index) =>
+      vectorsMatchWithin(record, rightRecords.vertexRecords[index], 0.001),
+    )
+  );
 }
 
 function hasIdentityWorldMatrix(node, tolerance = 1e-8) {
@@ -464,13 +674,16 @@ export async function validateCommittedAnatomy(repositoryRoot) {
   );
   const overviewPath = join(repositoryRoot, provenance.artifacts.overview.path);
   const hipPath = join(repositoryRoot, provenance.artifacts.hip.path);
-  const [overviewBytes, hipBytes] = await Promise.all([
+  const regionalPath = join(repositoryRoot, provenance.artifacts.regional.path);
+  const [overviewBytes, hipBytes, regionalBytes] = await Promise.all([
     readFile(overviewPath),
     readFile(hipPath),
+    readFile(regionalPath),
   ]);
   for (const [name, bytes] of [
     ["overview", overviewBytes],
     ["hip", hipBytes],
+    ["regional", regionalBytes],
   ]) {
     const artifact = provenance.artifacts[name];
     const actualSha256 = sha256(bytes);
@@ -552,9 +765,10 @@ export async function validateCommittedAnatomy(repositoryRoot) {
     .registerDependencies({
       "draco3d.decoder": await draco3d.createDecoderModule(),
     });
-  const [overviewDocument, hipDocument] = await Promise.all([
+  const [overviewDocument, hipDocument, regionalDocument] = await Promise.all([
     io.read(overviewPath),
     io.read(hipPath),
+    io.read(regionalPath),
   ]);
   const hipGroups = collectSemanticGroups(hipDocument);
   const groupNames = [...hipGroups.keys()].sort(
@@ -758,6 +972,381 @@ export async function validateCommittedAnatomy(repositoryRoot) {
   if (!hipSceneRoot || !hasIdentityWorldMatrix(hipSceneRoot))
     errors.push("Detailed anatomy root transform is not identity");
 
+  const regionalArtifact = provenance.artifacts.regional;
+  const regionalGroups = collectSemanticGroups(regionalDocument);
+  const regionalGroupNames = [...regionalGroups.keys()].sort(
+    (left, right) =>
+      EXPECTED_REGIONAL_GROUPS.indexOf(left) -
+      EXPECTED_REGIONAL_GROUPS.indexOf(right),
+  );
+  if (
+    JSON.stringify(regionalGroupNames) !==
+    JSON.stringify(EXPECTED_REGIONAL_GROUPS)
+  ) {
+    errors.push(
+      `Regional semantic groups differ: ${regionalGroupNames.join(", ")}`,
+    );
+  }
+  const regionalRootExtras = regionalDocument.getRoot().getExtras().orthoFluoro;
+  const regionalSceneRoot = regionalDocument
+    .getRoot()
+    .listScenes()[0]
+    ?.listChildren()[0];
+  const regionalRootTransformIsIdentity = Boolean(
+    regionalSceneRoot && hasIdentityWorldMatrix(regionalSceneRoot),
+  );
+  if (!regionalRootTransformIsIdentity)
+    errors.push("Regional anatomy root transform is not identity");
+  if (
+    regionalArtifact.projectionEligible !== false ||
+    regionalRootExtras?.projectionEligible !== false
+  ) {
+    errors.push("Regional anatomy must not be projection eligible");
+  }
+
+  const regionalGroupBounds = {};
+  const regionalGeometry = [];
+  const regionalSourceKeys = new Set();
+  const regionalNodesBySourceKey = new Map();
+  const regionalSourcesByCategory = Object.fromEntries(
+    Object.keys(EXPECTED_REGIONAL_SOURCE_CATEGORY_COUNTS).map((category) => [
+      category,
+      new Set(),
+    ]),
+  );
+  const regionalRuntimeCategoryCounts = Object.fromEntries(
+    Object.keys(EXPECTED_REGIONAL_RUNTIME_CATEGORY_COUNTS).map((category) => [
+      category,
+      0,
+    ]),
+  );
+  let regionalMeshCount = 0;
+  let regionalNonFiniteAccessorCount = 0;
+  let regionalOpenMeshCount = 0;
+  let regionalTriangleCount = 0;
+  let regionalWindingNormalInconsistencyCount = 0;
+  let regionalDegenerateTriangleCount = 0;
+  for (const [groupName, groupNode] of regionalGroups) {
+    const meshes = meshesUnder(groupNode);
+    const meshNodes = meshNodesUnder(groupNode);
+    regionalMeshCount += meshes.length;
+    regionalGroupBounds[groupName] = boundsForMeshes(meshes);
+    const recordedBounds = regionalArtifact.groupBounds?.[groupName];
+    if (
+      !recordedBounds ||
+      !approximatelyEqual(
+        regionalGroupBounds[groupName].min,
+        recordedBounds.min,
+      ) ||
+      !approximatelyEqual(
+        regionalGroupBounds[groupName].max,
+        recordedBounds.max,
+      )
+    ) {
+      errors.push(`${groupName} bounds differ from provenance`);
+    }
+    const expectedSide = groupName.replace("regional-", "");
+    for (const node of meshNodes) {
+      const extras = node.getExtras();
+      const category = extras.anatomyCategory;
+      const sourceKey = extras.sourceKey;
+      const expectedMirroring = expectedSide === "left";
+      if (
+        extras.anatomyGroup !== groupName ||
+        extras.anatomySide !== expectedSide ||
+        extras.derivedByMirroring !== expectedMirroring
+      ) {
+        errors.push(`${node.getName()} has inconsistent regional laterality`);
+      }
+      if (
+        typeof category !== "string" ||
+        !(category in EXPECTED_REGIONAL_SOURCE_CATEGORY_COUNTS) ||
+        typeof extras.sourceName !== "string" ||
+        typeof sourceKey !== "string" ||
+        sourceKey !== `${category}/${extras.sourceName}`
+      ) {
+        errors.push(`${node.getName()} has invalid regional source metadata`);
+      } else {
+        regionalSourceKeys.add(sourceKey);
+        regionalSourcesByCategory[category].add(sourceKey);
+        regionalRuntimeCategoryCounts[category] += 1;
+        const sourceNodes = regionalNodesBySourceKey.get(sourceKey) || [];
+        sourceNodes.push(node);
+        regionalNodesBySourceKey.set(sourceKey, sourceNodes);
+      }
+    }
+    for (const mesh of meshes) {
+      const geometry = flattenMeshGeometry(mesh);
+      regionalGeometry.push(geometry);
+      regionalTriangleCount += geometry.indices.length / 3;
+      let meshClosed = true;
+      for (const primitive of mesh.listPrimitives()) {
+        const result = validatePrimitive(
+          primitive,
+          `${groupName}/${mesh.getName()}`,
+          errors,
+          { requireClosed: false, requireConsistentNormals: false },
+        );
+        meshClosed &&= result.closed;
+        regionalNonFiniteAccessorCount += result.nonFinite;
+        regionalWindingNormalInconsistencyCount += result.windingErrors;
+        regionalDegenerateTriangleCount += result.degenerateTriangles;
+      }
+      if (!meshClosed) regionalOpenMeshCount += 1;
+    }
+  }
+  const regionalSourceCategoryCounts = Object.fromEntries(
+    Object.entries(regionalSourcesByCategory).map(([category, keys]) => [
+      category,
+      keys.size,
+    ]),
+  );
+  if (
+    !numericRecordEqual(
+      regionalSourceCategoryCounts,
+      EXPECTED_REGIONAL_SOURCE_CATEGORY_COUNTS,
+    ) ||
+    !numericRecordEqual(
+      regionalArtifact.sourceCategoryCounts,
+      EXPECTED_REGIONAL_SOURCE_CATEGORY_COUNTS,
+    )
+  ) {
+    errors.push("Regional source category counts differ from pinned source");
+  }
+  if (
+    !numericRecordEqual(
+      regionalRuntimeCategoryCounts,
+      EXPECTED_REGIONAL_RUNTIME_CATEGORY_COUNTS,
+    ) ||
+    !numericRecordEqual(
+      regionalArtifact.runtimeCategoryCounts,
+      EXPECTED_REGIONAL_RUNTIME_CATEGORY_COUNTS,
+    )
+  ) {
+    errors.push("Regional runtime category counts differ from pinned source");
+  }
+  if (
+    regionalSourceKeys.size !== 418 ||
+    regionalArtifact.sourceCount !== 418 ||
+    regionalMeshCount !== EXPECTED_ASSET_BASELINES.regional.meshCount ||
+    regionalArtifact.meshCount !== EXPECTED_ASSET_BASELINES.regional.meshCount
+  ) {
+    errors.push("Regional source or mesh count differs from pinned source");
+  }
+  let mirroredPairCount = 0;
+  let mirroredPairsVerified = true;
+  const regionalSourceManifest = [];
+  for (const [sourceKey, nodes] of regionalNodesBySourceKey) {
+    const bySide = new Map(
+      nodes.map((node) => [node.getExtras().anatomySide, node]),
+    );
+    const isMirroredPair = bySide.has("left") && bySide.has("right");
+    regionalSourceManifest.push({
+      key: sourceKey,
+      side: isMirroredPair ? "right" : "midline",
+    });
+    if (isMirroredPair) {
+      mirroredPairCount += 1;
+      if (
+        nodes.length !== 2 ||
+        !bySide.has("left") ||
+        !bySide.has("right") ||
+        !validateMirroredNodePair(bySide.get("left"), bySide.get("right"))
+      ) {
+        mirroredPairsVerified = false;
+        errors.push(`${sourceKey} is not a correctly wound mirrored pair`);
+      }
+    } else if (nodes.length !== 1 || !bySide.has("midline")) {
+      mirroredPairsVerified = false;
+      errors.push(`${sourceKey} is not a single midline regional structure`);
+    }
+  }
+  if (mirroredPairCount !== 399) {
+    mirroredPairsVerified = false;
+    errors.push("Regional mirrored-pair count differs from pinned source");
+  }
+  const sourceManifestErrors = validateRegionalSourceManifest(
+    regionalSourceManifest,
+  );
+  const sourceManifestVerified = sourceManifestErrors.length === 0;
+  errors.push(...sourceManifestErrors);
+  if (regionalWindingNormalInconsistencyCount !== 0) {
+    errors.push(
+      "Regional anatomy contains non-degenerate winding/normal inconsistencies",
+    );
+  }
+  const regionalDuplicateGeometry =
+    findDuplicateGeometryFingerprints(regionalGeometry);
+  if (regionalDuplicateGeometry.length) {
+    errors.push(
+      `Regional anatomy contains duplicate geometry: ${JSON.stringify(regionalDuplicateGeometry)}`,
+    );
+  }
+  const crossArtifactDuplicateGeometry = findDuplicateGeometryFingerprints([
+    ...hipMeshGeometry.map((geometry) => ({
+      ...geometry,
+      name: `hip/${geometry.name}`,
+    })),
+    ...regionalGeometry.map((geometry) => ({
+      ...geometry,
+      name: `regional/${geometry.name}`,
+    })),
+  ]).filter(
+    ([first, second]) => first.startsWith("hip/") !== second.startsWith("hip/"),
+  );
+  if (crossArtifactDuplicateGeometry.length) {
+    errors.push(
+      `Base and regional supplement contain duplicate geometry: ${JSON.stringify(crossArtifactDuplicateGeometry)}`,
+    );
+  }
+  const regionalOverall = boundsForMeshes(
+    [...regionalGroups.values()].flatMap(meshesUnder),
+  );
+  errors.push(
+    ...validateBoundsAgainstBaselines("regional", {
+      groupBounds: regionalGroupBounds,
+      overallBounds: regionalOverall,
+    }),
+  );
+  if (regionalMeshCount !== EXPECTED_ASSET_BASELINES.regional.meshCount)
+    errors.push("Regional mesh count differs from the pinned baseline");
+  if (
+    regionalTriangleCount !== EXPECTED_ASSET_BASELINES.regional.triangleCount
+  ) {
+    errors.push("Regional triangle count differs from the pinned baseline");
+  }
+  if (
+    !Object.values(regionalGroupBounds)
+      .flatMap((bounds) => [...bounds.min, ...bounds.max])
+      .every(Number.isFinite) ||
+    ![...regionalOverall.min, ...regionalOverall.max].every(Number.isFinite) ||
+    [...regionalOverall.min, ...regionalOverall.max].some(
+      (value) => Math.abs(value) > 2_000,
+    )
+  ) {
+    errors.push(
+      "Regional anatomy bounds are not finite millimetre coordinates",
+    );
+  }
+
+  const regionalHipPivots = regionalRootExtras?.hipPivots;
+  const regionalReferenceMidpoint = regionalRootExtras?.referenceMidpoint;
+  if (
+    !regionalHipPivots ||
+    !approximatelyEqual(regionalHipPivots.left || [], hipPivots?.left || []) ||
+    !approximatelyEqual(
+      regionalHipPivots.right || [],
+      hipPivots?.right || [],
+    ) ||
+    !approximatelyEqual(
+      regionalArtifact.hipPivots?.left || [],
+      regionalHipPivots.left || [],
+    ) ||
+    !approximatelyEqual(
+      regionalArtifact.hipPivots?.right || [],
+      regionalHipPivots.right || [],
+    )
+  ) {
+    errors.push("Regional hip pivots do not match the skeletal base");
+  }
+  if (!approximatelyEqual(regionalReferenceMidpoint || [], [0, 0, 0], 0.01))
+    errors.push("Regional reference midpoint is not the root origin");
+
+  let regionalMaterialsOpaqueAndLocal = true;
+  const regionalMaterials = regionalDocument.getRoot().listMaterials();
+  if (regionalMaterials.length !== 10) regionalMaterialsOpaqueAndLocal = false;
+  for (const material of regionalMaterials) {
+    const match = /^Opaque regional (.+)$/.exec(material.getName());
+    const expected = match ? EXPECTED_REGIONAL_MATERIALS[match[1]] : null;
+    if (
+      !expected ||
+      material.getAlphaMode() !== "OPAQUE" ||
+      material.getBaseColorFactor()[3] !== 1 ||
+      material.getBaseColorTexture() ||
+      !approximatelyEqual(material.getBaseColorFactor(), expected, 0.0001)
+    ) {
+      regionalMaterialsOpaqueAndLocal = false;
+    }
+  }
+  if (!regionalMaterialsOpaqueAndLocal)
+    errors.push("Regional materials are not opaque app-owned local materials");
+  const regionalJson = readGlbJSON(regionalBytes);
+  const regionalNonAnatomicalResourceCount =
+    (regionalJson.cameras?.length || 0) +
+    (regionalJson.animations?.length || 0) +
+    (regionalJson.skins?.length || 0) +
+    (regionalJson.images?.length || 0) +
+    (regionalJson.textures?.length || 0) +
+    (regionalJson.extensions?.KHR_lights_punctual?.lights?.length || 0);
+  if (regionalNonAnatomicalResourceCount !== 0) {
+    errors.push(
+      "Regional anatomy contains cameras, lights, animation, skin, or texture resources",
+    );
+  }
+
+  const hipSourceKeys = new Set(
+    [...hipGroups.values()]
+      .flatMap(meshNodesUnder)
+      .map((node) => `Bones/${node.getExtras().sourceName}`),
+  );
+  const sourceOverlap = [...hipSourceKeys].filter((key) =>
+    regionalSourceKeys.has(key),
+  );
+  if (sourceOverlap.length)
+    errors.push("Base and supplement source accounting overlap");
+  const recordedHipSourceKeys = new Set(
+    regionalArtifact ? provenance.artifacts.hip.sourceKeys : [],
+  );
+  const recordedRegionalSourceKeys = new Set(regionalArtifact.sourceKeys || []);
+  const recordedSourceOverlap = [...recordedHipSourceKeys].filter((key) =>
+    recordedRegionalSourceKeys.has(key),
+  );
+  if (recordedSourceOverlap.length)
+    errors.push("Recorded base and supplement source accounting overlap");
+  const accountingEntries = provenance.lowerLimbSourceAccounting || [];
+  const accountingKeys = new Set(accountingEntries.map((entry) => entry.key));
+  const accountedBaseKeys = new Set(
+    accountingEntries
+      .filter((entry) => entry.disposition === "base")
+      .map((entry) => entry.key),
+  );
+  const accountedRegionalKeys = new Set(
+    accountingEntries
+      .filter((entry) => entry.disposition === "supplement")
+      .map((entry) => entry.key),
+  );
+  const recordedSourceManifestErrors = validateRegionalSourceManifest(
+    accountingEntries
+      .filter((entry) => entry.disposition === "supplement")
+      .map((entry) => ({
+        key: entry.key,
+        side: entry.classification?.side,
+      })),
+  );
+  errors.push(
+    ...recordedSourceManifestErrors.map(
+      (error) => `Recorded ${error.toLowerCase()}`,
+    ),
+  );
+  const setsEqual = (left, right) =>
+    left.size === right.size && [...left].every((value) => right.has(value));
+  const sourceAccountingVerified =
+    accountingEntries.length === 452 &&
+    accountingKeys.size === 452 &&
+    accountedBaseKeys.size === 34 &&
+    accountedRegionalKeys.size === 418 &&
+    setsEqual(hipSourceKeys, recordedHipSourceKeys) &&
+    setsEqual(hipSourceKeys, accountedBaseKeys) &&
+    setsEqual(regionalSourceKeys, recordedRegionalSourceKeys) &&
+    setsEqual(regionalSourceKeys, accountedRegionalKeys) &&
+    recordedSourceManifestErrors.length === 0 &&
+    sourceOverlap.length === 0 &&
+    recordedSourceOverlap.length === 0;
+  if (!sourceAccountingVerified)
+    errors.push(
+      "Lower-limb base and supplement source accounting is incomplete",
+    );
+
   const overviewGroups = collectSemanticGroups(overviewDocument);
   const overviewNames = [...overviewGroups.keys()].sort();
   if (
@@ -850,6 +1439,7 @@ export async function validateCommittedAnatomy(repositoryRoot) {
   return {
     errors,
     sourceIdentityVerified,
+    sourceAccountingVerified,
     recordedBuildHashesVerified,
     dracoLicenseVerified,
     hip: {
@@ -866,6 +1456,34 @@ export async function validateCommittedAnatomy(repositoryRoot) {
       negativeSignedVolumeCount,
       triangleCount,
       bounds: hipOverall,
+      sourceKeys: provenance.artifacts.hip.sourceKeys,
+    },
+    regional: {
+      groups: regionalGroupNames,
+      meshCount: regionalMeshCount,
+      sourceCount: regionalSourceKeys.size,
+      sourceKeys: regionalArtifact.sourceKeys,
+      sourceCategoryCounts: regionalSourceCategoryCounts,
+      runtimeCategoryCounts: regionalRuntimeCategoryCounts,
+      nonFiniteAccessorCount: regionalNonFiniteAccessorCount,
+      openMeshCount: regionalOpenMeshCount,
+      triangleCount: regionalTriangleCount,
+      windingNormalInconsistencyCount: regionalWindingNormalInconsistencyCount,
+      degenerateTriangleCount: regionalDegenerateTriangleCount,
+      duplicateGeometryCount: regionalDuplicateGeometry.length,
+      crossArtifactDuplicateGeometryCount:
+        crossArtifactDuplicateGeometry.length,
+      mirroredPairCount,
+      mirroredPairsVerified,
+      sourceManifestVerified,
+      materialsOpaqueAndLocal: regionalMaterialsOpaqueAndLocal,
+      nonAnatomicalResourceCount: regionalNonAnatomicalResourceCount,
+      projectionEligible: regionalArtifact.projectionEligible,
+      hipPivots: regionalHipPivots,
+      referenceMidpoint: regionalReferenceMidpoint,
+      rootTransformIsIdentity: regionalRootTransformIsIdentity,
+      bounds: regionalOverall,
+      groupBounds: regionalGroupBounds,
     },
     overview: {
       groups: overviewNames,

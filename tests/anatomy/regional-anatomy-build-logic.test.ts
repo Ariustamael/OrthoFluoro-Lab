@@ -6,6 +6,7 @@ import {
   classifyRegionalSource,
   createRegionalSourceAccounting,
   isRegionalSource,
+  transformTriangleIndices,
 } from "../../scripts/anatomy/prepare-anatomy-assets.mjs";
 
 describe("regional anatomy source classification", () => {
@@ -42,6 +43,32 @@ describe("regional anatomy source classification", () => {
       side: "midline",
       mirrorToLeft: false,
     });
+    expect(
+      classifyRegionalSource("Art cart of talus.r \u200B", "Cartilages"),
+    ).toEqual({
+      category: "Cartilages",
+      side: "right",
+      mirrorToLeft: true,
+    });
+    for (const [category, name] of [
+      ["Cartilages", "Art cart of sacroiliac joint on hip bone"],
+      ["Cartilages", "Art cart of sacroiliac joint on sacrum"],
+      ["Ligaments", "Articular capsules of distal interphalangeal joints"],
+      ["Ligaments", "Bifurcatum ligament"],
+      [
+        "Muscles",
+        "Common tendon of Semitendinosus and Long head of biceps femoris",
+      ],
+      ["Overlays", "Quadriceps common tendon and patellar ligament"],
+    ]) {
+      expect(classifyRegionalSource(name, category)).toMatchObject({
+        side: "right",
+        mirrorToLeft: true,
+      });
+    }
+    expect(
+      classifyRegionalSource("Interpubic disc", "Ligaments"),
+    ).toMatchObject({ side: "midline", mirrorToLeft: false });
   });
 
   it("includes all regional categories and only the six contextual vertebrae from Bones", () => {
@@ -66,7 +93,11 @@ describe("regional anatomy source accounting", () => {
       ],
       nonAnatomicalExclusions: [
         { category: "Cameras", name: "Camera", reason: "unused source camera" },
-        { category: "Scripts", name: "Armature driver", reason: "unused source data" },
+        {
+          category: "Scripts",
+          name: "Armature driver",
+          reason: "unused source data",
+        },
       ],
     });
 
@@ -122,9 +153,7 @@ describe("regional anatomy source accounting", () => {
 
     expect(() =>
       createRegionalSourceAccounting({
-        anatomicalChildren: [
-          { category: "Bones", name: "Uncatalogued bone" },
-        ],
+        anatomicalChildren: [{ category: "Bones", name: "Uncatalogued bone" }],
         nonAnatomicalExclusions: [],
       }),
     ).toThrow(/unaccounted anatomical source child.*Bones\/Uncatalogued bone/i);
@@ -139,5 +168,13 @@ describe("regional anatomy source accounting", () => {
         ],
       }),
     ).toThrow(/duplicate source accounting key.*Bones\/Femur\.r/i);
+  });
+});
+
+describe("regional anatomy reflection winding", () => {
+  it("reverses the source triangle for the axis swap but restores it for x reflection", () => {
+    const source = new Uint16Array([0, 1, 2]);
+    expect([...transformTriangleIndices(source, false)]).toEqual([0, 2, 1]);
+    expect([...transformTriangleIndices(source, true)]).toEqual([0, 1, 2]);
   });
 });
