@@ -9,8 +9,13 @@
   hip/lower-limb assets with provenance, attribution, and local Draco decoding;
 - bilateral, left-only, and right-only anatomy modes plus independent complete
   leg rotation around fitted femoral-head pivots;
+- a lazy, offline regional lower-limb presentation layer whose dissected
+  structures share skeleton visibility and hip-pivot transforms while the
+  X-ray input remains bones only;
 - a linked detector view with layered relative mesh thickness, labelled mesh
   silhouette compatibility mode, and labelled anatomy-unavailable fallback;
+- explicit 512/768/1024 settled detector resolutions with reduced continuous
+  interaction sizes, plus Continuous imaging and immutable Shots-only capture;
 - responsive application shell, local settings storage, PWA baseline, and
   explicit medical limitations.
 
@@ -32,11 +37,13 @@
 
 ## Deliberately deferred
 
-Soft tissue, fractures, implants, CT-derived volumes, detailed joint
-articulation, exposure or dose modelling, collision handling, guided views,
-clinical calibration, and patient-specific data are outside the current
-milestone. A new anatomical region should not be added until the hip-first
-teaching primitive and review process are proven.
+An external skin/body envelope, radiographic soft-tissue attenuation,
+fractures, implants, CT-derived volumes, detailed joint articulation, exposure
+or dose modelling, collision handling, guided views, clinical calibration, and
+patient-specific data are outside the current milestone. The available
+dissected regional surfaces do not satisfy either deferred soft-tissue item. A
+new anatomical region should not be added until the hip-first teaching
+primitive and review process are proven.
 
 ## Later safeguards
 

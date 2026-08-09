@@ -199,8 +199,17 @@ or below `1e-9` are treated as parallel. The full active detector accepts
 
 Magnification is `SID / source-object distance`; both inputs must be finite and
 positive. Raster resolution is independent of the detector's physical
-`220 × 220` dimensions. Geometry tests use explicit floating-point tolerances,
-generally at least six decimal places.
+`220 × 220` dimensions. The output policy is explicit:
+
+| Quality | Settled or shot | Continuous manipulation |
+| --- | ---: | ---: |
+| Low | `512 × 512` | `384 × 384` |
+| Medium | `768 × 768` | `384 × 384` |
+| High | `1024 × 1024` | `512 × 512` |
+
+Changing pixel dimensions never changes source position, detector bounds,
+SID, attenuation inputs, or crop. Geometry tests use explicit floating-point
+tolerances, generally at least six decimal places.
 
 ## Anatomy coordinates and hip pivots
 
@@ -231,8 +240,21 @@ right = (-85.58369749, 0, 0) mm
 
 Whole-leg internal/external rotation is a local Z rotation about the selected
 femoral-head pivot, clamped to `[-45 degrees, +45 degrees]`. Pelvis visibility
-and pose are independent of that child rotation. The 3D scene and both mesh
-projection renderers use the same transform function and serializable pose.
+and pose are independent of that child rotation. The 3D base skeleton and both
+mesh projection renderers use the same transform function and serializable
+pose.
+
+The optional regional supplement is classified into `regional-midline`,
+`regional-left`, and `regional-right`. A `.r` source suffix and six documented
+unsuffixed source exceptions identify right-side structures; preparation creates
+their reflected left counterparts. Remaining unsuffixed structures are
+midline. The side groups use the same fitted femoral-head pivots,
+root centring, visibility, and selected-leg local-Z rotation as the base
+skeleton. Midline structures remain attached to the anatomy root. The
+supplement contains regional T12/L1-L5 context and the pinned source's
+cartilage, ligament, muscle, fascia, artery, vein, nerve, bursa, and overlay
+categories. It is theatre-only: the invariant projection input is
+`CArmGeometry + base skeleton + HipAnatomyPose`.
 
 ## Detector-aligned mesh camera
 

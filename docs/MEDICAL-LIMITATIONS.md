@@ -6,30 +6,41 @@ exposure simulator, or patient-specific planning tool.
 
 ## Anatomy model
 
-The displayed skeleton is a licensed, transformed Open3DModel educational mesh.
-It represents one simplified surface model, not a patient. It does not capture
-normal anatomical variation, age, sex, body habitus, cartilage, soft tissue,
-pathology, trauma, positioning constraints, or surgical alteration. Mirrored
-left-side structures are geometrically derived and are not independent anatomy.
-The fitted femoral-head pivots support coherent whole-leg teaching motion; they
-are not clinically measured joint centres.
+The base skeleton and optional Full regional presentation are licensed,
+transformed Open3DModel educational meshes. The regional option displays the
+pinned lower-limb source's dissected cartilage, ligaments, muscles, fascia,
+vessels, nerves, bursae, overlays, and contextual vertebrae with app-owned
+opaque colours. These surfaces can visually cover bones in the 3D theatre, but
+they are not a continuous external skin or body envelope and must not be
+interpreted as one.
+
+The assets represent one simplified surface model, not a patient. They do not
+capture normal anatomical variation, age, sex, body habitus, complete tissue
+coverage, pathology, trauma, positioning constraints, or surgical alteration.
+Mirrored left-side structures are geometrically derived and are not independent
+anatomy. The fitted femoral-head pivots support coherent whole-leg teaching
+motion; they are not clinically measured joint centres.
 
 ## Synthetic detector image
 
-The primary detector image represents relative path length through closed bone
-meshes. It is a synthetic relative mesh-thickness projection, not a clinically
-calibrated radiograph. Relative darkness is normalized for visual comparison
-within the simulator and has no calibrated relationship to attenuation,
-Hounsfield units, exposure, detector response, or dose.
+The primary detector image represents relative path length through closed base
+bone meshes. Full regional presentation never adds, removes, or reduces
+attenuation: the optional regional structures are excluded from every X-ray
+renderer. The image is a synthetic relative mesh-thickness projection, not a
+clinically calibrated radiograph. Relative darkness is normalized for visual
+comparison within the simulator and has no calibrated relationship to
+attenuation, Hounsfield units, exposure, detector response, or dose.
 
-The image omits soft-tissue attenuation, beam spectrum, scatter, noise,
+The image omits all soft-tissue attenuation, beam spectrum, scatter, noise,
 automatic exposure control, collimation physics, heel effect, geometric and
 electronic distortion, anti-scatter grids, table attenuation, implants,
 device-specific processing, and patient motion. Overlapping closed meshes can
 appear darker, but that qualitative relationship does not reproduce clinical
 image formation. Open or unsupported meshes use a labelled silhouette, and an
 anatomy load failure uses a labelled procedural fallback; neither fallback
-represents thickness.
+represents thickness. Increasing the detector backing resolution improves edge
+sampling only; it does not add anatomical detail, clinical image processing, or
+diagnostic fidelity.
 
 ## Intended use boundary
 
