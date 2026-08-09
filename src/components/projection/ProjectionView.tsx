@@ -27,11 +27,9 @@ import type {
   ProjectionOutput,
   ProjectionRenderer,
 } from "../../engine/projection/rendererTypes";
-import {
-  useSimulationStore,
-  type QualityPreset,
-} from "../../state/simulationStore";
+import { useSimulationStore } from "../../state/simulationStore";
 import { AnatomyPoseStatus } from "../controls/AnatomyPoseStatus";
+import { detectorDimensions } from "./projectionAcquisition";
 import { XrayDisplayToolbar } from "./XrayDisplayToolbar";
 import {
   normalizeDisplayDegrees,
@@ -39,35 +37,7 @@ import {
   xrayDisplayTransform,
 } from "./xrayDisplayOrientation";
 
-const DETECTOR_RENDER_SCALE: Readonly<Record<QualityPreset, number>> = {
-  low: 0.6,
-  medium: 0.8,
-  high: 1,
-};
-const DETECTOR_RENDER_SIZE = 500;
 const DETECTOR_DISPLAY_SIZE = 500;
-
-export function detectorRenderScale(quality: QualityPreset): number {
-  return DETECTOR_RENDER_SCALE[quality];
-}
-
-export function effectiveDetectorRenderScale(
-  quality: QualityPreset,
-  isInteracting: boolean,
-): number {
-  const selectedScale = detectorRenderScale(quality);
-  return isInteracting ? Math.min(selectedScale, 0.6) : selectedScale;
-}
-
-export function detectorRenderDimensions(
-  quality: QualityPreset,
-  isInteracting: boolean,
-): { readonly width: number; readonly height: number } {
-  const size = Math.round(
-    DETECTOR_RENDER_SIZE * effectiveDetectorRenderScale(quality, isInteracting),
-  );
-  return { height: size, width: size };
-}
 
 export function detectorDisplayDimensions(): {
   readonly width: number;
@@ -85,7 +55,9 @@ function usePointerInteraction(): boolean {
     const handlePointerDown = (event: PointerEvent) => {
       if (
         event.target instanceof Element &&
-        event.target.closest(".xray-display-toolbar") !== null
+        event.target.closest(
+          ".xray-display-toolbar, .anatomy-controls__option-group--presentation",
+        ) !== null
       ) {
         return;
       }
@@ -331,7 +303,7 @@ export function ProjectionView({
     () => buildCArmGeometry(cArmPose, preset, physicalSetup),
     [cArmPose, physicalSetup, preset],
   );
-  const renderDimensions = detectorRenderDimensions(quality, isInteracting);
+  const renderDimensions = detectorDimensions(quality, isInteracting);
   const displayDimensions = detectorDisplayDimensions();
   const rendererRef = useRef<ActiveRenderer | null>(null);
   const disposedRenderersRef = useRef(new WeakSet<object>());
@@ -610,7 +582,6 @@ export function ProjectionView({
     };
   }, [activeRenderer, anatomyInput, frameInput]);
 
-  const renderScale = effectiveDetectorRenderScale(quality, isInteracting);
   const projectionOutput = projectionState.output;
   const description =
     projectionOutput?.description ?? "Preparing detector projection…";
@@ -634,7 +605,8 @@ export function ProjectionView({
         projectionOutput?.metadata?.precision ?? undefined
       }
       data-projection-strategy={projectionOutput?.strategyId}
-      data-render-scale={renderScale}
+      data-render-height={renderDimensions.height}
+      data-render-width={renderDimensions.width}
     >
       <AnatomyPoseStatus label="Projection anatomy status" />
       <header className="projection-view__header">
@@ -683,14 +655,14 @@ export function ProjectionView({
               <img
                 alt={projectionOutput.description}
                 className="projection-view__surface"
-                height={displayDimensions.height}
+                height={projectionOutput.artifact.height}
                 src={projectionOutput.artifact.dataUrl}
                 style={{
                   blockSize: "100%",
                   inlineSize: "100%",
                   objectFit: "contain",
                 }}
-                width={displayDimensions.width}
+                width={projectionOutput.artifact.width}
               />
               <DetectorOverlay
                 artifactHeight={projectionOutput.artifact.height}
@@ -707,7 +679,8 @@ export function ProjectionView({
       </div>
       <p aria-label="Projection status" role="status">
         Orbit {cArmPose.orbitDegrees.toFixed(1)}° · Magnification{" "}
-        {projectionMagnification.toFixed(2)}× · Render scale {renderScale}
+        {projectionMagnification.toFixed(2)}× · Resolution{" "}
+        {renderDimensions.width} × {renderDimensions.height}
       </p>
     </section>
   );

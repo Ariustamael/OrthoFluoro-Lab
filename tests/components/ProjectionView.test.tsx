@@ -182,7 +182,7 @@ describe("ProjectionView renderer orchestration", () => {
     expect(useSimulationStore.getState()).toMatchObject(physicalState);
   });
 
-  it("keeps toolbar pointer actions at the selected render quality", async () => {
+  it("keeps toolbar pointer actions at the selected detector dimensions", async () => {
     useSimulationStore.setState({ quality: "high" });
     const user = userEvent.setup();
     const layered = renderer<AnatomyProjectionInput>(
@@ -208,7 +208,13 @@ describe("ProjectionView renderer orchestration", () => {
 
     expect(
       screen.getByRole("region", { name: "Simulated X-ray view" }),
-    ).toHaveAttribute("data-render-scale", "1");
+    ).toHaveAttribute("data-render-width", "1024");
+    expect(
+      screen.getByRole("region", { name: "Simulated X-ray view" }),
+    ).toHaveAttribute("data-render-height", "1024");
+    expect(
+      screen.getByRole("status", { name: "Projection status" }),
+    ).toHaveTextContent("Resolution 1024 × 1024");
     expect(layered.render).toHaveBeenCalledOnce();
   });
 
@@ -243,16 +249,70 @@ describe("ProjectionView renderer orchestration", () => {
     fireEvent.pointerDown(orbitRange, { pointerId: 29 });
     await waitFor(() => expect(layered.render).toHaveBeenCalledTimes(2));
     expect(vi.mocked(layered.render).mock.calls[1][0]).toMatchObject({
-      height: 300,
-      width: 300,
+      height: 512,
+      width: 512,
     });
+
+    const settledInput = vi.mocked(layered.render).mock.calls[0][0];
+    const interactiveInput = vi.mocked(layered.render).mock.calls[1][0];
+    expect(interactiveInput.geometry).toEqual(settledInput.geometry);
+    expect(interactiveInput.geometry.detector).toEqual(
+      settledInput.geometry.detector,
+    );
+    expect(interactiveInput.anatomy).toBe(settledInput.anatomy);
+    expect(interactiveInput.anatomyPose).toEqual(settledInput.anatomyPose);
 
     fireEvent.pointerUp(orbitRange, { pointerId: 29 });
     await waitFor(() => expect(layered.render).toHaveBeenCalledTimes(3));
     expect(vi.mocked(layered.render).mock.calls[2][0]).toMatchObject({
-      height: 500,
-      width: 500,
+      height: 1024,
+      width: 1024,
     });
+  });
+
+  it("does not render when the 3D anatomy presentation control is clicked", async () => {
+    const user = userEvent.setup();
+    const layered = renderer<AnatomyProjectionInput>(
+      output("Presentation invariant", "presentation-invariant"),
+    );
+    const factories: ProjectionRendererFactories = {
+      createLayered: () => layered,
+      createSilhouette: () => renderer(output("Silhouette", "mesh-silhouette")),
+      createSimplified: () =>
+        renderer(output("Unavailable", "simplified-procedural")),
+    };
+
+    render(
+      <AnatomyAssetProvider
+        acquireLease={readyLease}
+        acquireRegionalLease={() => ({
+          promise: new Promise(() => undefined),
+          release: vi.fn(),
+        })}
+      >
+        <CArmControls />
+        <ProjectionView
+          detectCapability={() => ({
+            precision: "float32",
+            reason: null,
+            strategy: "layered-thickness",
+          })}
+          rendererFactories={factories}
+        />
+      </AnatomyAssetProvider>,
+    );
+    await waitFor(() => expect(layered.render).toHaveBeenCalledOnce());
+
+    await user.click(
+      screen.getByRole("radio", {
+        name: "Show full regional anatomy in 3D",
+      }),
+    );
+
+    expect(useSimulationStore.getState().anatomyPresentationMode).toBe(
+      "full-regional",
+    );
+    expect(layered.render).toHaveBeenCalledOnce();
   });
 
   it("keeps the last valid artifact and toolbar visible during a physical rerender and its error", async () => {
@@ -456,8 +516,8 @@ describe("ProjectionView renderer orchestration", () => {
         anatomy: expect.objectContaining({ scene: expect.anything() }),
         anatomyPose: expect.objectContaining({ visibility: "bilateral" }),
         geometry: expect.objectContaining({ sourceDetectorDistance: 1000 }),
-        height: 400,
-        width: 400,
+        height: 768,
+        width: 768,
       }),
     );
     expect(
@@ -700,21 +760,21 @@ describe("ProjectionView renderer orchestration", () => {
     });
     await waitFor(() => expect(layered.render).toHaveBeenCalledOnce());
     expect(vi.mocked(layered.render).mock.calls[0][0]).toMatchObject({
-      height: 500,
-      width: 500,
+      height: 1024,
+      width: 1024,
     });
 
     fireEvent.pointerDown(window, { pointerId: 9 });
     await waitFor(() => expect(layered.render).toHaveBeenCalledTimes(2));
     expect(vi.mocked(layered.render).mock.calls[1][0]).toMatchObject({
-      height: 300,
-      width: 300,
+      height: 512,
+      width: 512,
     });
     fireEvent.pointerUp(window, { pointerId: 9 });
     await waitFor(() => expect(layered.render).toHaveBeenCalledTimes(3));
     expect(vi.mocked(layered.render).mock.calls[2][0]).toMatchObject({
-      height: 500,
-      width: 500,
+      height: 1024,
+      width: 1024,
     });
   });
 

@@ -14,11 +14,9 @@ import { CArmControls } from "../../src/components/controls/CArmControls";
 import { LabWorkspace } from "../../src/components/lab/LabWorkspace";
 import {
   detectorDisplayDimensions,
-  detectorRenderDimensions,
-  detectorRenderScale,
-  effectiveDetectorRenderScale,
   ProjectionView,
 } from "../../src/components/projection/ProjectionView";
+import { detectorDimensions } from "../../src/components/projection/projectionAcquisition";
 import { TheatreCanvas } from "../../src/components/scene/TheatreCanvas";
 import { C_ARM_RIG_PRESETS } from "../../src/engine/geometry/cArmRigPresets";
 import { buildCArmGeometry } from "../../src/engine/geometry/cArmTransforms";
@@ -282,8 +280,8 @@ describe("linked theatre and simplified projection", () => {
             { ...REFERENCE_C_ARM_POSE, orbitDegrees: 15 },
             C_ARM_RIG_PRESETS.isocentric,
           ),
-          height: 400,
-          width: 400,
+          height: 768,
+          width: 768,
         }),
       );
     });
@@ -296,36 +294,34 @@ describe("linked theatre and simplified projection", () => {
       name: "Simulated X-ray view",
     });
 
-    expect(projection).toHaveAttribute("data-render-scale", "1");
+    expect(projection).toHaveAttribute("data-render-width", "1024");
+    expect(projection).toHaveAttribute("data-render-height", "1024");
     fireEvent.pointerDown(window, { pointerId: 7 });
-    expect(projection).toHaveAttribute("data-render-scale", "0.6");
+    expect(projection).toHaveAttribute("data-render-width", "512");
+    expect(projection).toHaveAttribute("data-render-height", "512");
     fireEvent.pointerUp(window, { pointerId: 7 });
-    expect(projection).toHaveAttribute("data-render-scale", "1");
+    expect(projection).toHaveAttribute("data-render-width", "1024");
+    expect(projection).toHaveAttribute("data-render-height", "1024");
   });
 });
 
 describe("detector rendering contracts", () => {
   it("maps detector quality without changing geometry and restores it after interaction", () => {
-    expect(detectorRenderScale("low")).toBe(0.6);
-    expect(detectorRenderScale("medium")).toBe(0.8);
-    expect(detectorRenderScale("high")).toBe(1);
-    expect(effectiveDetectorRenderScale("high", true)).toBe(0.6);
-    expect(effectiveDetectorRenderScale("high", false)).toBe(1);
-    expect(detectorRenderDimensions("low", false)).toEqual({
-      height: 300,
-      width: 300,
+    expect(detectorDimensions("low", false)).toEqual({
+      height: 512,
+      width: 512,
     });
-    expect(detectorRenderDimensions("medium", false)).toEqual({
-      height: 400,
-      width: 400,
+    expect(detectorDimensions("medium", false)).toEqual({
+      height: 768,
+      width: 768,
     });
-    expect(detectorRenderDimensions("high", false)).toEqual({
-      height: 500,
-      width: 500,
+    expect(detectorDimensions("high", false)).toEqual({
+      height: 1024,
+      width: 1024,
     });
-    expect(detectorRenderDimensions("high", true)).toEqual({
-      height: 300,
-      width: 300,
+    expect(detectorDimensions("high", true)).toEqual({
+      height: 512,
+      width: 512,
     });
     expect(detectorDisplayDimensions()).toEqual({
       height: 500,
@@ -344,8 +340,8 @@ describe("detector rendering contracts", () => {
 
     expect(border).toHaveAttribute("data-detector-border");
     const borderInset = Number(border?.getAttribute("x"));
-    expect(borderInset * 2 + Number(border?.getAttribute("width"))).toBe(400);
-    expect(borderInset * 2 + Number(border?.getAttribute("height"))).toBe(400);
+    expect(borderInset * 2 + Number(border?.getAttribute("width"))).toBe(768);
+    expect(borderInset * 2 + Number(border?.getAttribute("height"))).toBe(768);
     expect(crosshair).toHaveAttribute("data-detector-crosshair");
     expect(overlay.querySelectorAll("rect")).toHaveLength(1);
     expect(overlay.querySelectorAll("path")).toHaveLength(1);
@@ -543,8 +539,8 @@ describe("replaceable projection renderer", () => {
       name: "Test projection strategy",
     });
     expect(projectionImage).toHaveAttribute("src", output.artifact.dataUrl);
-    expect(projectionImage).toHaveAttribute("width", "500");
-    expect(projectionImage).toHaveAttribute("height", "500");
+    expect(projectionImage).toHaveAttribute("width", "64");
+    expect(projectionImage).toHaveAttribute("height", "48");
     expect(screen.getByTestId("projection-detector-display")).toHaveStyle({
       aspectRatio: "1 / 1",
     });
@@ -584,14 +580,14 @@ describe("replaceable projection renderer", () => {
           positionedPose,
           C_ARM_RIG_PRESETS["non-isocentric"],
         ),
-        height: 400,
-        width: 400,
+        height: 768,
+        width: 768,
       });
     });
     expect(renderer.render).toHaveBeenNthCalledWith(1, {
       geometry: buildCArmGeometry(positionedPose, C_ARM_RIG_PRESETS.isocentric),
-      height: 400,
-      width: 400,
+      height: 768,
+      width: 768,
     });
   });
 
