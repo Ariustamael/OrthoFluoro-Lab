@@ -29,7 +29,14 @@ import type {
 } from "../../engine/projection/rendererTypes";
 import { useSimulationStore } from "../../state/simulationStore";
 import { AnatomyPoseStatus } from "../controls/AnatomyPoseStatus";
-import { detectorDimensions } from "./projectionAcquisition";
+import {
+  captureProjectionSnapshot,
+  detectorDimensions,
+  invalidateProjectionRequests,
+  isCurrentProjectionRequest,
+  nextProjectionRequestToken,
+  type ProjectionRequestToken,
+} from "./projectionAcquisition";
 import { XrayDisplayToolbar } from "./XrayDisplayToolbar";
 import {
   normalizeDisplayDegrees,
@@ -192,12 +199,13 @@ export interface ProjectionViewProps {
 }
 
 interface ProjectionState {
-  readonly status: "pending" | "ready" | "error";
+  readonly status: "idle" | "pending" | "ready" | "error";
   readonly output: ProjectionOutput | null;
   readonly message: string | null;
 }
 
 interface ActiveRenderer {
+  readonly identity: string;
   readonly renderer: AnatomyRenderer | FrameRenderer;
   readonly strategy: RendererStrategy;
   readonly reason: string | null;
@@ -293,6 +301,10 @@ export function ProjectionView({
   const physicalSetup = useSimulationStore((state) => state.cArmPhysicalSetup);
   const cArmMode = useSimulationStore((state) => state.cArmMode);
   const hipAnatomyPose = useSimulationStore((state) => state.hipAnatomyPose);
+  const acquisitionMode = useSimulationStore((state) => state.acquisitionMode);
+  const shotRequestRevision = useSimulationStore(
+    (state) => state.shotRequestRevision,
+  );
   const quality = useSimulationStore((state) => state.quality);
   const xrayDisplayOrientation = useSimulationStore(
     (state) => state.xrayDisplayOrientation,
@@ -303,11 +315,24 @@ export function ProjectionView({
     () => buildCArmGeometry(cArmPose, preset, physicalSetup),
     [cArmPose, physicalSetup, preset],
   );
-  const renderDimensions = detectorDimensions(quality, isInteracting);
+  const renderDimensions = detectorDimensions(
+    quality,
+    acquisitionMode === "continuous" && isInteracting,
+  );
   const displayDimensions = detectorDisplayDimensions();
   const rendererRef = useRef<ActiveRenderer | null>(null);
   const disposedRenderersRef = useRef(new WeakSet<object>());
-  const requestIdRef = useRef(0);
+  const requestTokenRef = useRef<ProjectionRequestToken>({
+    modeEpoch: 0,
+    rendererIdentity: "none",
+    requestRevision: 0,
+  });
+  const rendererSequenceRef = useRef(0);
+  const acquisitionModeRef = useRef(acquisitionMode);
+  acquisitionModeRef.current = acquisitionMode;
+  const previousAcquisitionModeRef = useRef(acquisitionMode);
+  const lastHandledShotRequestRevisionRef = useRef(shotRequestRevision);
+  const shotPendingRef = useRef(false);
   const contextLostRef = useRef(false);
   const [activeRenderer, setActiveRenderer] = useState<ActiveRenderer | null>(
     null,
@@ -318,9 +343,10 @@ export function ProjectionView({
   const [capabilitySnapshot, setCapabilitySnapshot] =
     useState<CapabilitySnapshot | null>(null);
   const [projectionState, setProjectionState] = useState<ProjectionState>({
-    message: null,
+    message:
+      acquisitionMode === "shots-only" ? "Ready for exposure" : null,
     output: null,
-    status: "pending",
+    status: acquisitionMode === "shots-only" ? "idle" : "pending",
   });
   const effectiveFactories = useMemo<ProjectionRendererFactories>(
     () =>
@@ -383,6 +409,12 @@ export function ProjectionView({
         : null,
     [anatomy.resource, anatomy.status, frameInput, hipAnatomyPose],
   );
+  const latestProjectionInputsRef = useRef({
+    anatomyInput,
+    frameInput,
+    quality,
+  });
+  latestProjectionInputsRef.current = { anatomyInput, frameInput, quality };
   const sourceObjectDistance = magnitude(
     subtract(geometry.isocentre, geometry.source),
   );
@@ -410,6 +442,25 @@ export function ProjectionView({
   }, [anatomy.resource, anatomy.status, detectCapability, recoveryRevision]);
 
   useEffect(() => {
+    if (previousAcquisitionModeRef.current === acquisitionMode) return;
+    previousAcquisitionModeRef.current = acquisitionMode;
+    requestTokenRef.current = invalidateProjectionRequests(
+      requestTokenRef.current,
+    );
+    shotPendingRef.current = false;
+    lastHandledShotRequestRevisionRef.current = shotRequestRevision;
+    setProjectionState(
+      acquisitionMode === "shots-only"
+        ? {
+            message: "Ready for exposure",
+            output: null,
+            status: "idle",
+          }
+        : { message: null, output: null, status: "pending" },
+    );
+  }, [acquisitionMode, shotRequestRevision]);
+
+  useEffect(() => {
     let mounted = true;
     const disposedRenderers = disposedRenderersRef.current;
     if (desiredStrategy === null) {
@@ -417,7 +468,17 @@ export function ProjectionView({
         if (!mounted) return;
         rendererRef.current = null;
         setActiveRenderer(null);
-        setProjectionState({ message: null, output: null, status: "pending" });
+        setProjectionState((current) =>
+          acquisitionModeRef.current === "shots-only"
+            ? current.output === null
+              ? {
+                  message: "Ready for exposure",
+                  output: null,
+                  status: "idle",
+                }
+              : current
+            : { message: null, output: current.output, status: "pending" },
+        );
       });
       return () => {
         mounted = false;
@@ -438,10 +499,12 @@ export function ProjectionView({
                 )(desiredReason ?? "WebGL projection unavailable")
               : effectiveFactories.createSimplified();
       nextRenderer = {
+        identity: `${desiredStrategy}-${rendererSequenceRef.current + 1}`,
         reason: desiredReason,
         renderer,
         strategy: desiredStrategy,
       };
+      rendererSequenceRef.current += 1;
     } catch (error: unknown) {
       queueMicrotask(() => {
         if (!mounted) return;
@@ -454,11 +517,14 @@ export function ProjectionView({
             reason: failureMessage(error),
           });
         } else {
-          setProjectionState({
+          setProjectionState((current) => ({
             message: failureMessage(error),
-            output: null,
+            output:
+              acquisitionModeRef.current === "shots-only"
+                ? current.output
+                : null,
             status: "error",
-          });
+          }));
         }
       });
       return () => {
@@ -469,12 +535,18 @@ export function ProjectionView({
     rendererRef.current = nextRenderer;
     queueMicrotask(() => {
       if (!mounted || rendererRef.current !== nextRenderer) return;
-      setProjectionState({ message: null, output: null, status: "pending" });
+      contextLostRef.current = false;
+      if (acquisitionModeRef.current === "continuous") {
+        setProjectionState({ message: null, output: null, status: "pending" });
+      }
       setActiveRenderer(nextRenderer);
     });
     return () => {
       mounted = false;
-      requestIdRef.current += 1;
+      requestTokenRef.current = invalidateProjectionRequests(
+        requestTokenRef.current,
+      );
+      shotPendingRef.current = false;
       if (rendererRef.current === nextRenderer) rendererRef.current = null;
       disposeRendererOnce(nextRenderer, disposedRenderers);
     };
@@ -496,15 +568,27 @@ export function ProjectionView({
       event.preventDefault();
       if (rendererRef.current !== activeRenderer) return;
       contextLostRef.current = true;
-      requestIdRef.current += 1;
+      requestTokenRef.current = invalidateProjectionRequests(
+        requestTokenRef.current,
+      );
+      shotPendingRef.current = false;
       disposeRendererOnce(activeRenderer, disposedRenderersRef.current);
-      setProjectionState({ message: null, output: null, status: "pending" });
+      setProjectionState((current) =>
+        acquisitionModeRef.current === "shots-only"
+          ? current.output === null
+            ? {
+                message: "Ready for exposure",
+                output: null,
+                status: "idle",
+              }
+            : { message: null, output: current.output, status: "ready" }
+          : { message: null, output: current.output, status: "pending" },
+      );
     };
     const handleContextRestored = () => {
       if (rendererRef.current !== activeRenderer || !contextLostRef.current) {
         return;
       }
-      contextLostRef.current = false;
       retryAnatomy();
       setRecoveryRevision((revision) => revision + 1);
     };
@@ -518,6 +602,7 @@ export function ProjectionView({
 
   useEffect(() => {
     if (
+      acquisitionMode !== "continuous" ||
       activeRenderer === null ||
       rendererRef.current !== activeRenderer ||
       contextLostRef.current
@@ -533,8 +618,11 @@ export function ProjectionView({
       ) {
         return;
       }
-      const requestId = requestIdRef.current + 1;
-      requestIdRef.current = requestId;
+      const requestToken = nextProjectionRequestToken(
+        requestTokenRef.current,
+        activeRenderer.identity,
+      );
+      requestTokenRef.current = requestToken;
       setProjectionState((current) => ({
         message: null,
         output: current.output,
@@ -544,7 +632,10 @@ export function ProjectionView({
         (output) => {
           if (
             active &&
-            requestIdRef.current === requestId &&
+            isCurrentProjectionRequest(
+              requestTokenRef.current,
+              requestToken,
+            ) &&
             rendererRef.current === activeRenderer &&
             !contextLostRef.current
           ) {
@@ -554,7 +645,10 @@ export function ProjectionView({
         (error: unknown) => {
           if (
             !active ||
-            requestIdRef.current !== requestId ||
+            !isCurrentProjectionRequest(
+              requestTokenRef.current,
+              requestToken,
+            ) ||
             rendererRef.current !== activeRenderer
           ) {
             return;
@@ -580,9 +674,100 @@ export function ProjectionView({
     return () => {
       active = false;
     };
-  }, [activeRenderer, anatomyInput, frameInput]);
+  }, [acquisitionMode, activeRenderer, anatomyInput, frameInput]);
+
+  useEffect(() => {
+    if (
+      acquisitionMode !== "shots-only" ||
+      shotRequestRevision <= lastHandledShotRequestRevisionRef.current
+    ) {
+      return;
+    }
+    if (contextLostRef.current) {
+      lastHandledShotRequestRevisionRef.current = shotRequestRevision;
+      return;
+    }
+    if (
+      activeRenderer === null ||
+      rendererRef.current !== activeRenderer
+    ) {
+      return;
+    }
+    lastHandledShotRequestRevisionRef.current = shotRequestRevision;
+    if (shotPendingRef.current) return;
+
+    const latest = latestProjectionInputsRef.current;
+    const snapshot = captureProjectionSnapshot({
+      anatomyInput: latest.anatomyInput,
+      frameInput: latest.frameInput,
+      quality: latest.quality,
+      rendererIdentity: activeRenderer.identity,
+    });
+    const requestToken = nextProjectionRequestToken(
+      requestTokenRef.current,
+      snapshot.rendererIdentity,
+    );
+    requestTokenRef.current = requestToken;
+    shotPendingRef.current = true;
+    setProjectionState((current) => ({
+      message: "Acquiring image…",
+      output: current.output,
+      status: "pending",
+    }));
+
+    void renderProjection(
+      activeRenderer,
+      snapshot.frameInput,
+      snapshot.anatomyInput,
+    ).then(
+      (output) => {
+        if (
+          acquisitionModeRef.current !== "shots-only" ||
+          !isCurrentProjectionRequest(requestTokenRef.current, requestToken) ||
+          rendererRef.current !== activeRenderer ||
+          contextLostRef.current
+        ) {
+          return;
+        }
+        shotPendingRef.current = false;
+        setProjectionState({ message: null, output, status: "ready" });
+      },
+      (error: unknown) => {
+        if (
+          acquisitionModeRef.current !== "shots-only" ||
+          !isCurrentProjectionRequest(requestTokenRef.current, requestToken) ||
+          rendererRef.current !== activeRenderer
+        ) {
+          return;
+        }
+        shotPendingRef.current = false;
+        if (
+          activeRenderer.strategy === "layered" &&
+          snapshot.anatomyInput !== null
+        ) {
+          const reason =
+            error instanceof LayeredProjectionCapabilityError
+              ? CAPABILITY_REASON_LABELS[error.capability.reason]
+              : `layered thickness failed: ${failureMessage(error)}`;
+          setForcedSilhouette({ reason });
+        }
+        setProjectionState((current) => ({
+          message: "Image unavailable — retry Take shot",
+          output: current.output,
+          status: "error",
+        }));
+      },
+    );
+  }, [acquisitionMode, activeRenderer, shotRequestRevision]);
 
   const projectionOutput = projectionState.output;
+  const reportedRenderDimensions =
+    acquisitionMode === "shots-only" && projectionOutput !== null
+      ? {
+          height: projectionOutput.artifact.height,
+          width: projectionOutput.artifact.width,
+        }
+      : renderDimensions;
   const description =
     projectionOutput?.description ?? "Preparing detector projection…";
   const methodStatus = projectionMethodStatus(activeRenderer, projectionOutput);
@@ -605,8 +790,11 @@ export function ProjectionView({
         projectionOutput?.metadata?.precision ?? undefined
       }
       data-projection-strategy={projectionOutput?.strategyId}
-      data-render-height={renderDimensions.height}
-      data-render-width={renderDimensions.width}
+      data-render-height={reportedRenderDimensions.height}
+      data-render-width={reportedRenderDimensions.width}
+      data-shot-pending={
+        acquisitionMode === "shots-only" && projectionState.status === "pending"
+      }
     >
       <AnatomyPoseStatus label="Projection anatomy status" />
       <header className="projection-view__header">
@@ -635,8 +823,12 @@ export function ProjectionView({
           position: "relative",
         }}
       >
-        {projectionOutput === null && projectionState.status === "pending" ? (
-          <p role="status">Preparing detector projection…</p>
+        {projectionOutput === null &&
+        (projectionState.status === "pending" ||
+          projectionState.status === "idle") ? (
+          <p role="status">
+            {projectionState.message ?? "Preparing detector projection…"}
+          </p>
         ) : null}
         {projectionOutput === null ? null : (
           <div className="projection-view__display-stage">
@@ -680,7 +872,7 @@ export function ProjectionView({
       <p aria-label="Projection status" role="status">
         Orbit {cArmPose.orbitDegrees.toFixed(1)}° · Magnification{" "}
         {projectionMagnification.toFixed(2)}× · Resolution{" "}
-        {renderDimensions.width} × {renderDimensions.height}
+        {reportedRenderDimensions.width} × {reportedRenderDimensions.height}
       </p>
     </section>
   );

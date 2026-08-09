@@ -103,6 +103,8 @@ function renderProjection(
 
 beforeEach(() => {
   useSimulationStore.setState({
+    acquisitionMode: "continuous",
+    anatomyPresentationMode: "bones-only",
     cArmMode: "isocentric",
     cArmPhysicalSetup: { ...REFERENCE_C_ARM_PHYSICAL_SETUP },
     cArmPose: { ...REFERENCE_C_ARM_POSE },
@@ -113,6 +115,7 @@ beforeEach(() => {
     },
     interactionMode: "inspect",
     quality: "medium",
+    shotRequestRevision: 0,
     showBeam: true,
     xrayDisplayOrientation: { ...REFERENCE_XRAY_DISPLAY_ORIENTATION },
   });
@@ -313,6 +316,395 @@ describe("ProjectionView renderer orchestration", () => {
       "full-regional",
     );
     expect(layered.render).toHaveBeenCalledOnce();
+  });
+
+  it("enters shots-only ready, invalidates pending continuous work, and ignores movement", async () => {
+    const continuous = deferred<ProjectionOutput>();
+    const layered: ProjectionRenderer<AnatomyProjectionInput> = {
+      dispose: vi.fn(),
+      render: vi.fn(() => continuous.promise),
+    };
+    const factories: ProjectionRendererFactories = {
+      createLayered: () => layered,
+      createSilhouette: () => renderer(output("Silhouette", "mesh-silhouette")),
+      createSimplified: () =>
+        renderer(output("Unavailable", "simplified-procedural")),
+    };
+
+    renderProjection(factories, {
+      precision: "float32",
+      reason: null,
+      strategy: "layered-thickness",
+    });
+    await waitFor(() => expect(layered.render).toHaveBeenCalledOnce());
+
+    act(() => useSimulationStore.getState().setAcquisitionMode("shots-only"));
+
+    expect(await screen.findByText("Ready for exposure")).toBeVisible();
+    expect(screen.getByTestId("projection-detector-display")).toHaveAttribute(
+      "aria-busy",
+      "false",
+    );
+    act(() => {
+      useSimulationStore.getState().setCArmParameter("translationX", 18);
+      useSimulationStore.getState().setSelectedHipRotation(27);
+      useSimulationStore.getState().setAnatomyPresentationMode("full-regional");
+    });
+    expect(layered.render).toHaveBeenCalledOnce();
+
+    await act(async () =>
+      continuous.resolve(output("Stale continuous", "stale-continuous")),
+    );
+    expect(
+      screen.queryByRole("img", { name: "Stale continuous" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("Ready for exposure")).toBeVisible();
+  });
+
+  it("captures an immutable first shot and keeps it visible during replacement", async () => {
+    useSimulationStore.setState({ acquisitionMode: "shots-only" });
+    const firstShot = deferred<ProjectionOutput>();
+    const replacement = deferred<ProjectionOutput>();
+    const layered: ProjectionRenderer<AnatomyProjectionInput> = {
+      dispose: vi.fn(),
+      render: vi
+        .fn<ProjectionRenderer<AnatomyProjectionInput>["render"]>()
+        .mockImplementationOnce(() => firstShot.promise)
+        .mockImplementationOnce(() => replacement.promise),
+    };
+    const factories: ProjectionRendererFactories = {
+      createLayered: () => layered,
+      createSilhouette: () => renderer(output("Silhouette", "mesh-silhouette")),
+      createSimplified: () =>
+        renderer(output("Unavailable", "simplified-procedural")),
+    };
+
+    renderProjection(factories, {
+      precision: "float32",
+      reason: null,
+      strategy: "layered-thickness",
+    });
+    expect(await screen.findByText("Ready for exposure")).toBeVisible();
+    expect(layered.render).not.toHaveBeenCalled();
+
+    act(() => useSimulationStore.getState().requestShot());
+    await waitFor(() => expect(layered.render).toHaveBeenCalledOnce());
+    expect(screen.getByTestId("projection-detector-display")).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+    expect(
+      screen.getByRole("region", { name: "Simulated X-ray view" }),
+    ).toHaveAttribute("data-shot-pending", "true");
+    const capturedInput = vi.mocked(layered.render).mock.calls[0][0];
+    const capturedRigPosition = [...capturedInput.geometry.rigTransform.position];
+    expect(capturedInput).toMatchObject({ height: 768, width: 768 });
+    expect(capturedInput.anatomyPose.leftHipRotationDegrees).toBe(0);
+
+    act(() => useSimulationStore.getState().requestShot());
+    expect(layered.render).toHaveBeenCalledOnce();
+
+    act(() => {
+      useSimulationStore.getState().setCArmParameter("translationX", 26);
+      useSimulationStore.getState().setSelectedHipRotation(32);
+    });
+    expect(layered.render).toHaveBeenCalledOnce();
+    expect(capturedInput.geometry.rigTransform.position).toEqual(
+      capturedRigPosition,
+    );
+    expect(capturedInput.geometry.rigTransform.position).not.toEqual(
+      buildCArmGeometry(
+        useSimulationStore.getState().cArmPose,
+        C_ARM_RIG_PRESETS.isocentric,
+        useSimulationStore.getState().cArmPhysicalSetup,
+      ).rigTransform.position,
+    );
+    expect(capturedInput.anatomyPose.leftHipRotationDegrees).toBe(0);
+
+    await act(async () =>
+      firstShot.resolve(output("First frozen shot", "first-frozen")),
+    );
+    expect(
+      await screen.findByRole("img", { name: "First frozen shot" }),
+    ).toBeVisible();
+
+    act(() => useSimulationStore.getState().requestShot());
+    await waitFor(() => expect(layered.render).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole("img", { name: "First frozen shot" })).toBeVisible();
+    expect(screen.getByTestId("projection-detector-display")).toHaveAttribute(
+      "aria-busy",
+      "true",
+    );
+    expect(
+      vi.mocked(layered.render).mock.calls[1][0].anatomyPose,
+    ).toMatchObject({ leftHipRotationDegrees: 32 });
+
+    await act(async () =>
+      replacement.resolve(output("Replacement shot", "replacement-shot")),
+    );
+    expect(
+      await screen.findByRole("img", { name: "Replacement shot" }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("region", { name: "Simulated X-ray view" }),
+    ).toHaveAttribute("data-shot-pending", "false");
+    expect(
+      screen.queryByRole("img", { name: "First frozen shot" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("retains a frozen shot after failure and applies quality only to the next shot", async () => {
+    useSimulationStore.setState({ acquisitionMode: "shots-only" });
+    const failedReplacement = deferred<ProjectionOutput>();
+    const layered: ProjectionRenderer<AnatomyProjectionInput> = {
+      dispose: vi.fn(),
+      render: vi
+        .fn<ProjectionRenderer<AnatomyProjectionInput>["render"]>()
+        .mockResolvedValueOnce(output("Retained shot", "retained-shot"))
+        .mockImplementationOnce(() => failedReplacement.promise),
+    };
+    const factories: ProjectionRendererFactories = {
+      createLayered: () => layered,
+      createSilhouette: () => renderer(output("Silhouette", "mesh-silhouette")),
+      createSimplified: () =>
+        renderer(output("Unavailable", "simplified-procedural")),
+    };
+
+    renderProjection(factories, {
+      precision: "float32",
+      reason: null,
+      strategy: "layered-thickness",
+    });
+    expect(await screen.findByText("Ready for exposure")).toBeVisible();
+    act(() => useSimulationStore.getState().requestShot());
+    expect(
+      await screen.findByRole("img", { name: "Retained shot" }),
+    ).toBeVisible();
+    expect(vi.mocked(layered.render).mock.calls[0][0]).toMatchObject({
+      height: 768,
+      width: 768,
+    });
+    expect(
+      screen.getByRole("region", { name: "Simulated X-ray view" }),
+    ).toHaveAttribute("data-render-width", "400");
+
+    act(() => useSimulationStore.getState().setQuality("high"));
+    expect(layered.render).toHaveBeenCalledOnce();
+    expect(screen.getByRole("img", { name: "Retained shot" })).toBeVisible();
+    expect(
+      screen.getByRole("status", { name: "Projection status" }),
+    ).toHaveTextContent("Resolution 400 × 400");
+    expect(
+      screen.getByRole("region", { name: "Simulated X-ray view" }),
+    ).toHaveAttribute("data-render-width", "400");
+
+    act(() => useSimulationStore.getState().requestShot());
+    await waitFor(() => expect(layered.render).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(layered.render).mock.calls[1][0]).toMatchObject({
+      height: 1024,
+      width: 1024,
+    });
+    await act(async () =>
+      failedReplacement.reject(new Error("replacement exposure failed")),
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Image unavailable — retry Take shot",
+    );
+    expect(screen.getByRole("img", { name: "Retained shot" })).toBeVisible();
+    expect(screen.getByTestId("projection-detector-display")).toHaveAttribute(
+      "aria-busy",
+      "false",
+    );
+  });
+
+  it("preserves a frozen artifact through display and geometry resets, then resumes latest continuous geometry", async () => {
+    useSimulationStore.setState({ acquisitionMode: "shots-only" });
+    const layered = renderer<AnatomyProjectionInput>(
+      output("Frozen before reset", "frozen-before-reset"),
+    );
+    const factories: ProjectionRendererFactories = {
+      createLayered: () => layered,
+      createSilhouette: () => renderer(output("Silhouette", "mesh-silhouette")),
+      createSimplified: () =>
+        renderer(output("Unavailable", "simplified-procedural")),
+    };
+
+    renderProjection(factories, {
+      precision: "float32",
+      reason: null,
+      strategy: "layered-thickness",
+    });
+    expect(await screen.findByText("Ready for exposure")).toBeVisible();
+    act(() => useSimulationStore.getState().requestShot());
+    const image = await screen.findByRole("img", { name: "Frozen before reset" });
+    expect(layered.render).toHaveBeenCalledOnce();
+
+    act(() => {
+      useSimulationStore.getState().rotateXrayDisplay(1);
+      useSimulationStore.getState().resetGeometry();
+    });
+    expect(image).toBeVisible();
+    expect(layered.render).toHaveBeenCalledOnce();
+
+    act(() => {
+      useSimulationStore.getState().setCArmParameter("translationY", 14);
+      useSimulationStore.getState().setSelectedHipRotation(21);
+      useSimulationStore.getState().setAcquisitionMode("continuous");
+    });
+    await waitFor(() => expect(layered.render).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(layered.render).mock.calls[1][0]).toMatchObject({
+      anatomyPose: { leftHipRotationDegrees: 21 },
+      width: 768,
+    });
+    expect(vi.mocked(layered.render).mock.calls[1][0].geometry).toEqual(
+      buildCArmGeometry(
+        useSimulationStore.getState().cArmPose,
+        C_ARM_RIG_PRESETS.isocentric,
+        useSimulationStore.getState().cArmPhysicalSetup,
+      ),
+    );
+  });
+
+  it("does not expose a frozen shot to stale continuous completion", async () => {
+    const staleContinuous = deferred<ProjectionOutput>();
+    const currentShot = deferred<ProjectionOutput>();
+    const layered: ProjectionRenderer<AnatomyProjectionInput> = {
+      dispose: vi.fn(),
+      render: vi
+        .fn<ProjectionRenderer<AnatomyProjectionInput>["render"]>()
+        .mockImplementationOnce(() => staleContinuous.promise)
+        .mockImplementationOnce(() => currentShot.promise),
+    };
+    const factories: ProjectionRendererFactories = {
+      createLayered: () => layered,
+      createSilhouette: () => renderer(output("Silhouette", "mesh-silhouette")),
+      createSimplified: () =>
+        renderer(output("Unavailable", "simplified-procedural")),
+    };
+
+    renderProjection(factories, {
+      precision: "float32",
+      reason: null,
+      strategy: "layered-thickness",
+    });
+    await waitFor(() => expect(layered.render).toHaveBeenCalledOnce());
+    act(() => useSimulationStore.getState().setAcquisitionMode("shots-only"));
+    expect(await screen.findByText("Ready for exposure")).toBeVisible();
+    act(() => useSimulationStore.getState().requestShot());
+    await waitFor(() => expect(layered.render).toHaveBeenCalledTimes(2));
+
+    await act(async () =>
+      currentShot.resolve(output("Current frozen shot", "current-shot")),
+    );
+    expect(
+      await screen.findByRole("img", { name: "Current frozen shot" }),
+    ).toBeVisible();
+    await act(async () =>
+      staleContinuous.resolve(output("Late continuous", "late-continuous")),
+    );
+    expect(
+      screen.queryByRole("img", { name: "Late continuous" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: "Current frozen shot" }),
+    ).toBeVisible();
+  });
+
+  it("retains the frozen detector and does not expose after WebGL context recovery", async () => {
+    useSimulationStore.setState({ acquisitionMode: "shots-only" });
+    const firstCanvas = document.createElement("canvas");
+    const recoveredCanvas = document.createElement("canvas");
+    const first = {
+      contextCanvas: firstCanvas,
+      dispose: vi.fn(),
+      render: vi.fn(async () => output("Context-safe shot", "context-safe")),
+    } satisfies ProjectionRenderer<AnatomyProjectionInput>;
+    const recovered = {
+      contextCanvas: recoveredCanvas,
+      dispose: vi.fn(),
+      render: vi.fn(async () => output("Unexpected recovery", "unexpected")),
+    } satisfies ProjectionRenderer<AnatomyProjectionInput>;
+    const factories: ProjectionRendererFactories = {
+      createLayered: vi
+        .fn<ProjectionRendererFactories["createLayered"]>()
+        .mockReturnValueOnce(first)
+        .mockReturnValueOnce(recovered),
+      createSilhouette: () => renderer(output("Silhouette", "mesh-silhouette")),
+      createSimplified: () =>
+        renderer(output("Unavailable", "simplified-procedural")),
+    };
+
+    renderProjection(factories, {
+      precision: "float32",
+      reason: null,
+      strategy: "layered-thickness",
+    });
+    expect(await screen.findByText("Ready for exposure")).toBeVisible();
+    act(() => useSimulationStore.getState().requestShot());
+    expect(
+      await screen.findByRole("img", { name: "Context-safe shot" }),
+    ).toBeVisible();
+
+    firstCanvas.dispatchEvent(
+      new Event("webglcontextlost", { cancelable: true }),
+    );
+    firstCanvas.dispatchEvent(new Event("webglcontextrestored"));
+    act(() => useSimulationStore.getState().requestShot());
+
+    await waitFor(() => expect(factories.createLayered).toHaveBeenCalledTimes(2));
+    expect(recovered.render).not.toHaveBeenCalled();
+    expect(screen.getByRole("img", { name: "Context-safe shot" })).toBeVisible();
+    expect(screen.getByTestId("projection-detector-display")).toHaveAttribute(
+      "aria-busy",
+      "false",
+    );
+  });
+
+  it("retains a frozen shot when renderer recovery construction fails", async () => {
+    useSimulationStore.setState({ acquisitionMode: "shots-only" });
+    const canvas = document.createElement("canvas");
+    const first = {
+      contextCanvas: canvas,
+      dispose: vi.fn(),
+      render: vi.fn(async () => output("Safe frozen shot", "safe-frozen")),
+    } satisfies ProjectionRenderer<AnatomyProjectionInput>;
+    const factories: ProjectionRendererFactories = {
+      createCompatibility: vi
+        .fn<NonNullable<ProjectionRendererFactories["createCompatibility"]>>()
+        .mockReturnValueOnce(first)
+        .mockImplementationOnce(() => {
+          throw new Error("recovery renderer failed");
+        }),
+      createLayered: () =>
+        renderer(output("Layered", "layered-mesh-thickness")),
+      createSilhouette: () => renderer(output("Silhouette", "mesh-silhouette")),
+      createSimplified: () =>
+        renderer(output("Unavailable", "simplified-procedural")),
+    };
+
+    renderProjection(factories, {
+      precision: null,
+      reason: "webgl2-required",
+      strategy: "mesh-silhouette",
+    });
+    expect(await screen.findByText("Ready for exposure")).toBeVisible();
+    act(() => useSimulationStore.getState().requestShot());
+    expect(
+      await screen.findByRole("img", { name: "Safe frozen shot" }),
+    ).toBeVisible();
+
+    canvas.dispatchEvent(new Event("webglcontextlost", { cancelable: true }));
+    canvas.dispatchEvent(new Event("webglcontextrestored"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "recovery renderer failed",
+    );
+    expect(screen.getByRole("img", { name: "Safe frozen shot" })).toBeVisible();
+    expect(screen.getByTestId("projection-detector-display")).toHaveAttribute(
+      "aria-busy",
+      "false",
+    );
   });
 
   it("keeps the last valid artifact and toolbar visible during a physical rerender and its error", async () => {
