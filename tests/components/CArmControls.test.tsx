@@ -29,10 +29,59 @@ beforeEach(() => {
     showBeam: true,
     interactionMode: "inspect",
     quality: "medium",
+    anatomyPresentationMode: "bones-only",
+    acquisitionMode: "continuous",
+    shotRequestRevision: 0,
   });
 });
 
 describe("simulation store", () => {
+  it("starts with serializable anatomy presentation and acquisition intent", () => {
+    expect(useSimulationStore.getInitialState()).toMatchObject({
+      anatomyPresentationMode: "bones-only",
+      acquisitionMode: "continuous",
+      shotRequestRevision: 0,
+    });
+  });
+
+  it("increments shot requests monotonically", () => {
+    const store = useSimulationStore.getState();
+
+    store.requestShot();
+    store.requestShot();
+
+    expect(useSimulationStore.getState().shotRequestRevision).toBe(2);
+  });
+
+  it("resetAnatomy restores bones only without resetting acquisition intent", () => {
+    const store = useSimulationStore.getState();
+    store.setAnatomyPresentationMode("full-regional");
+    store.setAcquisitionMode("shots-only");
+    store.requestShot();
+    store.resetAnatomy();
+
+    expect(useSimulationStore.getState()).toMatchObject({
+      anatomyPresentationMode: "bones-only",
+      acquisitionMode: "shots-only",
+      shotRequestRevision: 1,
+    });
+  });
+
+  it("resetGeometry restores bones only without resetting acquisition intent", () => {
+    const store = useSimulationStore.getState();
+    store.setAnatomyPresentationMode("full-regional");
+    store.setAcquisitionMode("shots-only");
+    store.requestShot();
+
+    store.resetGeometry();
+
+    expect(useSimulationStore.getState()).toMatchObject({
+      anatomyPresentationMode: "bones-only",
+      acquisitionMode: "shots-only",
+      shotRequestRevision: 1,
+    });
+  });
+
   it("keeps physical setup and X-ray display orientation independent", () => {
     const store = useSimulationStore.getState();
     store.setApproachSide("right");

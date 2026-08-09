@@ -5,6 +5,8 @@ import {
 } from "../anatomy/anatomyTransforms";
 import {
   REFERENCE_HIP_ANATOMY_POSE,
+  type AcquisitionMode,
+  type AnatomyPresentationMode,
   type AnatomySide,
   type AnatomyVisibility,
   type HipAnatomyPose,
@@ -34,6 +36,9 @@ export interface SimulationState {
   cArmMode: CArmKinematicMode;
   showBeam: boolean;
   hipAnatomyPose: HipAnatomyPose;
+  anatomyPresentationMode: AnatomyPresentationMode;
+  acquisitionMode: AcquisitionMode;
+  shotRequestRevision: number;
   interactionMode: InteractionMode;
   quality: QualityPreset;
   setCArmPose: (pose: CArmPose) => void;
@@ -57,6 +62,9 @@ export interface SimulationState {
   setSelectedAnatomySide: (side: AnatomySide) => void;
   setSelectedHipRotation: (degrees: number) => void;
   resetAnatomy: () => void;
+  setAnatomyPresentationMode: (mode: AnatomyPresentationMode) => void;
+  setAcquisitionMode: (mode: AcquisitionMode) => void;
+  requestShot: () => void;
   setInteractionMode: (mode: InteractionMode) => void;
   setQuality: (quality: QualityPreset) => void;
   resetGeometry: () => void;
@@ -87,6 +95,9 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   cArmMode: "isocentric",
   showBeam: true,
   hipAnatomyPose: createReferenceHipAnatomyPose(),
+  anatomyPresentationMode: "bones-only",
+  acquisitionMode: "continuous",
+  shotRequestRevision: 0,
   interactionMode: "inspect",
   quality: "medium",
   setCArmPose: (pose) => {
@@ -185,7 +196,21 @@ export const useSimulationStore = create<SimulationState>((set) => ({
     });
   },
   resetAnatomy: () => {
-    set({ hipAnatomyPose: createReferenceHipAnatomyPose() });
+    set({
+      hipAnatomyPose: createReferenceHipAnatomyPose(),
+      anatomyPresentationMode: "bones-only",
+    });
+  },
+  setAnatomyPresentationMode: (anatomyPresentationMode) => {
+    set({ anatomyPresentationMode });
+  },
+  setAcquisitionMode: (acquisitionMode) => {
+    set({ acquisitionMode });
+  },
+  requestShot: () => {
+    set((state) => ({
+      shotRequestRevision: state.shotRequestRevision + 1,
+    }));
   },
   setInteractionMode: (interactionMode) => {
     set({ interactionMode });
@@ -200,6 +225,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       cArmMode: "isocentric",
       showBeam: true,
       hipAnatomyPose: createReferenceHipAnatomyPose(),
+      anatomyPresentationMode: "bones-only",
     });
   },
 }));

@@ -2,6 +2,10 @@ export type AnatomySide = "left" | "right";
 
 export type AnatomyVisibility = "bilateral" | "left-only" | "right-only";
 
+export type AnatomyPresentationMode = "bones-only" | "full-regional";
+
+export type AcquisitionMode = "continuous" | "shots-only";
+
 export type HipAnatomyGroup =
   | "pelvis"
   | `${AnatomySide}-femur`
