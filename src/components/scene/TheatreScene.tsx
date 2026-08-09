@@ -6,11 +6,14 @@ import { useState } from "react";
 import {
   useAnatomyAsset,
   type AnatomyAssetStatus,
+  type RegionalAnatomyAssetStatus,
 } from "../../anatomy/AnatomyAssetProvider";
+import type { AnatomyPresentationMode } from "../../anatomy/anatomyTypes";
 import { useSimulationStore } from "../../state/simulationStore";
 import { CArmRig } from "./CArmRig";
 import type { CArmCueId } from "./cArmCueHints";
 import { HipAnatomy } from "./HipAnatomy";
+import { RegionalAnatomy } from "./RegionalAnatomy";
 
 export const THEATRE_BACKGROUND_COLOR = "#07131f";
 export const DEFAULT_THEATRE_TARGET = [0, -200, 0] satisfies [
@@ -107,10 +110,26 @@ function AnatomyFallback({
   );
 }
 
-function HipAnatomyLayer() {
+export function HipAnatomyLayer() {
   const anatomy = useAnatomyAsset();
+  const anatomyPresentationMode = useSimulationStore(
+    (state) => state.anatomyPresentationMode,
+  );
   if (anatomy.status === "ready" && anatomy.resource !== null) {
-    return <HipAnatomy resource={anatomy.resource} />;
+    const composition = anatomyLayerComposition(
+      anatomyPresentationMode,
+      anatomy.regional.status,
+    );
+    return (
+      <>
+        {composition.showSkeleton ? (
+          <HipAnatomy resource={anatomy.resource} />
+        ) : null}
+        {composition.showRegional && anatomy.regional.resource !== null ? (
+          <RegionalAnatomy resource={anatomy.regional.resource} />
+        ) : null}
+      </>
+    );
   }
   return (
     <AnatomyFallback
@@ -118,6 +137,16 @@ function HipAnatomyLayer() {
       status={anatomy.status === "error" ? "error" : "loading"}
     />
   );
+}
+
+export function anatomyLayerComposition(
+  mode: AnatomyPresentationMode,
+  regionalStatus: RegionalAnatomyAssetStatus,
+): { showSkeleton: true; showRegional: boolean } {
+  return {
+    showRegional: mode === "full-regional" && regionalStatus === "ready",
+    showSkeleton: true,
+  };
 }
 
 interface TheatreSceneProps {

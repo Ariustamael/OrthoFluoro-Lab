@@ -57,6 +57,7 @@ import {
 } from "../../src/components/scene/CArmRig";
 import {
   AnatomyFallbackNotice,
+  anatomyLayerComposition,
   anatomyFallbackLabel,
   DEFAULT_THEATRE_TARGET,
   orbitControlsEnabled,
@@ -144,6 +145,48 @@ function expectSamePointSet(
 }
 
 describe("default theatre visual contracts", () => {
+  it("always retains the skeleton and gates the regional supplement on mode and readiness", () => {
+    expect(anatomyLayerComposition("bones-only", "ready")).toEqual({
+      showRegional: false,
+      showSkeleton: true,
+    });
+    expect(anatomyLayerComposition("full-regional", "idle")).toEqual({
+      showRegional: false,
+      showSkeleton: true,
+    });
+    expect(anatomyLayerComposition("full-regional", "loading")).toEqual({
+      showRegional: false,
+      showSkeleton: true,
+    });
+    expect(anatomyLayerComposition("full-regional", "error")).toEqual({
+      showRegional: false,
+      showSkeleton: true,
+    });
+    expect(anatomyLayerComposition("full-regional", "ready")).toEqual({
+      showRegional: true,
+      showSkeleton: true,
+    });
+  });
+
+  it("keeps regional theatre composition independent of projection code", () => {
+    const regionalSceneSource = readFileSync(
+      join(process.cwd(), "src/anatomy/regionalAnatomyScene.ts"),
+      "utf8",
+    );
+    const regionalComponentSource = readFileSync(
+      join(process.cwd(), "src/components/scene/RegionalAnatomy.tsx"),
+      "utf8",
+    );
+    const theatreSceneSource = readFileSync(
+      join(process.cwd(), "src/components/scene/TheatreScene.tsx"),
+      "utf8",
+    );
+
+    expect(
+      `${regionalSceneSource}\n${regionalComponentSource}\n${theatreSceneSource}`,
+    ).not.toMatch(/projection/i);
+  });
+
   it("uses a shallow side-oblique camera that exposes the source below the table", () => {
     expect(DEFAULT_THEATRE_CAMERA.position).toEqual([
       1450,
