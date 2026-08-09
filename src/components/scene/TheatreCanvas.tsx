@@ -11,11 +11,13 @@ import {
 import { WebGLRenderer } from "three";
 import { ProjectionView } from "../projection/ProjectionView";
 import { AnatomyPoseStatus } from "../controls/AnatomyPoseStatus";
+import { useAnatomyAsset } from "../../anatomy/AnatomyAssetProvider";
+import { formatSignedDegrees } from "../../anatomy/anatomyPresentation";
 import {
   useSimulationStore,
   type QualityPreset,
 } from "../../state/simulationStore";
-import { TheatreScene } from "./TheatreScene";
+import { anatomyLayerComposition, TheatreScene } from "./TheatreScene";
 import { cArmCueHint, type CArmCueHint, type CArmCueId } from "./cArmCueHints";
 import {
   canInitializeWebGL,
@@ -108,6 +110,44 @@ export function CArmCueHintOverlay({ hint }: { hint: CArmCueHint | null }) {
   ) : null;
 }
 
+function TheatreAnatomyPresentationStatus() {
+  const anatomy = useAnatomyAsset();
+  const mode = useSimulationStore((state) => state.anatomyPresentationMode);
+  const pose = useSimulationStore((state) => state.hipAnatomyPose);
+  const regionalActive =
+    anatomy.status === "ready" &&
+    anatomy.resource !== null &&
+    anatomyLayerComposition(mode, anatomy.regional.status).showRegional &&
+    anatomy.regional.resource !== null;
+  const presentation =
+    mode === "bones-only"
+      ? "Bones only"
+      : regionalActive
+        ? "Full regional ready"
+        : anatomy.status === "error" || anatomy.regional.status === "error"
+          ? "Full regional unavailable"
+          : "Full regional loading";
+  const visibility =
+    pose.visibility === "bilateral"
+      ? "Both legs"
+      : pose.visibility === "left-only"
+        ? "Left leg only"
+        : "Right leg only";
+
+  return (
+    <p
+      aria-label="3D presentation status"
+      aria-live="off"
+      className="visually-hidden"
+      role="status"
+    >
+      {presentation} · {visibility} · Left leg rotation{" "}
+      {formatSignedDegrees(pose.leftHipRotationDegrees)} · Right leg rotation{" "}
+      {formatSignedDegrees(pose.rightHipRotationDegrees)}
+    </p>
+  );
+}
+
 function TheatreViewport() {
   const quality = useSimulationStore((state) => state.quality);
   const renderConfig = qualityToRenderConfig(quality);
@@ -165,6 +205,7 @@ function TheatreViewport() {
   return (
     <section aria-label="3D theatre" className="theatre-canvas">
       <AnatomyPoseStatus label="3D anatomy status" />
+      <TheatreAnatomyPresentationStatus />
       <CArmCueHintOverlay hint={cueHint} />
       {graphicsStatus === "checking" ? (
         <p role="status">Starting 3D view…</p>

@@ -762,7 +762,9 @@ export function ProjectionView({
         }
       : renderDimensions;
   const description =
-    projectionOutput?.description ?? "Preparing detector projection…";
+    projectionOutput?.description ??
+    projectionState.message ??
+    "Preparing detector projection…";
   const methodStatus = projectionMethodStatus(activeRenderer, projectionOutput);
   const displayDegrees = normalizeDisplayDegrees(
     xrayDisplayOrientation.rotationSteps,

@@ -356,6 +356,11 @@ describe("ProjectionView renderer orchestration", () => {
       "aria-busy",
       "false",
     );
+    expect(
+      within(
+        screen.getByRole("region", { name: "Simulated X-ray view" }),
+      ).queryByText("Preparing detector projection…", { exact: true }),
+    ).not.toBeInTheDocument();
     act(() => {
       useSimulationStore.getState().setCArmParameter("translationX", 18);
       useSimulationStore.getState().setSelectedHipRotation(27);

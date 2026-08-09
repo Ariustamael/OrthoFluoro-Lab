@@ -31,6 +31,10 @@ import { LabPage } from "../../src/pages/LabPage";
 import { useSimulationStore } from "../../src/state/simulationStore";
 
 const appCss = readFileSync(join(process.cwd(), "src/styles/app.css"), "utf8");
+let mockedAnatomyStatus: "loading" | "ready" | "error" = "error";
+let mockedAnatomyResource: object | null = null;
+let mockedRegionalStatus: "idle" | "loading" | "ready" | "error" = "idle";
+let mockedRegionalResource: object | null = null;
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -94,15 +98,15 @@ vi.mock("../../src/anatomy/AnatomyAssetProvider", () => ({
   ),
   useAnatomyAsset: () => ({
     error: new Error("Fixture anatomy unavailable"),
-    resource: null,
+    resource: mockedAnatomyResource,
     retry: vi.fn(),
-    status: "error",
+    status: mockedAnatomyStatus,
     regional: {
       error: null,
       load: vi.fn(),
-      resource: null,
+      resource: mockedRegionalResource,
       retry: vi.fn(),
-      status: "idle",
+      status: mockedRegionalStatus,
     },
   }),
 }));
@@ -119,6 +123,10 @@ vi.mock(
 );
 
 beforeEach(() => {
+  mockedAnatomyStatus = "error";
+  mockedAnatomyResource = null;
+  mockedRegionalStatus = "idle";
+  mockedRegionalResource = null;
   useSimulationStore.setState({
     cArmPose: { ...REFERENCE_C_ARM_POSE },
     cArmMode: "isocentric",
@@ -126,6 +134,44 @@ beforeEach(() => {
     interactionMode: "inspect",
     quality: "medium",
   });
+});
+
+it("exposes the regional layer's authoritative presentation and pose", () => {
+  mockedAnatomyStatus = "ready";
+  mockedAnatomyResource = {};
+  mockedRegionalStatus = "ready";
+  mockedRegionalResource = {};
+  useSimulationStore.setState({
+    anatomyPresentationMode: "full-regional",
+    hipAnatomyPose: {
+      leftHipRotationDegrees: 25,
+      rightHipRotationDegrees: 0,
+      rootPosition: [0, 0, 0],
+      rootRotationDegrees: [0, 0, 0],
+      selectedSide: "left",
+      visibility: "left-only",
+    },
+  });
+
+  render(<TheatreCanvas surface="theatre" />);
+
+  expect(
+    screen.getByRole("status", { name: "3D presentation status" }),
+  ).toHaveTextContent(
+    "Full regional ready · Left leg only · Left leg rotation +25° · Right leg rotation 0°",
+  );
+});
+
+it("does not report the regional layer ready when base anatomy is unavailable", () => {
+  mockedRegionalStatus = "ready";
+  mockedRegionalResource = {};
+  useSimulationStore.setState({ anatomyPresentationMode: "full-regional" });
+
+  render(<TheatreCanvas surface="theatre" />);
+
+  expect(
+    screen.getByRole("status", { name: "3D presentation status" }),
+  ).not.toHaveTextContent("Full regional ready");
 });
 
 describe("responsive laboratory workspace", () => {

@@ -20,14 +20,34 @@ function sourceSignature(source: string): string {
 }
 
 async function projectionImageSignature(page: Page): Promise<string> {
+  const detector = page.getByTestId("projection-detector-display");
   const image = page
     .getByRole("region", { name: "Simulated X-ray view" })
     .locator("img.projection-view__surface");
+  await expect(detector).toHaveAttribute("aria-busy", "false", {
+    timeout: 30_000,
+  });
   await expect(image).toBeVisible();
   const source = await image.getAttribute("src");
   expect(source).toMatch(/^data:image\/(png|svg\+xml)/);
   expect(source!.length).toBeGreaterThan(100);
   return sourceSignature(source!);
+}
+
+async function theatreSignature(page: Page): Promise<string> {
+  const theatre = page.getByRole("region", { name: "3D theatre" });
+  await expect(theatre).toBeVisible();
+  return sourceSignature((await theatre.screenshot()).toString("base64"));
+}
+
+async function waitForTheatreChange(
+  page: Page,
+  previousSignature: string,
+): Promise<string> {
+  await expect
+    .poll(() => theatreSignature(page), { timeout: 30_000 })
+    .not.toBe(previousSignature);
+  return theatreSignature(page);
 }
 
 async function waitForProjectionChange(
@@ -48,6 +68,23 @@ async function waitForProjectionChange(
     }, { timeout: 30_000 })
     .not.toBe(previousSignature);
   return projectionImageSignature(page);
+}
+
+async function waitForUiScheduling(page: Page, frameCount = 4): Promise<void> {
+  await page.evaluate(
+    (frames) =>
+      new Promise<void>((resolve) => {
+        const nextFrame = (remaining: number) => {
+          if (remaining === 0) {
+            resolve();
+            return;
+          }
+          requestAnimationFrame(() => nextFrame(remaining - 1));
+        };
+        nextFrame(frames);
+      }),
+    frameCount,
+  );
 }
 
 async function expectInside(inner: Locator, outer: Locator): Promise<void> {
@@ -107,7 +144,7 @@ test("@desktop separates physical setup from X-ray display orientation", async (
   const rotateRight = page.getByRole("button", {
     name: "Rotate X-ray right 10 degrees",
   });
-  const rotationStatus = page.getByRole("status", { name: "X-ray rotation" });
+  const rotationStatus = page.getByLabel("X-ray rotation");
   const flipHorizontal = page.getByRole("button", {
     name: "Flip X-ray horizontally",
   });
@@ -176,7 +213,7 @@ test("@desktop rotates continuously in 10-degree steps", async ({ page }) => {
   const rotateLeft = page.getByRole("button", {
     name: "Rotate X-ray left 10 degrees",
   });
-  const rotationStatus = page.getByRole("status", { name: "X-ray rotation" });
+  const rotationStatus = page.getByLabel("X-ray rotation");
 
   await rotateRight.evaluate((button) => {
     for (let step = 0; step < 37; step += 1) (button as HTMLElement).click();
@@ -198,7 +235,7 @@ test("@desktop keeps the complete rotated X-ray inside its black stage", async (
   const rotateRight = page.getByRole("button", {
     name: "Rotate X-ray right 10 degrees",
   });
-  const rotationStatus = page.getByRole("status", { name: "X-ray rotation" });
+  const rotationStatus = page.getByLabel("X-ray rotation");
 
   await rotateRight.click();
   await expect(rotationStatus).toHaveText("10°");
@@ -245,6 +282,194 @@ test("@desktop root simulator retains complete anatomy attribution", async ({
   );
 });
 
+test("@desktop full regional presentation follows anatomy controls without changing the X-ray", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  const neutralProjection = await projectionImageSignature(page);
+  const orbit = page.getByRole("spinbutton", { name: "Orbit angle" });
+  await orbit.fill("30");
+  await orbit.press("Enter");
+  const detectorBaseline = await waitForProjectionChange(
+    page,
+    neutralProjection,
+  );
+  const displayTransform = page.getByTestId("xray-display-transform");
+  const displayBaseline = await displayTransform.evaluate(
+    (element) => getComputedStyle(element).transform,
+  );
+  const theatreBaseline = await theatreSignature(page);
+  const fullRegional = page.getByRole("radio", {
+    name: "Show full regional anatomy in 3D",
+  });
+  await expect(page.getByRole("radio", { name: "Both legs" })).toBeChecked();
+
+  await fullRegional.check();
+  await expect(fullRegional).toBeChecked();
+  await expect(
+    page.getByRole("status", { name: "Regional anatomy status" }),
+  ).toHaveCount(0, { timeout: 30_000 });
+  await expect(
+    page.getByText("Full regional anatomy unavailable", { exact: true }),
+  ).toHaveCount(0);
+  const regionalBaseline = await waitForTheatreChange(page, theatreBaseline);
+  const regionalStatus = page.getByRole("status", {
+    name: "3D presentation status",
+  });
+  await expect(regionalStatus).toContainText("Full regional ready");
+  await expect(regionalStatus).toContainText("Both legs");
+  expect(await projectionImageSignature(page)).toBe(detectorBaseline);
+  expect(
+    await displayTransform.evaluate(
+      (element) => getComputedStyle(element).transform,
+    ),
+  ).toBe(displayBaseline);
+
+  const leftOnly = page.getByRole("radio", { name: "Left leg only" });
+  await leftOnly.check();
+  await expect(leftOnly).toBeChecked();
+  await expect(regionalStatus).toContainText("Left leg only");
+  const leftOnlySignature = await waitForTheatreChange(page, regionalBaseline);
+  const leftOnlyProjection = await waitForProjectionChange(
+    page,
+    detectorBaseline,
+  );
+
+  const rotation = page.getByRole("slider", {
+    name: "Left leg internal or external rotation",
+  });
+  await rotation.fill("25");
+  await expect(rotation).toHaveValue("25");
+  await expect(regionalStatus).toContainText("Left leg rotation +25°");
+  const rotatedSignature = await waitForTheatreChange(page, leftOnlySignature);
+  const rotatedProjection = await waitForProjectionChange(
+    page,
+    leftOnlyProjection,
+  );
+  expect(
+    await displayTransform.evaluate(
+      (element) => getComputedStyle(element).transform,
+    ),
+  ).toBe(displayBaseline);
+
+  await page.getByRole("radio", { name: "Right leg only" }).check();
+  await expect(
+    page.getByRole("radio", { name: "Right leg only" }),
+  ).toBeChecked();
+  await expect(regionalStatus).toContainText("Right leg only");
+  await expect(regionalStatus).toContainText("Right leg rotation 0°");
+  await waitForTheatreChange(page, rotatedSignature);
+  await waitForProjectionChange(page, rotatedProjection);
+});
+
+test("@desktop uses explicit settled and interactive detector resolutions", async ({
+  page,
+}) => {
+  test.setTimeout(300_000);
+  const projection = page.getByRole("region", { name: "Simulated X-ray view" });
+  const detector = page.getByTestId("projection-detector-display");
+  const image = projection.locator("img.projection-view__surface");
+  const orbit = page.getByRole("spinbutton", { name: "Orbit angle" });
+
+  await projectionImageSignature(page);
+  await expect(projection).toHaveAttribute("data-render-width", "768");
+  await expect(projection).toHaveAttribute("data-render-height", "768");
+  await expect.poll(() => image.evaluate((node) => node.naturalWidth)).toBe(768);
+
+  await page.getByRole("radio", { name: "High quality" }).check();
+  await expect(detector).toHaveAttribute("aria-busy", "false", {
+    timeout: 240_000,
+  });
+  await expect(projection).toHaveAttribute("data-render-width", "1024");
+  await expect(projection).toHaveAttribute("data-render-height", "1024");
+  await expect.poll(() => image.evaluate((node) => node.naturalWidth)).toBe(1024);
+
+  await orbit.dispatchEvent("pointerdown", { pointerId: 41 });
+  await orbit.fill("20");
+  await expect(projection).toHaveAttribute("data-render-width", "512");
+  await expect(projection).toHaveAttribute("data-render-height", "512");
+  await expect
+    .poll(async () => {
+      const busy = await detector.getAttribute("aria-busy");
+      const width = await image.evaluate((node) => node.naturalWidth);
+      return busy === "false" ? width : null;
+    }, { timeout: 240_000 })
+    .toBe(512);
+  const interactiveProjection = await projectionImageSignature(page);
+  await orbit.dispatchEvent("pointerup", { pointerId: 41 });
+  await expect(projection).toHaveAttribute("data-render-width", "1024");
+  await waitForProjectionChange(page, interactiveProjection);
+  await expect.poll(() => image.evaluate((node) => node.naturalWidth)).toBe(1024);
+});
+
+test("@desktop shots only freezes exposures while display orientation remains independent", async ({
+  page,
+}) => {
+  test.setTimeout(300_000);
+  await projectionImageSignature(page);
+  const projection = page.getByRole("region", { name: "Simulated X-ray view" });
+  const detector = page.getByTestId("projection-detector-display");
+  const image = projection.locator("img.projection-view__surface");
+  const orbit = page.getByRole("spinbutton", { name: "Orbit angle" });
+  const shotsOnly = page.getByRole("radio", { name: "Shots only" });
+  const continuous = page.getByRole("radio", { name: "Continuous imaging" });
+  const takeShot = page.getByRole("button", { name: "Take shot" });
+
+  await shotsOnly.check();
+  await expect(shotsOnly).toBeChecked();
+  await expect(
+    page.getByRole("status", { name: "X-ray acquisition status" }),
+  ).toHaveText("Ready for exposure");
+  await expect(
+    projection.getByText("Preparing detector projection…", { exact: true }),
+  ).toHaveCount(0);
+  await expect(detector).toHaveAttribute("aria-busy", "false");
+  await expect(image).toHaveCount(0);
+
+  await orbit.fill("20");
+  await orbit.press("Enter");
+  await waitForUiScheduling(page);
+  await expect(detector).toHaveAttribute("aria-busy", "false");
+  await expect(image).toHaveCount(0);
+  await expect(takeShot).toBeEnabled();
+  await takeShot.click();
+  const firstShot = await projectionImageSignature(page);
+  await expect(
+    page.getByRole("status", { name: "X-ray acquisition status" }),
+  ).toHaveText("Image captured");
+
+  await orbit.fill("40");
+  await orbit.press("Enter");
+  await waitForUiScheduling(page);
+  await expect(detector).toHaveAttribute("aria-busy", "false");
+  expect(await projectionImageSignature(page)).toBe(firstShot);
+
+  await page
+    .getByRole("button", { name: "Rotate X-ray right 10 degrees" })
+    .click();
+  await page.getByRole("button", { name: "Flip X-ray horizontally" }).click();
+  await page.getByRole("button", { name: "Flip X-ray vertically" }).click();
+  await expect(page.getByLabel("X-ray rotation")).toHaveText("10°");
+  expect(await projectionImageSignature(page)).toBe(firstShot);
+
+  await takeShot.click();
+  const secondShot = await waitForProjectionChange(page, firstShot);
+  expect(secondShot).not.toBe(firstShot);
+
+  await orbit.fill("55");
+  await orbit.press("Enter");
+  await waitForUiScheduling(page);
+  await expect(detector).toHaveAttribute("aria-busy", "false");
+  expect(await projectionImageSignature(page)).toBe(secondShot);
+  await continuous.check();
+  await expect(continuous).toBeChecked();
+  const resumed = await waitForProjectionChange(page, secondShot);
+  expect(resumed).not.toBe(secondShot);
+  await expect(
+    page.getByRole("status", { name: "Projection status" }),
+  ).toContainText("Orbit 55.0°");
+});
+
 test("@desktop production root remains usable offline", async ({
   context,
   page,
@@ -273,6 +498,19 @@ test("@desktop production root remains usable offline", async ({
   await expect(
     page.getByText("Anatomy unavailable", { exact: true }),
   ).toHaveCount(0);
+  const theatreBaseline = await theatreSignature(page);
+  const fullRegional = page.getByRole("radio", {
+    name: "Show full regional anatomy in 3D",
+  });
+  await fullRegional.check();
+  await expect(fullRegional).toBeChecked();
+  await expect(
+    page.getByRole("status", { name: "Regional anatomy status" }),
+  ).toHaveCount(0, { timeout: 30_000 });
+  await expect(
+    page.getByText("Full regional anatomy unavailable", { exact: true }),
+  ).toHaveCount(0);
+  await waitForTheatreChange(page, theatreBaseline);
   await context.setOffline(false);
 });
 
@@ -292,6 +530,14 @@ test("@mobile mounts the X-ray, theatre, and all controls without tabs", async (
   await expect(
     page.getByRole("group", { name: "Anatomy", exact: true }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("radio", { name: "Show full regional anatomy in 3D" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("radio", { name: "Continuous imaging" }),
+  ).toBeVisible();
+  await expect(page.getByRole("radio", { name: "Shots only" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Take shot" })).toBeVisible();
   await expect(page.getByRole("tab")).toHaveCount(0);
   await expect(page.getByRole("tablist")).toHaveCount(0);
 });
