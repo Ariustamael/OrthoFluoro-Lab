@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -14,20 +15,36 @@ import {
   type HipAnatomyAssetLease,
   type LoadedHipAnatomy,
 } from "./anatomyAssetLoader";
+import { acquireRegionalAnatomy } from "./regionalAnatomyAssetLoader";
+import type {
+  LoadedRegionalAnatomy,
+  RegionalAnatomyAssetLease,
+} from "./regionalAnatomyTypes";
 
 export type AnatomyAssetLease = HipAnatomyAssetLease;
 export type AnatomyAssetStatus = "loading" | "ready" | "error";
+export type RegionalAnatomyAssetStatus = "idle" | "loading" | "ready" | "error";
+
+export interface RegionalAnatomyState {
+  readonly status: RegionalAnatomyAssetStatus;
+  readonly resource: LoadedRegionalAnatomy | null;
+  readonly error: Error | null;
+  load(): void;
+  retry(): void;
+}
 
 export interface AnatomyAssetContextValue {
   readonly status: AnatomyAssetStatus;
   readonly resource: LoadedHipAnatomy | null;
   readonly error: Error | null;
+  readonly regional: RegionalAnatomyState;
   retry(): void;
 }
 
 interface AnatomyAssetProviderProps {
   readonly children: ReactNode;
   readonly acquireLease?: () => AnatomyAssetLease;
+  readonly acquireRegionalLease?: () => RegionalAnatomyAssetLease;
 }
 
 const AnatomyAssetContext = createContext<AnatomyAssetContextValue | null>(
@@ -42,12 +59,29 @@ function normalizeError(error: unknown): Error {
 
 export function AnatomyAssetProvider({
   acquireLease = acquireHipAnatomy,
+  acquireRegionalLease = acquireRegionalAnatomy,
   children,
 }: AnatomyAssetProviderProps) {
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<
     Pick<AnatomyAssetContextValue, "status" | "resource" | "error">
   >({ error: null, resource: null, status: "loading" });
+  const [regionalState, setRegionalState] = useState<
+    Pick<RegionalAnatomyState, "status" | "resource" | "error">
+  >({ error: null, resource: null, status: "idle" });
+  const regionalStateRef = useRef(regionalState);
+  const regionalLeaseRef = useRef<RegionalAnatomyAssetLease | null>(null);
+  const mountedRef = useRef(false);
+
+  const updateRegionalState = useCallback(
+    (
+      nextState: Pick<RegionalAnatomyState, "status" | "resource" | "error">,
+    ) => {
+      regionalStateRef.current = nextState;
+      setRegionalState(nextState);
+    },
+    [],
+  );
 
   useEffect(() => {
     let active = true;
@@ -72,13 +106,85 @@ export function AnatomyAssetProvider({
     };
   }, [acquireLease, attempt]);
 
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      regionalLeaseRef.current?.release();
+      regionalLeaseRef.current = null;
+      regionalStateRef.current = {
+        error: null,
+        resource: null,
+        status: "idle",
+      };
+    };
+  }, []);
+
+  const startRegionalLoad = useCallback(
+    (force: boolean) => {
+      const currentStatus = regionalStateRef.current.status;
+      if (
+        !force &&
+        (currentStatus === "loading" || currentStatus === "ready")
+      ) {
+        return;
+      }
+      regionalLeaseRef.current?.release();
+      regionalLeaseRef.current = null;
+      updateRegionalState({ error: null, resource: null, status: "loading" });
+      let lease: RegionalAnatomyAssetLease;
+      try {
+        lease = acquireRegionalLease();
+      } catch (error: unknown) {
+        updateRegionalState({
+          error: normalizeError(error),
+          resource: null,
+          status: "error",
+        });
+        return;
+      }
+      regionalLeaseRef.current = lease;
+      void lease.promise.then(
+        (resource) => {
+          if (!mountedRef.current || regionalLeaseRef.current !== lease) return;
+          updateRegionalState({ error: null, resource, status: "ready" });
+        },
+        (error: unknown) => {
+          if (!mountedRef.current || regionalLeaseRef.current !== lease) return;
+          updateRegionalState({
+            error: normalizeError(error),
+            resource: null,
+            status: "error",
+          });
+        },
+      );
+    },
+    [acquireRegionalLease, updateRegionalState],
+  );
+
+  const loadRegional = useCallback(() => {
+    startRegionalLoad(false);
+  }, [startRegionalLoad]);
+
+  const retryRegional = useCallback(() => {
+    startRegionalLoad(true);
+  }, [startRegionalLoad]);
+
   const retry = useCallback(() => {
     setState({ error: null, resource: null, status: "loading" });
     setAttempt((currentAttempt) => currentAttempt + 1);
   }, []);
   const value = useMemo<AnatomyAssetContextValue>(
-    () => ({ ...state, retry }),
-    [retry, state],
+    () => ({
+      ...state,
+      regional: {
+        ...regionalState,
+        load: loadRegional,
+        retry: retryRegional,
+      },
+      retry,
+    }),
+    [loadRegional, regionalState, retry, retryRegional, state],
   );
 
   return (

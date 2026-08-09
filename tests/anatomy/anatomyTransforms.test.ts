@@ -3,6 +3,7 @@ import provenance from "../../public/anatomy/open3dmodel-provenance.json";
 import {
   ACTIVE_HIP_ANATOMY_ASSET_ID,
   ANATOMY_ASSETS,
+  REGIONAL_HIP_ANATOMY_ASSET_ID,
 } from "../../src/content/assets/anatomyAssets";
 import {
   anatomyGroupLocalRotation,
@@ -18,6 +19,7 @@ import {
   type HipAnatomyPose,
   type OverviewAnatomyGroup,
 } from "../../src/anatomy/anatomyTypes";
+import type { RegionalAnatomyGroup } from "../../src/anatomy/regionalAnatomyTypes";
 
 const EXPECTED_GROUPS: readonly HipAnatomyGroup[] = [
   "pelvis",
@@ -170,9 +172,9 @@ describe("anatomy public contracts", () => {
   it("deep-freezes the neutral reference pose and its coordinate arrays", () => {
     expect(Object.isFrozen(REFERENCE_HIP_ANATOMY_POSE)).toBe(true);
     expect(Object.isFrozen(REFERENCE_HIP_ANATOMY_POSE.rootPosition)).toBe(true);
-    expect(Object.isFrozen(REFERENCE_HIP_ANATOMY_POSE.rootRotationDegrees)).toBe(
-      true,
-    );
+    expect(
+      Object.isFrozen(REFERENCE_HIP_ANATOMY_POSE.rootRotationDegrees),
+    ).toBe(true);
     expect(REFERENCE_HIP_ANATOMY_POSE).toEqual({
       rootPosition: [0, 0, 0],
       rootRotationDegrees: [0, 0, 0],
@@ -188,6 +190,7 @@ describe("anatomy public contracts", () => {
     const hipSource = provenanceSource("open3dmodel-lower-limb");
 
     expect(ACTIVE_HIP_ANATOMY_ASSET_ID).toBe("hip-lower-limbs");
+    expect(REGIONAL_HIP_ANATOMY_ASSET_ID).toBe("hip-lower-limbs-regional");
     expect(ANATOMY_ASSETS).toEqual({
       "whole-skeleton": {
         id: "whole-skeleton",
@@ -225,6 +228,24 @@ describe("anatomy public contracts", () => {
         dracoDecoderPath: "/draco/",
         provenanceUrl: "/anatomy/open3dmodel-provenance.json",
       },
+      "hip-lower-limbs-regional": {
+        id: "hip-lower-limbs-regional",
+        name: "Open3DModel hip and lower limbs regional anatomy",
+        region: "hip-lower-limbs-regional",
+        filePath: "/anatomy/open3dmodel-hip-lower-limbs-regional.glb",
+        coordinateSystem: "orthofluoro-anatomical-v1",
+        millimetresPerUnit: 1,
+        groups: ["regional-midline", "regional-left", "regional-right"],
+        sourceUrl: hipSource.archiveUrl,
+        sourceArchiveChecksum: hipSource.sha256,
+        sourceMember: hipSource.member,
+        sourceMemberChecksum: hipSource.memberSha256,
+        derivedChecksum: provenance.artifacts.regional.sha256,
+        licence: provenance.licence.id,
+        attribution: provenance.attribution,
+        dracoDecoderPath: "/draco/",
+        provenanceUrl: "/anatomy/open3dmodel-provenance.json",
+      },
     });
   });
 
@@ -242,6 +263,10 @@ describe("anatomy public contracts", () => {
         asset: ANATOMY_ASSETS["hip-lower-limbs"],
         source: provenanceSource("open3dmodel-lower-limb"),
       },
+      {
+        asset: ANATOMY_ASSETS["hip-lower-limbs-regional"],
+        source: provenanceSource("open3dmodel-lower-limb"),
+      },
     ] as const;
 
     cases.forEach(({ asset, source }) => {
@@ -257,9 +282,7 @@ describe("anatomy public contracts", () => {
     Object.values(ANATOMY_ASSETS).forEach((asset) => {
       expect(asset.filePath).toMatch(/^\/anatomy\/.+\.glb$/);
       expect(asset.dracoDecoderPath).toBe("/draco/");
-      expect(asset.provenanceUrl).toBe(
-        "/anatomy/open3dmodel-provenance.json",
-      );
+      expect(asset.provenanceUrl).toBe("/anatomy/open3dmodel-provenance.json");
       expect(asset.sourceArchiveChecksum).toMatch(/^[A-F0-9]{64}$/);
       expect(asset.sourceMemberChecksum).toMatch(/^[A-F0-9]{64}$/);
       expect(asset.derivedChecksum).toMatch(/^[A-F0-9]{64}$/);
@@ -267,17 +290,23 @@ describe("anatomy public contracts", () => {
   });
 
   it("retains precise compile-time group and discriminant types", () => {
-    expectTypeOf(ANATOMY_ASSETS["whole-skeleton"].id).toEqualTypeOf<
-      "whole-skeleton"
+    expectTypeOf(
+      ANATOMY_ASSETS["whole-skeleton"].id,
+    ).toEqualTypeOf<"whole-skeleton">();
+    expectTypeOf(ANATOMY_ASSETS["whole-skeleton"].groups).toEqualTypeOf<
+      readonly OverviewAnatomyGroup[]
     >();
     expectTypeOf(
-      ANATOMY_ASSETS["whole-skeleton"].groups,
-    ).toEqualTypeOf<readonly OverviewAnatomyGroup[]>();
-    expectTypeOf(ANATOMY_ASSETS["hip-lower-limbs"].id).toEqualTypeOf<
-      "hip-lower-limbs"
+      ANATOMY_ASSETS["hip-lower-limbs"].id,
+    ).toEqualTypeOf<"hip-lower-limbs">();
+    expectTypeOf(ANATOMY_ASSETS["hip-lower-limbs"].groups).toEqualTypeOf<
+      readonly HipAnatomyGroup[]
     >();
     expectTypeOf(
-      ANATOMY_ASSETS["hip-lower-limbs"].groups,
-    ).toEqualTypeOf<readonly HipAnatomyGroup[]>();
+      ANATOMY_ASSETS["hip-lower-limbs-regional"].id,
+    ).toEqualTypeOf<"hip-lower-limbs-regional">();
+    expectTypeOf(
+      ANATOMY_ASSETS["hip-lower-limbs-regional"].groups,
+    ).toEqualTypeOf<readonly RegionalAnatomyGroup[]>();
   });
 });

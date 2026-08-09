@@ -4,8 +4,13 @@ import {
   type HipAnatomyGroup,
   type OverviewAnatomyGroup,
 } from "../../anatomy/anatomyTypes";
+import {
+  REGIONAL_ANATOMY_GROUPS,
+  type RegionalAnatomyGroup,
+} from "../../anatomy/regionalAnatomyTypes";
 
-export type AnatomyAssetId = "whole-skeleton" | "hip-lower-limbs";
+export type AnatomyAssetId =
+  "whole-skeleton" | "hip-lower-limbs" | "hip-lower-limbs-regional";
 export type AnatomyCoordinateSystem = "orthofluoro-anatomical-v1";
 export type AnatomyLicence = "CC-BY-SA-4.0";
 export type LocalAnatomyModelPath = `/anatomy/${string}.glb`;
@@ -41,6 +46,10 @@ export interface AnatomyAssetManifest {
     "hip-lower-limbs",
     HipAnatomyGroup
   >;
+  readonly "hip-lower-limbs-regional": AnatomyAssetManifestEntry<
+    "hip-lower-limbs-regional",
+    RegionalAnatomyGroup
+  >;
 }
 
 const PROVENANCE_URL = "/anatomy/open3dmodel-provenance.json" as const;
@@ -56,6 +65,10 @@ const OVERVIEW_GROUPS: readonly OverviewAnatomyGroup[] = Object.freeze([
 
 const HIP_GROUPS: readonly HipAnatomyGroup[] = Object.freeze([
   ...HIP_ANATOMY_GROUPS,
+]);
+
+const REGIONAL_GROUPS: readonly RegionalAnatomyGroup[] = Object.freeze([
+  ...REGIONAL_ANATOMY_GROUPS,
 ]);
 
 export const ANATOMY_ASSETS: AnatomyAssetManifest = Object.freeze({
@@ -103,6 +116,30 @@ export const ANATOMY_ASSETS: AnatomyAssetManifest = Object.freeze({
     dracoDecoderPath: DRACO_DECODER_PATH,
     provenanceUrl: PROVENANCE_URL,
   }),
+  "hip-lower-limbs-regional": Object.freeze({
+    id: "hip-lower-limbs-regional",
+    name: "Open3DModel hip and lower limbs regional anatomy",
+    region: "hip-lower-limbs-regional",
+    filePath: "/anatomy/open3dmodel-hip-lower-limbs-regional.glb",
+    coordinateSystem: COORDINATE_SYSTEM,
+    millimetresPerUnit: 1,
+    groups: REGIONAL_GROUPS,
+    sourceUrl:
+      "https://caskanatomy.info/open3dmodelfiles/lower-limb/lower-limb-glb.zip",
+    sourceArchiveChecksum:
+      "E080EBEF16B2A3F53C7F6005515FAC39EDD941FB0AEBC79FF4B9F59FFFF8D416",
+    sourceMember: "lower-limb.glb",
+    sourceMemberChecksum:
+      "5A889D5CAE00421885AAF1841E72364E5F215F0C29FB0116CA5E9844EC4C5FE7",
+    derivedChecksum:
+      "10FA60D39ED30EC19A940F0AA460743B9778483E8A63FA498E34E10046F1C2F2",
+    licence: LICENCE,
+    attribution: ATTRIBUTION,
+    dracoDecoderPath: DRACO_DECODER_PATH,
+    provenanceUrl: PROVENANCE_URL,
+  }),
 });
 
 export const ACTIVE_HIP_ANATOMY_ASSET_ID = "hip-lower-limbs" as const;
+export const REGIONAL_HIP_ANATOMY_ASSET_ID =
+  "hip-lower-limbs-regional" as const;
