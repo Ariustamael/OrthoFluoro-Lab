@@ -99,6 +99,13 @@ vi.mock("../../src/anatomy/AnatomyAssetProvider", () => ({
     resource: null,
     retry: vi.fn(),
     status: "error",
+    regional: {
+      error: null,
+      load: vi.fn(),
+      resource: null,
+      retry: vi.fn(),
+      status: "idle",
+    },
   }),
 }));
 

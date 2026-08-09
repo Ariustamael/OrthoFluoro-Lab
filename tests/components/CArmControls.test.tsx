@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CArmControls } from "../../src/components/controls/CArmControls";
 import { InteractionMode } from "../../src/components/controls/InteractionMode";
 import {
@@ -14,6 +14,22 @@ import {
 import { REFERENCE_HIP_ANATOMY_POSE } from "../../src/anatomy/anatomyTypes";
 import { REFERENCE_XRAY_DISPLAY_ORIENTATION } from "../../src/components/projection/xrayDisplayOrientation";
 import { useSimulationStore } from "../../src/state/simulationStore";
+
+vi.mock("../../src/anatomy/AnatomyAssetProvider", () => ({
+  useAnatomyAsset: () => ({
+    error: null,
+    resource: null,
+    retry: vi.fn(),
+    status: "ready",
+    regional: {
+      error: null,
+      load: vi.fn(),
+      resource: null,
+      retry: vi.fn(),
+      status: "idle",
+    },
+  }),
+}));
 
 beforeEach(() => {
   useSimulationStore.setState({

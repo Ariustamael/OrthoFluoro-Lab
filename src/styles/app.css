@@ -755,6 +755,7 @@ button:hover {
 }
 
 .anatomy-controls__segments label {
+  cursor: pointer;
   position: relative;
 }
 
@@ -773,9 +774,16 @@ button:hover {
   display: inline-flex;
   font-size: 0.78rem;
   justify-content: center;
-  min-block-size: 2rem;
+  min-block-size: var(--target-min);
   min-inline-size: 3.25rem;
   padding-inline: var(--space-1);
+}
+
+.anatomy-controls__option-group--presentation
+  .anatomy-controls__segments
+  label
+  > span:first-of-type {
+  min-inline-size: 6.75rem;
 }
 
 .anatomy-controls__segments label + label > span:first-of-type {
@@ -803,6 +811,31 @@ button:hover {
   z-index: 1;
 }
 
+.anatomy-controls__presentation-helper,
+.anatomy-controls__regional-status {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1.4;
+  margin: var(--space-1) 0 0;
+}
+
+.anatomy-controls__regional-status {
+  color: var(--cyan-300);
+}
+
+.anatomy-controls__regional-status--error {
+  align-items: flex-start;
+  color: var(--warning);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.anatomy-controls__regional-status--error button {
+  min-block-size: var(--target-min);
+  padding: 0.4rem var(--space-2);
+}
+
 .anatomy-controls__rotation {
   display: grid;
   gap: 0.2rem var(--space-1);
@@ -820,7 +853,7 @@ button:hover {
   accent-color: var(--cyan-500);
   grid-column: 1 / -1;
   inline-size: 100%;
-  min-block-size: 2rem;
+  min-block-size: var(--target-min);
 }
 
 .anatomy-controls__rotation-scale {
@@ -834,7 +867,7 @@ button:hover {
 .anatomy-controls__reset {
   font-size: 0.78rem;
   justify-self: start;
-  min-block-size: 2rem;
+  min-block-size: var(--target-min);
   padding: 0.3rem var(--space-2);
 }
 

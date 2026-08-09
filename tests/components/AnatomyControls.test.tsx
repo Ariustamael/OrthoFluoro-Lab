@@ -1,14 +1,83 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { beforeEach, describe, expect, it } from "vitest";
+import { Group, Vector3 } from "three";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  AnatomyAssetProvider,
+  type AnatomyAssetLease,
+} from "../../src/anatomy/AnatomyAssetProvider";
+import type { LoadedHipAnatomy } from "../../src/anatomy/anatomyAssetLoader";
 import { REFERENCE_HIP_ANATOMY_POSE } from "../../src/anatomy/anatomyTypes";
+import type {
+  LoadedRegionalAnatomy,
+  RegionalAnatomyAssetLease,
+} from "../../src/anatomy/regionalAnatomyTypes";
 import { AnatomyControls } from "../../src/components/controls/AnatomyControls";
 import { REFERENCE_C_ARM_POSE } from "../../src/engine/geometry/geometryTypes";
 import { useSimulationStore } from "../../src/state/simulationStore";
 
 const appCss = readFileSync(join(process.cwd(), "src/styles/app.css"), "utf8");
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve;
+    reject = nextReject;
+  });
+  return { promise, reject, resolve };
+}
+
+function baseResource(): LoadedHipAnatomy {
+  return {
+    groups: new Map(),
+    hipPivots: {
+      left: new Vector3(85.58369749004112, 0, 0),
+      right: new Vector3(-85.58369749004112, 0, 0),
+    },
+    scene: new Group(),
+  };
+}
+
+function regionalResource(): LoadedRegionalAnatomy {
+  return {
+    groups: {} as LoadedRegionalAnatomy["groups"],
+    hipPivots: {
+      left: new Vector3(85.58369749004112, 0, 0),
+      right: new Vector3(-85.58369749004112, 0, 0),
+    },
+    scene: new Group(),
+  };
+}
+
+function renderControls(
+  acquireRegionalLease: () => RegionalAnatomyAssetLease = () => ({
+    promise: new Promise<LoadedRegionalAnatomy>(() => undefined),
+    release: vi.fn(),
+  }),
+) {
+  const acquireLease = (): AnatomyAssetLease => ({
+    promise: Promise.resolve(baseResource()),
+    release: vi.fn(),
+  });
+  return render(
+    <AnatomyAssetProvider
+      acquireLease={acquireLease}
+      acquireRegionalLease={acquireRegionalLease}
+    >
+      <AnatomyControls />
+    </AnatomyAssetProvider>,
+  );
+}
 
 beforeEach(() => {
   useSimulationStore.setState({
@@ -19,6 +88,7 @@ beforeEach(() => {
       rootPosition: [...REFERENCE_HIP_ANATOMY_POSE.rootPosition],
       rootRotationDegrees: [...REFERENCE_HIP_ANATOMY_POSE.rootRotationDegrees],
     },
+    anatomyPresentationMode: "bones-only",
     interactionMode: "inspect",
     quality: "medium",
     showBeam: true,
@@ -32,7 +102,7 @@ function getAnatomyControls() {
 
 describe("AnatomyControls", () => {
   it("is always expanded without a disclosure control", () => {
-    render(<AnatomyControls />);
+    renderControls();
 
     expect(screen.getByRole("group", { name: "Anatomy" })).toBeVisible();
     expect(
@@ -41,7 +111,7 @@ describe("AnatomyControls", () => {
   });
 
   it("exposes semantic side visibility controls and one clinical slider", async () => {
-    render(<AnatomyControls />);
+    renderControls();
     const { group } = getAnatomyControls();
 
     expect(group).toBeVisible();
@@ -61,8 +131,135 @@ describe("AnatomyControls", () => {
     ).toBeVisible();
   });
 
+  it("defaults to Bones only and explains that the X-ray is unchanged", () => {
+    renderControls();
+    const { group } = getAnatomyControls();
+
+    expect(
+      within(group).getByRole("radio", { name: "Show bones only in 3D" }),
+    ).toBeChecked();
+    expect(
+      within(group).getByRole("radio", {
+        name: "Show full regional anatomy in 3D",
+      }),
+    ).not.toBeChecked();
+    expect(within(group).getByText("X-rays remain bones only")).toBeVisible();
+  });
+
+  it("lazy loads Full regional on first selection and reuses the ready resource", async () => {
+    const pending = deferred<LoadedRegionalAnatomy>();
+    const acquireRegionalLease = vi.fn((): RegionalAnatomyAssetLease => ({
+      promise: pending.promise,
+      release: vi.fn(),
+    }));
+    renderControls(acquireRegionalLease);
+    const { group, user } = getAnatomyControls();
+    const fullRegional = within(group).getByRole("radio", {
+      name: "Show full regional anatomy in 3D",
+    });
+
+    expect(acquireRegionalLease).not.toHaveBeenCalled();
+    await user.click(fullRegional);
+
+    expect(fullRegional).toBeChecked();
+    expect(acquireRegionalLease).toHaveBeenCalledOnce();
+    expect(
+      within(group).getByRole("status", {
+        name: "Regional anatomy status",
+      }),
+    ).toHaveTextContent("Loading full regional anatomy");
+    expect(
+      within(group).getByRole("radio", { name: "Both legs" }),
+    ).toBeEnabled();
+
+    await act(async () => pending.resolve(regionalResource()));
+    expect(
+      within(group).queryByRole("status", {
+        name: "Regional anatomy status",
+      }),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      within(group).getByRole("radio", { name: "Show bones only in 3D" }),
+    );
+    await user.click(fullRegional);
+    expect(acquireRegionalLease).toHaveBeenCalledOnce();
+  });
+
+  it("falls back to Bones only after failure and retries from the retained notice", async () => {
+    const first = deferred<LoadedRegionalAnatomy>();
+    const second = deferred<LoadedRegionalAnatomy>();
+    const acquireRegionalLease = vi
+      .fn<() => RegionalAnatomyAssetLease>()
+      .mockReturnValueOnce({ promise: first.promise, release: vi.fn() })
+      .mockReturnValueOnce({ promise: second.promise, release: vi.fn() });
+    renderControls(acquireRegionalLease);
+    const { group, user } = getAnatomyControls();
+
+    await user.click(
+      within(group).getByRole("radio", {
+        name: "Show full regional anatomy in 3D",
+      }),
+    );
+    await act(async () => first.reject(new Error("Regional asset failed")));
+
+    await waitFor(() =>
+      expect(
+        within(group).getByRole("radio", { name: "Show bones only in 3D" }),
+      ).toBeChecked(),
+    );
+    expect(
+      within(group).getByRole("alert", { name: "Regional anatomy status" }),
+    ).toHaveTextContent("Full regional anatomy unavailable");
+
+    await user.click(
+      within(group).getByRole("button", {
+        name: "Retry full regional anatomy",
+      }),
+    );
+
+    expect(
+      within(group).getByRole("radio", {
+        name: "Show full regional anatomy in 3D",
+      }),
+    ).toBeChecked();
+    expect(acquireRegionalLease).toHaveBeenCalledTimes(2);
+    expect(
+      within(group).getByRole("status", {
+        name: "Regional anatomy status",
+      }),
+    ).toHaveTextContent("Loading full regional anatomy");
+
+    await act(async () => second.resolve(regionalResource()));
+  });
+
+  it("resumes a persisted Full regional selection when its provider is recreated", async () => {
+    const pending = deferred<LoadedRegionalAnatomy>();
+    const acquireRegionalLease = vi.fn((): RegionalAnatomyAssetLease => ({
+      promise: pending.promise,
+      release: vi.fn(),
+    }));
+    useSimulationStore
+      .getState()
+      .setAnatomyPresentationMode("full-regional");
+
+    renderControls(acquireRegionalLease);
+
+    await waitFor(() => expect(acquireRegionalLease).toHaveBeenCalledOnce());
+    expect(
+      screen.getByRole("radio", {
+        name: "Show full regional anatomy in 3D",
+      }),
+    ).toBeChecked();
+    expect(
+      screen.getByRole("status", { name: "Regional anatomy status" }),
+    ).toHaveTextContent("Loading full regional anatomy");
+
+    await act(async () => pending.resolve(regionalResource()));
+  });
+
   it("auto-selects a single visible leg and restores the bilateral selector", async () => {
-    render(<AnatomyControls />);
+    renderControls();
     const { group, user } = getAnatomyControls();
 
     await user.click(
@@ -88,7 +285,7 @@ describe("AnatomyControls", () => {
   });
 
   it("retains independent angles when visibility and selection change", async () => {
-    render(<AnatomyControls />);
+    renderControls();
     const { group, user } = getAnatomyControls();
     const leftRotation = within(group).getByRole("slider", {
       name: "Left leg internal or external rotation",
@@ -122,7 +319,7 @@ describe("AnatomyControls", () => {
   });
 
   it("uses a native one-degree range control for keyboard operation", async () => {
-    render(<AnatomyControls />);
+    renderControls();
     const { group } = getAnatomyControls();
     const slider = within(group).getByRole("slider", {
       name: "Left leg internal or external rotation",
@@ -140,7 +337,10 @@ describe("AnatomyControls", () => {
     const cArmBefore = useSimulationStore.getState().cArmPose;
     useSimulationStore.getState().setAnatomyVisibility("right-only");
     useSimulationStore.getState().setSelectedHipRotation(31);
-    render(<AnatomyControls />);
+    useSimulationStore
+      .getState()
+      .setAnatomyPresentationMode("full-regional");
+    renderControls();
     const { group, user } = getAnatomyControls();
 
     await user.click(
@@ -151,10 +351,13 @@ describe("AnatomyControls", () => {
       REFERENCE_HIP_ANATOMY_POSE,
     );
     expect(useSimulationStore.getState().cArmPose).toEqual(cArmBefore);
+    expect(useSimulationStore.getState().anatomyPresentationMode).toBe(
+      "bones-only",
+    );
   });
 
   it("keeps the complete Open3DModel creator and licence attribution inline", () => {
-    render(<AnatomyControls />);
+    renderControls();
 
     expect(
       screen.getByRole("link", { name: "AnatomyTOOL Open3DModel" }),
@@ -165,11 +368,27 @@ describe("AnatomyControls", () => {
     );
     expect(screen.getByText(/George J\.R\. Maat/)).toBeVisible();
     expect(screen.getByText(/Jan Kooloos/)).toBeVisible();
+    expect(screen.getByText(/full regional derivative/)).toBeVisible();
   });
 
   it("keeps the anatomy rotation slider at least 44px tall on mobile", () => {
     expect(appCss).toMatch(
       /@media \(max-width: 759px\)\s*\{[\s\S]*?\.anatomy-controls__rotation input[\s\S]*?min-block-size:\s*var\(--target-min\)/,
+    );
+  });
+
+  it("gives segmented controls 44px targets and visible keyboard focus", () => {
+    expect(appCss).toMatch(
+      /\.anatomy-controls__segments label > span:first-of-type\s*\{[^}]*min-block-size:\s*var\(--target-min\)/s,
+    );
+    expect(appCss).toMatch(
+      /\.anatomy-controls__segments input:focus-visible \+ span\s*\{[^}]*box-shadow:\s*var\(--focus-ring\)/s,
+    );
+    expect(appCss).toMatch(
+      /\.anatomy-controls__rotation input\s*\{[^}]*min-block-size:\s*var\(--target-min\)/s,
+    );
+    expect(appCss).toMatch(
+      /\.anatomy-controls__reset\s*\{[^}]*min-block-size:\s*var\(--target-min\)/s,
     );
   });
 });
