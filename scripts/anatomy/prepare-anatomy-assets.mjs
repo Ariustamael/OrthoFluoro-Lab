@@ -61,13 +61,42 @@ export const HIP_GROUPS = Object.freeze([
   "right-foot",
 ]);
 
-const EXCLUDED_LOWER_LIMB_BONES = new Set([
+export const REGIONAL_SOURCE_CATEGORIES = Object.freeze([
+  "Cartilages",
+  "Ligaments",
+  "Muscles",
+  "Fascia",
+  "Arteries",
+  "Veins",
+  "Nerves",
+  "Bursae",
+  "Overlays",
+]);
+export const REGIONAL_CONTEXT_BONES = Object.freeze([
+  "T12",
+  "L1",
+  "L2",
+  "L3",
+  "L4",
+  "L5",
+]);
+
+const REGIONAL_SOURCE_CATEGORY_SET = new Set(REGIONAL_SOURCE_CATEGORIES);
+const EXCLUDED_LOWER_LIMB_BONE_NAMES = Object.freeze([
   "Thoracic vertebra (T12)",
   "Lumbar vertebra (L1)",
   "Lumbar vertebra (L2)",
   "Lumbar vertebra (L3)",
   "Lumbar vertebra (L4)",
   "Lumbar vertebra (L5)",
+]);
+const EXCLUDED_LOWER_LIMB_BONES = new Set(EXCLUDED_LOWER_LIMB_BONE_NAMES);
+const REGIONAL_CONTEXT_BONE_NAMES = new Map([
+  ...REGIONAL_CONTEXT_BONES.map((name) => [name, name]),
+  ...EXCLUDED_LOWER_LIMB_BONE_NAMES.map((name, index) => [
+    name,
+    REGIONAL_CONTEXT_BONES[index],
+  ]),
 ]);
 const PELVIS_BONES = new Set(["Sacrum", "Coccyx", "Hip bone.r"]);
 const LEG_BONES = new Map([
@@ -76,6 +105,79 @@ const LEG_BONES = new Map([
   ["Tibia.r", "tibia-fibula"],
   ["Fibula.r", "tibia-fibula"],
 ]);
+
+function canonicalContextBoneName(name) {
+  return REGIONAL_CONTEXT_BONE_NAMES.get(name) ?? null;
+}
+
+export function classifyRegionalSource(name, category) {
+  const right = name.endsWith(".r");
+  return {
+    category,
+    side: right ? "right" : "midline",
+    mirrorToLeft: right,
+  };
+}
+
+export function isRegionalSource(name, category) {
+  return (
+    REGIONAL_SOURCE_CATEGORY_SET.has(category) ||
+    (category === "Bones" && canonicalContextBoneName(name) !== null)
+  );
+}
+
+function sourceAccountingKey(category, name) {
+  return `${category}/${name}`;
+}
+
+function isBaseLowerLimbSource(name, category) {
+  if (category !== "Bones") return false;
+  try {
+    return classifyLowerLimbBone(name) !== null;
+  } catch {
+    return false;
+  }
+}
+
+export function createRegionalSourceAccounting({
+  anatomicalChildren,
+  nonAnatomicalExclusions,
+}) {
+  const accounting = new Map();
+
+  function record(entry) {
+    const key = sourceAccountingKey(entry.category, entry.name);
+    if (accounting.has(key)) {
+      throw new Error(`Duplicate source accounting key: ${key}`);
+    }
+    accounting.set(key, entry);
+  }
+
+  for (const { category, name } of anatomicalChildren) {
+    if (isRegionalSource(name, category)) {
+      record({
+        category,
+        name,
+        disposition: "supplement",
+        classification: classifyRegionalSource(name, category),
+      });
+      continue;
+    }
+    if (isBaseLowerLimbSource(name, category)) {
+      record({ category, name, disposition: "base" });
+      continue;
+    }
+    throw new Error(
+      `Unaccounted anatomical source child: ${sourceAccountingKey(category, name)}`,
+    );
+  }
+
+  for (const { category, name, reason } of nonAnatomicalExclusions) {
+    record({ category, name, disposition: "non-anatomical", reason });
+  }
+
+  return accounting;
+}
 
 function sha256(bytes) {
   return createHash("sha256").update(bytes).digest("hex").toUpperCase();
