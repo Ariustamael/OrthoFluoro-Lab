@@ -343,8 +343,7 @@ export function ProjectionView({
   const [capabilitySnapshot, setCapabilitySnapshot] =
     useState<CapabilitySnapshot | null>(null);
   const [projectionState, setProjectionState] = useState<ProjectionState>({
-    message:
-      acquisitionMode === "shots-only" ? "Ready for exposure" : null,
+    message: acquisitionMode === "shots-only" ? "Ready for exposure" : null,
     output: null,
     status: acquisitionMode === "shots-only" ? "idle" : "pending",
   });
@@ -632,10 +631,7 @@ export function ProjectionView({
         (output) => {
           if (
             active &&
-            isCurrentProjectionRequest(
-              requestTokenRef.current,
-              requestToken,
-            ) &&
+            isCurrentProjectionRequest(requestTokenRef.current, requestToken) &&
             rendererRef.current === activeRenderer &&
             !contextLostRef.current
           ) {
@@ -687,10 +683,7 @@ export function ProjectionView({
       lastHandledShotRequestRevisionRef.current = shotRequestRevision;
       return;
     }
-    if (
-      activeRenderer === null ||
-      rendererRef.current !== activeRenderer
-    ) {
+    if (activeRenderer === null || rendererRef.current !== activeRenderer) {
       return;
     }
     lastHandledShotRequestRevisionRef.current = shotRequestRevision;
@@ -781,6 +774,16 @@ export function ProjectionView({
     displayDimensions.height,
     displayDegrees,
   );
+  const shotPending =
+    acquisitionMode === "shots-only" && projectionState.status === "pending";
+  const acquisitionStatus =
+    projectionState.status === "error"
+      ? (projectionState.message ?? "Image unavailable")
+      : acquisitionMode === "continuous"
+        ? ""
+        : projectionState.status === "ready"
+          ? "Image captured"
+          : (projectionState.message ?? "Ready for exposure");
 
   return (
     <section
@@ -811,7 +814,10 @@ export function ProjectionView({
           </p>
         )}
       </header>
-      <XrayDisplayToolbar />
+      <XrayDisplayToolbar
+        acquisitionStatus={acquisitionStatus}
+        shotPending={shotPending}
+      />
       <div
         aria-busy={projectionState.status === "pending"}
         className="projection-view__detector"
@@ -826,9 +832,7 @@ export function ProjectionView({
         {projectionOutput === null &&
         (projectionState.status === "pending" ||
           projectionState.status === "idle") ? (
-          <p role="status">
-            {projectionState.message ?? "Preparing detector projection…"}
-          </p>
+          <p>{projectionState.message ?? "Preparing detector projection…"}</p>
         ) : null}
         {projectionOutput === null ? null : (
           <div className="projection-view__display-stage">
@@ -864,12 +868,12 @@ export function ProjectionView({
           </div>
         )}
         {projectionState.status === "error" ? (
-          <p className="projection-view__display-error" role="alert">
+          <p className="projection-view__display-error">
             {projectionState.message}
           </p>
         ) : null}
       </div>
-      <p aria-label="Projection status" role="status">
+      <p aria-label="Projection status" aria-live="off" role="status">
         Orbit {cArmPose.orbitDegrees.toFixed(1)}° · Magnification{" "}
         {projectionMagnification.toFixed(2)}× · Resolution{" "}
         {reportedRenderDimensions.width} × {reportedRenderDimensions.height}

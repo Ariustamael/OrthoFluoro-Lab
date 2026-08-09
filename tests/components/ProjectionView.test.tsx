@@ -4,6 +4,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -98,6 +99,12 @@ function renderProjection(
         rendererFactories={factories}
       />
     </AnatomyAssetProvider>,
+  );
+}
+
+function findDetectorMessage(message: string) {
+  return within(screen.getByTestId("projection-detector-display")).findByText(
+    message,
   );
 }
 
@@ -340,7 +347,11 @@ describe("ProjectionView renderer orchestration", () => {
 
     act(() => useSimulationStore.getState().setAcquisitionMode("shots-only"));
 
-    expect(await screen.findByText("Ready for exposure")).toBeVisible();
+    expect(
+      await within(
+        screen.getByTestId("projection-detector-display"),
+      ).findByText("Ready for exposure"),
+    ).toBeVisible();
     expect(screen.getByTestId("projection-detector-display")).toHaveAttribute(
       "aria-busy",
       "false",
@@ -358,7 +369,64 @@ describe("ProjectionView renderer orchestration", () => {
     expect(
       screen.queryByRole("img", { name: "Stale continuous" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText("Ready for exposure")).toBeVisible();
+    expect(
+      within(screen.getByTestId("projection-detector-display")).getByText(
+        "Ready for exposure",
+      ),
+    ).toBeVisible();
+  });
+
+  it("connects detector acquisition state to the toolbar without live Continuous chatter", async () => {
+    const user = userEvent.setup();
+    const continuous = deferred<ProjectionOutput>();
+    const shot = deferred<ProjectionOutput>();
+    const layered: ProjectionRenderer<AnatomyProjectionInput> = {
+      dispose: vi.fn(),
+      render: vi
+        .fn<ProjectionRenderer<AnatomyProjectionInput>["render"]>()
+        .mockImplementationOnce(() => continuous.promise)
+        .mockImplementationOnce(() => shot.promise),
+    };
+    const factories: ProjectionRendererFactories = {
+      createLayered: () => layered,
+      createSilhouette: () => renderer(output("Silhouette", "mesh-silhouette")),
+      createSimplified: () =>
+        renderer(output("Unavailable", "simplified-procedural")),
+    };
+
+    renderProjection(factories, {
+      precision: "float32",
+      reason: null,
+      strategy: "layered-thickness",
+    });
+    await waitFor(() => expect(layered.render).toHaveBeenCalledOnce());
+
+    const acquisitionStatus = screen.getByRole("status", {
+      name: "X-ray acquisition status",
+    });
+    expect(acquisitionStatus).toBeEmptyDOMElement();
+
+    await user.click(screen.getByRole("radio", { name: "Shots only" }));
+    expect(
+      await within(
+        screen.getByTestId("projection-detector-display"),
+      ).findByText("Ready for exposure"),
+    ).toBeVisible();
+    expect(acquisitionStatus).toHaveTextContent("Ready for exposure");
+
+    const takeShot = screen.getByRole("button", { name: "Take shot" });
+    expect(takeShot).toBeEnabled();
+    await user.click(takeShot);
+    await waitFor(() => expect(layered.render).toHaveBeenCalledTimes(2));
+    expect(takeShot).toBeDisabled();
+    expect(acquisitionStatus).toHaveTextContent("Acquiring image…");
+
+    await act(async () => shot.resolve(output("Captured image", "captured")));
+    expect(
+      await screen.findByRole("img", { name: "Captured image" }),
+    ).toBeVisible();
+    expect(takeShot).toBeEnabled();
+    expect(acquisitionStatus).toHaveTextContent("Image captured");
   });
 
   it("captures an immutable first shot and keeps it visible during replacement", async () => {
@@ -384,7 +452,7 @@ describe("ProjectionView renderer orchestration", () => {
       reason: null,
       strategy: "layered-thickness",
     });
-    expect(await screen.findByText("Ready for exposure")).toBeVisible();
+    expect(await findDetectorMessage("Ready for exposure")).toBeVisible();
     expect(layered.render).not.toHaveBeenCalled();
 
     act(() => useSimulationStore.getState().requestShot());
@@ -397,7 +465,9 @@ describe("ProjectionView renderer orchestration", () => {
       screen.getByRole("region", { name: "Simulated X-ray view" }),
     ).toHaveAttribute("data-shot-pending", "true");
     const capturedInput = vi.mocked(layered.render).mock.calls[0][0];
-    const capturedRigPosition = [...capturedInput.geometry.rigTransform.position];
+    const capturedRigPosition = [
+      ...capturedInput.geometry.rigTransform.position,
+    ];
     expect(capturedInput).toMatchObject({ height: 768, width: 768 });
     expect(capturedInput.anatomyPose.leftHipRotationDegrees).toBe(0);
 
@@ -430,7 +500,9 @@ describe("ProjectionView renderer orchestration", () => {
 
     act(() => useSimulationStore.getState().requestShot());
     await waitFor(() => expect(layered.render).toHaveBeenCalledTimes(2));
-    expect(screen.getByRole("img", { name: "First frozen shot" })).toBeVisible();
+    expect(
+      screen.getByRole("img", { name: "First frozen shot" }),
+    ).toBeVisible();
     expect(screen.getByTestId("projection-detector-display")).toHaveAttribute(
       "aria-busy",
       "true",
@@ -475,7 +547,7 @@ describe("ProjectionView renderer orchestration", () => {
       reason: null,
       strategy: "layered-thickness",
     });
-    expect(await screen.findByText("Ready for exposure")).toBeVisible();
+    expect(await findDetectorMessage("Ready for exposure")).toBeVisible();
     act(() => useSimulationStore.getState().requestShot());
     expect(
       await screen.findByRole("img", { name: "Retained shot" }),
@@ -508,9 +580,10 @@ describe("ProjectionView renderer orchestration", () => {
       failedReplacement.reject(new Error("replacement exposure failed")),
     );
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Image unavailable — retry Take shot",
-    );
+    expect(
+      screen.getByRole("status", { name: "X-ray acquisition status" }),
+    ).toHaveTextContent("Image unavailable — retry Take shot");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Retained shot" })).toBeVisible();
     expect(screen.getByTestId("projection-detector-display")).toHaveAttribute(
       "aria-busy",
@@ -535,9 +608,11 @@ describe("ProjectionView renderer orchestration", () => {
       reason: null,
       strategy: "layered-thickness",
     });
-    expect(await screen.findByText("Ready for exposure")).toBeVisible();
+    expect(await findDetectorMessage("Ready for exposure")).toBeVisible();
     act(() => useSimulationStore.getState().requestShot());
-    const image = await screen.findByRole("img", { name: "Frozen before reset" });
+    const image = await screen.findByRole("img", {
+      name: "Frozen before reset",
+    });
     expect(layered.render).toHaveBeenCalledOnce();
 
     act(() => {
@@ -590,7 +665,7 @@ describe("ProjectionView renderer orchestration", () => {
     });
     await waitFor(() => expect(layered.render).toHaveBeenCalledOnce());
     act(() => useSimulationStore.getState().setAcquisitionMode("shots-only"));
-    expect(await screen.findByText("Ready for exposure")).toBeVisible();
+    expect(await findDetectorMessage("Ready for exposure")).toBeVisible();
     act(() => useSimulationStore.getState().requestShot());
     await waitFor(() => expect(layered.render).toHaveBeenCalledTimes(2));
 
@@ -640,7 +715,7 @@ describe("ProjectionView renderer orchestration", () => {
       reason: null,
       strategy: "layered-thickness",
     });
-    expect(await screen.findByText("Ready for exposure")).toBeVisible();
+    expect(await findDetectorMessage("Ready for exposure")).toBeVisible();
     act(() => useSimulationStore.getState().requestShot());
     expect(
       await screen.findByRole("img", { name: "Context-safe shot" }),
@@ -652,9 +727,13 @@ describe("ProjectionView renderer orchestration", () => {
     firstCanvas.dispatchEvent(new Event("webglcontextrestored"));
     act(() => useSimulationStore.getState().requestShot());
 
-    await waitFor(() => expect(factories.createLayered).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(factories.createLayered).toHaveBeenCalledTimes(2),
+    );
     expect(recovered.render).not.toHaveBeenCalled();
-    expect(screen.getByRole("img", { name: "Context-safe shot" })).toBeVisible();
+    expect(
+      screen.getByRole("img", { name: "Context-safe shot" }),
+    ).toBeVisible();
     expect(screen.getByTestId("projection-detector-display")).toHaveAttribute(
       "aria-busy",
       "false",
@@ -688,7 +767,7 @@ describe("ProjectionView renderer orchestration", () => {
       reason: "webgl2-required",
       strategy: "mesh-silhouette",
     });
-    expect(await screen.findByText("Ready for exposure")).toBeVisible();
+    expect(await findDetectorMessage("Ready for exposure")).toBeVisible();
     act(() => useSimulationStore.getState().requestShot());
     expect(
       await screen.findByRole("img", { name: "Safe frozen shot" }),
@@ -697,9 +776,12 @@ describe("ProjectionView renderer orchestration", () => {
     canvas.dispatchEvent(new Event("webglcontextlost", { cancelable: true }));
     canvas.dispatchEvent(new Event("webglcontextrestored"));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "recovery renderer failed",
+    await waitFor(() =>
+      expect(
+        screen.getByRole("status", { name: "X-ray acquisition status" }),
+      ).toHaveTextContent("recovery renderer failed"),
     );
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Safe frozen shot" })).toBeVisible();
     expect(screen.getByTestId("projection-detector-display")).toHaveAttribute(
       "aria-busy",
@@ -748,9 +830,20 @@ describe("ProjectionView renderer orchestration", () => {
     );
 
     await act(async () => replacement.reject(new Error("replacement failed")));
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "replacement failed",
-    );
+    expect(
+      screen.getByRole("status", { name: "X-ray acquisition status" }),
+    ).toHaveTextContent("replacement failed");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(
+      await within(
+        screen.getByTestId("projection-detector-display"),
+      ).findByText("replacement failed", {
+        selector: ".projection-view__display-error",
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("status", { name: "X-ray acquisition status" }),
+    ).toHaveAttribute("aria-live", "polite");
     expect(screen.getByRole("img", { name: "Last valid X-ray" })).toBeVisible();
     expect(screen.getByTestId("projection-detector-display")).toHaveAttribute(
       "aria-busy",

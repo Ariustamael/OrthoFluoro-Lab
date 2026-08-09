@@ -354,15 +354,11 @@ describe("CArmControls", () => {
     expect(
       screen.queryByRole("button", { name: "Anatomy" }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("radio", { name: "Left approach" }),
-    ).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Left approach" })).toBeChecked();
     expect(
       screen.getByRole("radio", { name: "Detector over source" }),
     ).toBeChecked();
-    expect(
-      screen.getByRole("radio", { name: "Medium quality" }),
-    ).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Medium quality" })).toBeChecked();
   });
 
   it("preserves physical and display state across presets and resets them independently", async () => {
@@ -634,17 +630,19 @@ describe("CArmControls", () => {
     );
   });
 
-  it("labels a simulated image capture without claiming a clinical image", async () => {
-    const user = userEvent.setup();
+  it("keeps acquisition actions out of Rig setup", () => {
     render(<CArmControls />);
 
-    await user.click(
-      screen.getByRole("button", { name: "Take simulated image" }),
-    );
-
+    const rigSetup = screen.getByRole("group", { name: "Rig setup" });
     expect(
-      screen.getByRole("status", { name: "Image capture status" }),
-    ).toHaveTextContent("Synthetic image captured");
+      within(rigSetup).queryByRole("button", { name: "Take simulated image" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(rigSetup).queryByRole("status", { name: "Image capture status" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(rigSetup).getByRole("button", { name: "Reset geometry" }),
+    ).toBeVisible();
   });
 
   it("provides labelled range and exact inputs with visible units", () => {

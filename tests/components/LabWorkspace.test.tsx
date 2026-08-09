@@ -695,15 +695,23 @@ describe("replaceable projection renderer", () => {
     await waitFor(() => expect(renderer.render).toHaveBeenCalledOnce());
 
     await act(async () => firstRender.reject(new Error("temporary failure")));
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "temporary failure",
-    );
+    const acquisitionStatus = screen.getByRole("status", {
+      name: "X-ray acquisition status",
+    });
+    expect(acquisitionStatus).toHaveTextContent("temporary failure");
+    expect(
+      screen.getByText("temporary failure", {
+        selector: ".projection-view__display-error",
+      }),
+    ).toBeVisible();
+    expect(acquisitionStatus).toHaveAttribute("aria-live", "polite");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 
     act(() => {
       useSimulationStore.getState().setCArmParameter("translationX", 10);
     });
     await waitFor(() => expect(renderer.render).toHaveBeenCalledTimes(2));
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(acquisitionStatus).toBeEmptyDOMElement();
     expect(screen.getByTestId("projection-detector-display")).toHaveAttribute(
       "aria-busy",
       "true",

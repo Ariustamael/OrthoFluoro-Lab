@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import {
   AP_C_ARM_POSE,
   LATERAL_C_ARM_POSE,
@@ -33,7 +32,6 @@ const TUBE_OPTIONS: readonly {
 const QUALITY_OPTIONS: readonly QualityPreset[] = ["low", "medium", "high"];
 
 export function CArmSetupControls() {
-  const [captureMessage, setCaptureMessage] = useState("");
   const setup = useSimulationStore((state) => state.cArmPhysicalSetup);
   const quality = useSimulationStore((state) => state.quality);
   const setApproachSide = useSimulationStore((state) => state.setApproachSide);
@@ -127,29 +125,10 @@ export function CArmSetupControls() {
       </fieldset>
 
       <div className="c-arm-controls__actions">
-        <button
-          onClick={() => setCaptureMessage("Synthetic image captured")}
-          type="button"
-        >
-          Take simulated image
-        </button>
-        <button
-          onClick={() => {
-            resetGeometry();
-            setCaptureMessage("");
-          }}
-          type="button"
-        >
+        <button onClick={resetGeometry} type="button">
           Reset geometry
         </button>
       </div>
-      <p
-        aria-label="Image capture status"
-        className="c-arm-controls__capture-status"
-        role="status"
-      >
-        {captureMessage}
-      </p>
     </fieldset>
   );
 }
