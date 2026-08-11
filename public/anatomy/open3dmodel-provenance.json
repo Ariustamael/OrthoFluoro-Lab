@@ -46,7 +46,9 @@
     "Translated detailed hip/lower-limb positions by the negative bilateral femoral-head midpoint so the hip reference is the root origin",
     "Replaced source materials with one opaque neutral bone material",
     "Applied opaque app-owned category materials to the regional supplement without runtime textures",
-    "Moved lower-limb T12 and L1-L5 from the skeletal base into the regional supplement, deduplicated, pruned, and Draco-compressed all outputs"
+    "Moved lower-limb T12 and L1-L5 from the skeletal base into the regional supplement, deduplicated, pruned, and Draco-compressed all outputs",
+    "Derived a translation-only 166-mesh full-body complement by replacing overview pelvis and lower-limb meshes with the detailed base",
+    "Derived an audited body-region assignment for every regional runtime identity and marked the six overlapping vertebrae for suppression"
   ],
   "included": {
     "overview": [
@@ -69,6 +71,16 @@
       "regional-midline",
       "regional-left",
       "regional-right"
+    ],
+    "fullBodyComplement": [
+      "head-neck",
+      "torso",
+      "left-upper-arm",
+      "left-forearm",
+      "left-hand",
+      "right-upper-arm",
+      "right-forearm",
+      "right-hand"
     ]
   },
   "excluded": {
@@ -94,6 +106,272 @@
     ],
     "regional": [
       "The 34 skeletal source structures retained by the hip base"
+    ],
+    "fullBodyComplement": [
+      {
+        "sourceName": "Calcaneus.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Calcaneus.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Coccyx",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Cuboid bone.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Cuboid bone.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Distal phalanx of fifth finger of foot.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Distal phalanx of fifth finger of foot.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Distal phalanx of first finger of foot.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Distal phalanx of first finger of foot.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Distal phalanx of fourth finger of foot.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Distal phalanx of fourth finger of foot.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Distal phalanx of second finger of foot.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Distal phalanx of second finger of foot.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Distal phalanx of third finger of foot.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Distal phalanx of third finger of foot.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Femur.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Femur.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Fibula.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Fibula.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Fifth metatarsal bone.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Fifth metatarsal bone.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "First metatarsal bone.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "First metatarsal bone.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Fourth metatarsal bone.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Fourth metatarsal bone.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Hip bone.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Hip bone.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Intermediate cuneiform bone.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Intermediate cuneiform bone.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Lateral cuneiform bone.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Lateral cuneiform bone.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Medial cuneiform bone.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Medial cuneiform bone.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Middle phalanx of fifth finger of foot.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Middle phalanx of fifth finger of foot.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Middle phalanx of fourth finger of foot.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Middle phalanx of fourth finger of foot.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Middle phalanx of second finger of foot.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Middle phalanx of second finger of foot.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Middle phalanx of third finger of foot.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Middle phalanx of third finger of foot.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Navicular bone.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Navicular bone.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Patella.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Patella.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Proximal phalanx of fifth finger of foot.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Proximal phalanx of fifth finger of foot.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Proximal phalanx of first finger of foot.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Proximal phalanx of first finger of foot.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Proximal phalanx of fourth finger of foot.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Proximal phalanx of fourth finger of foot.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Proximal phalanx of second finger of foot.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Proximal phalanx of second finger of foot.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Proximal phalanx of third finger of foot.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Proximal phalanx of third finger of foot.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Sacrum",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Second metatarsal bone.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Second metatarsal bone.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Sesamoid bones of foot.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Sesamoid bones of foot.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Talus.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Talus.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Third metatarsal bone.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Third metatarsal bone.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Tibia.l",
+        "reason": "replaced-by-hip-lower-limbs"
+      },
+      {
+        "sourceName": "Tibia.r",
+        "reason": "replaced-by-hip-lower-limbs"
+      }
     ]
   },
   "lowerLimbSourceAccounting": [
@@ -4901,7 +5179,24 @@
     }
   ],
   "generationVerification": {
-    "method": "Two independent generation passes from the same pinned downloaded inputs are compared byte-for-byte before publication",
+    "method": "Two independent generation passes decode the byte-verified committed overview/regional GLBs, whose existing provenance traces to pinned source members; source archives were unavailable and were not read in this run",
+    "input": {
+      "mode": "byte-verified-committed-derived-assets",
+      "sourceArchiveReadThisRun": false,
+      "unavailableSourceError": "fetch failed",
+      "derivationChain": [
+        {
+          "artifact": "public/anatomy/open3dmodel-overview-skeleton.glb",
+          "sha256": "3644EC72E8DE4634CCA598185ABB1BBCF523C08A52265726C9ECA14A53CC602F",
+          "tracedToPinnedSourceMemberSha256": "E83543ABB5C8DE013A4BDCBF2C0536AE1CE92980C7AA7951C6AA3DDEA804D10F"
+        },
+        {
+          "artifact": "public/anatomy/open3dmodel-hip-lower-limbs-regional.glb",
+          "sha256": "10FA60D39ED30EC19A940F0AA460743B9778483E8A63FA498E34E10046F1C2F2",
+          "tracedToPinnedSourceMemberSha256": "5A889D5CAE00421885AAF1841E72364E5F215F0C29FB0116CA5E9844EC4C5FE7"
+        }
+      ]
+    },
     "independentGenerationPasses": 2,
     "byteComparisonRequiredBeforePublication": true,
     "validatorTrustBoundary": "The independent validator checks that actual artifact bytes equal the recorded first-build, second-build, and committed hashes; it does not rerun generation"
@@ -5750,6 +6045,871 @@
         ]
       },
       "projectionEligible": false
+    },
+    "fullBodyComplement": {
+      "path": "public/anatomy/open3dmodel-full-body-complement.glb",
+      "bytes": 1911188,
+      "sha256": "E736A198C7C41B32445EF0D6868F5A42CFED2F28E0D98DFE32107F2303254223",
+      "buildHashes": {
+        "firstBuildSha256": "E736A198C7C41B32445EF0D6868F5A42CFED2F28E0D98DFE32107F2303254223",
+        "secondBuildSha256": "E736A198C7C41B32445EF0D6868F5A42CFED2F28E0D98DFE32107F2303254223",
+        "committedSha256": "E736A198C7C41B32445EF0D6868F5A42CFED2F28E0D98DFE32107F2303254223"
+      },
+      "meshCount": 166,
+      "sourceNames": [
+        "1st metacarpal bone.l",
+        "1st metacarpal bone.r",
+        "2nd metacarpal bone.l",
+        "2nd metacarpal bone.r",
+        "3rd metacarpal bone.l",
+        "3rd metacarpal bone.r",
+        "4th metacarpal bone.l",
+        "4th metacarpal bone.r",
+        "5th metacarpal bone.l",
+        "5th metacarpal bone.r",
+        "Atlas (C1)",
+        "Axis (C2)",
+        "Body of sternum",
+        "Capitate.l",
+        "Capitate.r",
+        "Cervical vertebrae (C3)",
+        "Cervical vertebrae (C4)",
+        "Cervical vertebrae (C5)",
+        "Cervical vertebrae (C6)",
+        "Cervical vertebrae (C7)",
+        "Clavicle.l",
+        "Clavicle.r",
+        "Distal phalanx of 1st finger.l",
+        "Distal phalanx of 1st finger.r",
+        "Distal phalanx of 2d finger.l",
+        "Distal phalanx of 2d finger.r",
+        "Distal phalanx of 3d finger.l",
+        "Distal phalanx of 3d finger.r",
+        "Distal phalanx of 4th finger.l",
+        "Distal phalanx of 4th finger.r",
+        "Distal phalanx of 5th finger.l",
+        "Distal phalanx of 5th finger.r",
+        "Ethmoid Bone",
+        "Frontal bone",
+        "Hamate.l",
+        "Hamate.r",
+        "Humerus.l",
+        "Humerus.r",
+        "Inferior nasal concha bone.l",
+        "Inferior nasal concha bone.r",
+        "Lacrimal bone.l",
+        "Lacrimal bone.r",
+        "Lower canine.l",
+        "Lower canine.r",
+        "Lower first molar tooth.l",
+        "Lower first molar tooth.r",
+        "Lower first premolar.l",
+        "Lower first premolar.r",
+        "Lower lateral incisor.l",
+        "Lower lateral incisor.r",
+        "Lower medial incisor.l",
+        "Lower medial incisor.r",
+        "Lower second molar tooth.l",
+        "Lower second molar tooth.r",
+        "Lower second premolar.l",
+        "Lower second premolar.r",
+        "Lumbar vertebrae (L1)",
+        "Lumbar vertebrae (L2)",
+        "Lumbar vertebrae (L3)",
+        "Lumbar vertebrae (L4)",
+        "Lumbar vertebrae (L5)",
+        "Lunate bone.l",
+        "Lunate bone.r",
+        "Mandible bone",
+        "Manubrium of sternum",
+        "Maxilla bone.l",
+        "Maxilla bone.r",
+        "Middle phalanx of 2d finger.l",
+        "Middle phalanx of 2d finger.r",
+        "Middle phalanx of 3rd finger.l",
+        "Middle phalanx of 3rd finger.r",
+        "Middle phalanx of 4th finger.l",
+        "Middle phalanx of 4th finger.r",
+        "Middle phalanx of 5th finger.l",
+        "Middle phalanx of 5th finger.r",
+        "Nasal bone.l",
+        "Nasal bone.r",
+        "Occipital bone",
+        "Palatine bone.l",
+        "Palatine bone.r",
+        "Parietal bone left",
+        "Parietal bone right",
+        "Pisiform.l",
+        "Pisiform.r",
+        "Proximal phalanx of 1st finger.l",
+        "Proximal phalanx of 1st finger.r",
+        "Proximal phalanx of 2d finger.l",
+        "Proximal phalanx of 2d finger.r",
+        "Proximal phalanx of 3rd finger.l",
+        "Proximal phalanx of 3rd finger.r",
+        "Proximal phalanx of 4th finger.l",
+        "Proximal phalanx of 4th finger.r",
+        "Proximal phalanx of 5th finger.l",
+        "Proximal phalanx of 5th finger.r",
+        "Radius.l",
+        "Radius.r",
+        "Rib (10th).l",
+        "Rib (10th).r",
+        "Rib (11th).l",
+        "Rib (11th).r",
+        "Rib (12th).l",
+        "Rib (12th).r",
+        "Rib (1st).l",
+        "Rib (1st).r",
+        "Rib (2nd).l",
+        "Rib (2nd).r",
+        "Rib (3rd).l",
+        "Rib (3rd).r",
+        "Rib (4th).l",
+        "Rib (4th).r",
+        "Rib (5th).l",
+        "Rib (5th).r",
+        "Rib (6th).l",
+        "Rib (6th).r",
+        "Rib (7th).l",
+        "Rib (7th).r",
+        "Rib (8th).l",
+        "Rib (8th).r",
+        "Rib (9th).l",
+        "Rib (9th).r",
+        "Scaphoid.l",
+        "Scaphoid.r",
+        "Scapula.l",
+        "Scapula.r.",
+        "Sesamoid_bones_of_hand.l",
+        "Sesamoid_bones_of_hand.r",
+        "Sphenoid bone",
+        "Temporal bone.l",
+        "Temporal bone.r",
+        "Thoracic vertebrae (T1)",
+        "Thoracic vertebrae (T10)",
+        "Thoracic vertebrae (T11)",
+        "Thoracic vertebrae (T12)",
+        "Thoracic vertebrae (T2)",
+        "Thoracic vertebrae (T3)",
+        "Thoracic vertebrae (T4)",
+        "Thoracic vertebrae (T5)",
+        "Thoracic vertebrae (T6)",
+        "Thoracic vertebrae (T7)",
+        "Thoracic vertebrae (T8)",
+        "Thoracic vertebrae (T9)",
+        "Trapezium.l",
+        "Trapezium.r",
+        "Trapezoid.l",
+        "Trapezoid.r",
+        "Triquetrum.l",
+        "Triquetrum.r",
+        "Ulna.l",
+        "Ulna.r",
+        "Upper canine.l",
+        "Upper canine.r",
+        "Upper first molar tooth.l",
+        "Upper first molar tooth.r",
+        "Upper first premolar.l",
+        "Upper first premolar.r",
+        "Upper lateral incisor.l",
+        "Upper lateral incisor.r",
+        "Upper medial incisor.l",
+        "Upper medial incisor.r",
+        "Upper second molar tooth.l",
+        "Upper second molar tooth.r",
+        "Upper second premolar.l",
+        "Upper second premolar.r",
+        "Vomer",
+        "Zygomatic bone.l",
+        "Zygomatic bone.r"
+      ],
+      "exclusions": [
+        {
+          "sourceName": "Calcaneus.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Calcaneus.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Coccyx",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Cuboid bone.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Cuboid bone.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Distal phalanx of fifth finger of foot.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Distal phalanx of fifth finger of foot.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Distal phalanx of first finger of foot.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Distal phalanx of first finger of foot.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Distal phalanx of fourth finger of foot.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Distal phalanx of fourth finger of foot.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Distal phalanx of second finger of foot.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Distal phalanx of second finger of foot.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Distal phalanx of third finger of foot.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Distal phalanx of third finger of foot.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Femur.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Femur.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Fibula.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Fibula.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Fifth metatarsal bone.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Fifth metatarsal bone.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "First metatarsal bone.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "First metatarsal bone.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Fourth metatarsal bone.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Fourth metatarsal bone.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Hip bone.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Hip bone.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Intermediate cuneiform bone.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Intermediate cuneiform bone.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Lateral cuneiform bone.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Lateral cuneiform bone.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Medial cuneiform bone.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Medial cuneiform bone.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Middle phalanx of fifth finger of foot.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Middle phalanx of fifth finger of foot.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Middle phalanx of fourth finger of foot.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Middle phalanx of fourth finger of foot.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Middle phalanx of second finger of foot.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Middle phalanx of second finger of foot.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Middle phalanx of third finger of foot.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Middle phalanx of third finger of foot.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Navicular bone.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Navicular bone.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Patella.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Patella.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Proximal phalanx of fifth finger of foot.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Proximal phalanx of fifth finger of foot.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Proximal phalanx of first finger of foot.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Proximal phalanx of first finger of foot.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Proximal phalanx of fourth finger of foot.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Proximal phalanx of fourth finger of foot.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Proximal phalanx of second finger of foot.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Proximal phalanx of second finger of foot.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Proximal phalanx of third finger of foot.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Proximal phalanx of third finger of foot.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Sacrum",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Second metatarsal bone.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Second metatarsal bone.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Sesamoid bones of foot.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Sesamoid bones of foot.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Talus.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Talus.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Third metatarsal bone.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Third metatarsal bone.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Tibia.l",
+          "reason": "replaced-by-hip-lower-limbs"
+        },
+        {
+          "sourceName": "Tibia.r",
+          "reason": "replaced-by-hip-lower-limbs"
+        }
+      ],
+      "groups": [
+        "head-neck",
+        "torso",
+        "left-upper-arm",
+        "left-forearm",
+        "left-hand",
+        "right-upper-arm",
+        "right-forearm",
+        "right-hand"
+      ],
+      "groupBounds": {
+        "head-neck": {
+          "min": [
+            -74.33150482177734,
+            -98.11402130126953,
+            579.7647094726562
+          ],
+          "max": [
+            74.15392303466797,
+            105.67453002929688,
+            846.1757202148438
+          ]
+        },
+        "torso": {
+          "min": [
+            -173.374267578125,
+            -111.88731384277344,
+            98.9468002319336
+          ],
+          "max": [
+            173.37425231933594,
+            117.58056640625,
+            594.3656616210938
+          ]
+        },
+        "left-upper-arm": {
+          "min": [
+            145.2685546875,
+            -52.140724182128906,
+            228.81454467773438
+          ],
+          "max": [
+            247.87672424316406,
+            -0.4881579875946045,
+            545.9899291992188
+          ]
+        },
+        "left-forearm": {
+          "min": [
+            203.38253784179688,
+            -59.31409454345703,
+            -1.843909502029419
+          ],
+          "max": [
+            287.9070739746094,
+            27.364328384399414,
+            259.9150085449219
+          ]
+        },
+        "left-hand": {
+          "min": [
+            227.4809112548828,
+            10.29296875,
+            -159.47592163085938
+          ],
+          "max": [
+            335.52459716796875,
+            98.03264617919922,
+            4.425011157989502
+          ]
+        },
+        "right-upper-arm": {
+          "min": [
+            -247.87672424316406,
+            -52.140724182128906,
+            228.81454467773438
+          ],
+          "max": [
+            -145.2685546875,
+            -0.4881579875946045,
+            545.9899291992188
+          ]
+        },
+        "right-forearm": {
+          "min": [
+            -287.9070739746094,
+            -59.31409454345703,
+            -1.843909502029419
+          ],
+          "max": [
+            -203.38250732421875,
+            27.364328384399414,
+            259.9150085449219
+          ]
+        },
+        "right-hand": {
+          "min": [
+            -335.5246276855469,
+            10.29296875,
+            -159.47592163085938
+          ],
+          "max": [
+            -227.4809112548828,
+            98.03264617919922,
+            4.425011157989502
+          ]
+        }
+      },
+      "artifact": "full-body-complement",
+      "axes": {
+        "x": "patient-left",
+        "y": "anterior",
+        "z": "headward"
+      },
+      "units": "millimetres",
+      "sourceDigest": "E83543ABB5C8DE013A4BDCBF2C0536AE1CE92980C7AA7951C6AA3DDEA804D10F",
+      "rigidTransform": {
+        "kind": "translation-only",
+        "translationMm": [
+          0,
+          5.246049163146787,
+          -858.9370491731073
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "centeringTransform": {
+        "sourceHipPivotsAppMm": {
+          "left": [
+            85.74123914142562,
+            -5.246049163146787,
+            858.9370491731073
+          ],
+          "right": [
+            -85.74123914142562,
+            -5.246049163146787,
+            858.9370491731073
+          ]
+        },
+        "sourceHipMidpointAppMm": [
+          0,
+          -5.246049163146787,
+          858.9370491731073
+        ],
+        "appliedTranslationMm": [
+          0,
+          5.246049163146787,
+          -858.9370491731073
+        ]
+      },
+      "hipPivots": {
+        "left": [
+          85.74123914142562,
+          0,
+          0
+        ],
+        "right": [
+          -85.74123914142562,
+          0,
+          0
+        ]
+      },
+      "referenceMidpoint": [
+        0,
+        0,
+        0
+      ],
+      "jointPivots": {
+        "right-shoulder": {
+          "id": "right-shoulder",
+          "side": "right",
+          "positionMm": [
+            -172.83692118312106,
+            -24.183665917298438,
+            518.4263481368033
+          ],
+          "localBasis": {
+            "x": [
+              -0.9843008112339158,
+              0,
+              0.17649904533525201
+            ],
+            "y": [
+              -0.0073047406506711425,
+              0.9991431970014157,
+              -0.040737116365993746
+            ],
+            "z": [
+              -0.17634782042396152,
+              -0.041386856437643144,
+              -0.9834574593473417
+            ]
+          },
+          "parentSegment": "torso",
+          "childSegment": "right-upper-arm",
+          "derivation": "least-squares sphere fit of proximal humeral-head samples"
+        },
+        "right-elbow": {
+          "id": "right-elbow",
+          "side": "right",
+          "positionMm": [
+            -222.99614261363755,
+            -35.95547285757105,
+            238.69813628648114
+          ],
+          "localBasis": {
+            "x": [
+              -0.9892171374699127,
+              0,
+              0.14645632432855846
+            ],
+            "y": [
+              0.03168293183101703,
+              0.9763202482509751,
+              0.21399758102779046
+            ],
+            "z": [
+              -0.14298827492638352,
+              0.21633024026971961,
+              -0.965792721228744
+            ]
+          },
+          "parentSegment": "right-upper-arm",
+          "childSegment": "right-forearm",
+          "derivation": "equal-weight mean of distal humerus and proximal radius/ulna landmark centres"
+        },
+        "right-wrist": {
+          "id": "right-wrist",
+          "side": "right",
+          "positionMm": [
+            -257.53855231888014,
+            16.304530942582648,
+            5.3866435490522235
+          ],
+          "localBasis": {
+            "x": [
+              -0.9892171374699127,
+              0,
+              0.14645632432855846
+            ],
+            "y": [
+              0.03168293183101703,
+              0.9763202482509751,
+              0.21399758102779046
+            ],
+            "z": [
+              -0.14298827492638352,
+              0.21633024026971961,
+              -0.965792721228744
+            ]
+          },
+          "parentSegment": "right-forearm",
+          "childSegment": "right-hand",
+          "derivation": "equal-weight mean of distal radius/ulna and proximal carpal landmark centres"
+        },
+        "left-shoulder": {
+          "id": "left-shoulder",
+          "side": "left",
+          "positionMm": [
+            172.83692118312106,
+            -24.183665917298438,
+            518.4263481368033
+          ],
+          "localBasis": {
+            "x": [
+              -0.9843008112339158,
+              0,
+              -0.17649904533525201
+            ],
+            "y": [
+              0.0073047406506711425,
+              0.9991431970014157,
+              -0.040737116365993746
+            ],
+            "z": [
+              0.17634782042396152,
+              -0.041386856437643144,
+              -0.9834574593473417
+            ]
+          },
+          "parentSegment": "torso",
+          "childSegment": "left-upper-arm",
+          "derivation": "least-squares sphere fit of proximal humeral-head samples"
+        },
+        "left-elbow": {
+          "id": "left-elbow",
+          "side": "left",
+          "positionMm": [
+            222.99614261363755,
+            -35.95547285757105,
+            238.69813628648114
+          ],
+          "localBasis": {
+            "x": [
+              -0.9892171374699127,
+              0,
+              -0.14645632432855846
+            ],
+            "y": [
+              -0.03168293183101703,
+              0.9763202482509751,
+              0.21399758102779046
+            ],
+            "z": [
+              0.14298827492638352,
+              0.21633024026971961,
+              -0.965792721228744
+            ]
+          },
+          "parentSegment": "left-upper-arm",
+          "childSegment": "left-forearm",
+          "derivation": "equal-weight mean of distal humerus and proximal radius/ulna landmark centres"
+        },
+        "left-wrist": {
+          "id": "left-wrist",
+          "side": "left",
+          "positionMm": [
+            257.53855231888014,
+            16.304530942582648,
+            5.3866435490522235
+          ],
+          "localBasis": {
+            "x": [
+              -0.9892171374699127,
+              0,
+              -0.14645632432855846
+            ],
+            "y": [
+              -0.03168293183101703,
+              0.9763202482509751,
+              0.21399758102779046
+            ],
+            "z": [
+              0.14298827492638352,
+              0.21633024026971961,
+              -0.965792721228744
+            ]
+          },
+          "parentSegment": "left-forearm",
+          "childSegment": "left-hand",
+          "derivation": "equal-weight mean of distal radius/ulna and proximal carpal landmark centres"
+        },
+        "left-hip": {
+          "id": "left-hip",
+          "side": "left",
+          "positionMm": [
+            85.74123914142562,
+            0,
+            0
+          ],
+          "localBasis": {
+            "x": [
+              1,
+              0,
+              0
+            ],
+            "y": [
+              0,
+              1,
+              0
+            ],
+            "z": [
+              0,
+              0,
+              1
+            ]
+          },
+          "parentSegment": "pelvis",
+          "childSegment": "left-leg",
+          "derivation": "overview femoral-head sphere fit after hip centring"
+        },
+        "right-hip": {
+          "id": "right-hip",
+          "side": "right",
+          "positionMm": [
+            -85.74123914142562,
+            0,
+            0
+          ],
+          "localBasis": {
+            "x": [
+              1,
+              0,
+              0
+            ],
+            "y": [
+              0,
+              1,
+              0
+            ],
+            "z": [
+              0,
+              0,
+              1
+            ]
+          },
+          "parentSegment": "pelvis",
+          "childSegment": "right-leg",
+          "derivation": "overview femoral-head sphere fit after hip centring"
+        }
+      },
+      "projectionEligible": true,
+      "exclusionDigest": "2E3DA68071209951E042DA28A5387179B20B78999FF0F136D643ECA021420E64"
+    },
+    "regionalBodyRegions": {
+      "path": "public/anatomy/open3dmodel-regional-body-regions.json",
+      "bytes": 125422,
+      "sha256": "B55F721E8F166258F700960D905529813D879525FDD6699F5C5B948C8B521E3F",
+      "buildHashes": {
+        "firstBuildSha256": "B55F721E8F166258F700960D905529813D879525FDD6699F5C5B948C8B521E3F",
+        "secondBuildSha256": "B55F721E8F166258F700960D905529813D879525FDD6699F5C5B948C8B521E3F",
+        "committedSha256": "B55F721E8F166258F700960D905529813D879525FDD6699F5C5B948C8B521E3F"
+      },
+      "schemaVersion": 1,
+      "runtimeMeshCount": 817,
+      "suppressedDuplicateBoneCount": 6,
+      "entryDigest": "E5D4EC87CA6B8F1CAE2E6BED05F8731BC7340F1AE689F24DEF48DB6304D7BEB7"
     }
   }
 }

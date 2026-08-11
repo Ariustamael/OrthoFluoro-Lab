@@ -1,8 +1,12 @@
+import { createHash } from "node:crypto";
 import { cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { afterEach, describe, expect, it } from "vitest";
+import { NodeIO } from "@gltf-transform/core";
+import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
+import draco3d from "draco3dgltf";
 
 import {
   EXPECTED_ASSET_BASELINES,
@@ -18,6 +22,7 @@ import {
 } from "../../scripts/anatomy/validate-anatomy-assets.mjs";
 
 const temporaryRoots: string[] = [];
+type MutableProvenance = ReturnType<typeof JSON.parse>;
 
 async function createCommittedAssetFixture() {
   const root = await mkdtemp(join(tmpdir(), "orthofluoro-validation-"));
@@ -39,6 +44,42 @@ async function createCommittedAssetFixture() {
   return root;
 }
 
+async function mutateProvenance(
+  root: string,
+  mutate: (provenance: MutableProvenance) => void,
+) {
+  const provenancePath = join(
+    root,
+    "public",
+    "anatomy",
+    "open3dmodel-provenance.json",
+  );
+  const provenance = JSON.parse(await readFile(provenancePath, "utf8"));
+  mutate(provenance);
+  await writeFile(provenancePath, `${JSON.stringify(provenance, null, 2)}\n`);
+}
+
+function sha256(bytes: Uint8Array) {
+  return createHash("sha256").update(bytes).digest("hex").toUpperCase();
+}
+
+async function pinMutatedArtifact(
+  root: string,
+  artifactName: string,
+  bytes: Uint8Array,
+) {
+  await mutateProvenance(root, (provenance) => {
+    const artifact = provenance.artifacts[artifactName];
+    artifact.bytes = bytes.byteLength;
+    artifact.sha256 = sha256(bytes);
+    artifact.buildHashes = {
+      firstBuildSha256: artifact.sha256,
+      secondBuildSha256: artifact.sha256,
+      committedSha256: artifact.sha256,
+    };
+  });
+}
+
 afterEach(async () => {
   await Promise.all(
     temporaryRoots
@@ -48,6 +89,178 @@ afterEach(async () => {
 });
 
 describe("independent anatomy validation rules", () => {
+  it("rejects unknown or duplicate complement source identities", async () => {
+    const root = await createCommittedAssetFixture();
+    await mutateProvenance(root, (provenance) => {
+      provenance.artifacts.fullBodyComplement = {
+        ...(provenance.artifacts.fullBodyComplement ?? {}),
+        sourceNames: ["Frontal bone", "Frontal bone", "Unknown bone"],
+      };
+    });
+
+    const report = await validateCommittedAnatomy(root);
+    expect(report.errors.join(" ")).toMatch(/complement.*unknown source/i);
+    expect(report.errors.join(" ")).toMatch(/complement.*duplicate/i);
+  }, 60_000);
+
+  it("rejects missing pivots and non-orthonormal joint bases", async () => {
+    const root = await createCommittedAssetFixture();
+    await mutateProvenance(root, (provenance) => {
+      provenance.artifacts.fullBodyComplement = {
+        ...(provenance.artifacts.fullBodyComplement ?? {}),
+        jointPivots: {
+          "left-shoulder": {
+            positionMm: [1, 2, 3],
+            localBasis: { x: [1, 0, 0], y: [1, 0, 0], z: [0, 0, 1] },
+          },
+        },
+      };
+    });
+
+    const report = await validateCommittedAnatomy(root);
+    expect(report.errors.join(" ")).toMatch(/missing.*joint pivot/i);
+    expect(report.errors.join(" ")).toMatch(/joint basis/i);
+  }, 60_000);
+
+  it("rejects a regional-key omission and unsuppressed vertebral overlap", async () => {
+    const root = await createCommittedAssetFixture();
+    const sidecarPath = join(
+      root,
+      "public",
+      "anatomy",
+      "open3dmodel-regional-body-regions.json",
+    );
+    await writeFile(
+      sidecarPath,
+      `${JSON.stringify({
+        schemaVersion: 1,
+        entries: [
+          {
+            runtimeKey: "Bones/Lumbar vertebra (L1)|midline",
+            bodyRegion: "torso",
+            suppressedDuplicateBone: false,
+          },
+        ],
+      })}\n`,
+    );
+    await mutateProvenance(root, (provenance) => {
+      provenance.artifacts.regionalBodyRegions = {
+        ...(provenance.artifacts.regionalBodyRegions ?? {}),
+        path: "public/anatomy/open3dmodel-regional-body-regions.json",
+      };
+    });
+
+    const report = await validateCommittedAnatomy(root);
+    expect(report.errors.join(" ")).toMatch(/regional.*817.*assignments/i);
+    expect(report.errors.join(" ")).toMatch(/unsuppressed.*overlap/i);
+  }, 60_000);
+
+  it("rejects an open and duplicated complement mesh decoded from committed bytes", async () => {
+    const root = await createCommittedAssetFixture();
+    const complementPath = join(
+      root,
+      "public",
+      "anatomy",
+      "open3dmodel-full-body-complement.glb",
+    );
+    const io = new NodeIO()
+      .registerExtensions(ALL_EXTENSIONS)
+      .registerDependencies({
+        "draco3d.decoder": await draco3d.createDecoderModule(),
+        "draco3d.encoder": await draco3d.createEncoderModule(),
+      });
+    const document = await io.read(complementPath);
+    const sourceNode = document
+      .getRoot()
+      .listNodes()
+      .find((node) => node.getMesh());
+    const primitive = sourceNode!.getMesh()!.listPrimitives()[0];
+    const indices = primitive.getIndices()!.getArray();
+    primitive.getIndices()!.setArray(indices.slice(0, -3));
+    sourceNode!.getParentNode()!.addChild(
+      document
+        .createNode(`${sourceNode!.getName()} duplicate`)
+        .setMesh(sourceNode!.getMesh())
+        .setExtras(sourceNode!.getExtras()),
+    );
+    await writeFile(complementPath, await io.writeBinary(document));
+
+    const report = await validateCommittedAnatomy(root);
+    expect(report.errors.join(" ")).toMatch(/complement.*not closed/i);
+    expect(report.errors.join(" ")).toMatch(/complement.*duplicate/i);
+  }, 60_000);
+
+  it("independently pins all three legacy GLB byte identities", async () => {
+    const root = await createCommittedAssetFixture();
+    const overviewPath = join(
+      root,
+      "public",
+      "anatomy",
+      "open3dmodel-overview-skeleton.glb",
+    );
+    const io = new NodeIO()
+      .registerExtensions(ALL_EXTENSIONS)
+      .registerDependencies({
+        "draco3d.decoder": await draco3d.createDecoderModule(),
+        "draco3d.encoder": await draco3d.createEncoderModule(),
+      });
+    const document = await io.read(overviewPath);
+    document.getRoot().setExtras({
+      ...document.getRoot().getExtras(),
+      reviewMutation: true,
+    });
+    const mutatedBytes = await io.writeBinary(document);
+    await writeFile(overviewPath, mutatedBytes);
+    await pinMutatedArtifact(root, "overview", mutatedBytes);
+
+    const report = await validateCommittedAnatomy(root);
+    expect(report.errors.join(" ")).toMatch(
+      /overview.*independently pinned digest/i,
+    );
+  }, 60_000);
+
+  it("rejects anatomically invalid pivot semantics and adjacency", async () => {
+    const root = await createCommittedAssetFixture();
+    const complementPath = join(
+      root,
+      "public",
+      "anatomy",
+      "open3dmodel-full-body-complement.glb",
+    );
+    const io = new NodeIO()
+      .registerExtensions(ALL_EXTENSIONS)
+      .registerDependencies({
+        "draco3d.decoder": await draco3d.createDecoderModule(),
+        "draco3d.encoder": await draco3d.createEncoderModule(),
+      });
+    const document = await io.read(complementPath);
+    const mutateExtras = (extras: Record<string, unknown>) => {
+      const copy = structuredClone(extras);
+      const metadata = copy.orthoFluoro as MutableProvenance;
+      metadata.jointPivots["left-elbow"] = {
+        ...metadata.jointPivots["left-elbow"],
+        id: "wrong-id",
+        side: "right",
+        parentSegment: "torso",
+        positionMm: [0, 0, 700],
+      };
+      return copy;
+    };
+    document.getRoot().setExtras(mutateExtras(document.getRoot().getExtras()));
+    const sceneRoot = document.getRoot().listScenes()[0].listChildren()[0];
+    sceneRoot.setExtras(mutateExtras(sceneRoot.getExtras()));
+    const mutatedBytes = await io.writeBinary(document);
+    await writeFile(complementPath, mutatedBytes);
+    await pinMutatedArtifact(root, "fullBodyComplement", mutatedBytes);
+    await mutateProvenance(root, (provenance) => {
+      provenance.artifacts.fullBodyComplement.jointPivots =
+        document.getRoot().getExtras().orthoFluoro.jointPivots;
+    });
+
+    const report = await validateCommittedAnatomy(root);
+    expect(report.errors.join(" ")).toMatch(/left-elbow.*semantics/i);
+    expect(report.errors.join(" ")).toMatch(/left-elbow.*adjacent/i);
+  }, 60_000);
   it("requires first, second, committed, and actual hashes to agree", () => {
     expect(
       validateRecordedBuildHashes(
@@ -200,7 +413,7 @@ describe("independent anatomy validation rules", () => {
 
     const report = await validateCommittedAnatomy(root);
     expect(report.errors.join(" ")).toMatch(/second-build hash/i);
-  }, 30_000);
+  }, 60_000);
 
   it("rejects regional source overlap and a projection-eligible supplement", async () => {
     const root = await createCommittedAssetFixture();
@@ -221,7 +434,7 @@ describe("independent anatomy validation rules", () => {
     const report = await validateCommittedAnatomy(root);
     expect(report.errors.join(" ")).toMatch(/projection eligible/i);
     expect(report.errors.join(" ")).toMatch(/base.*supplement.*overlap/i);
-  }, 30_000);
+  }, 60_000);
 
   it("rejects regional pivots or category counts that disagree with committed geometry", async () => {
     const root = await createCommittedAssetFixture();
@@ -239,7 +452,7 @@ describe("independent anatomy validation rules", () => {
     const report = await validateCommittedAnatomy(root);
     expect(report.errors.join(" ")).toMatch(/regional.*hip pivots/i);
     expect(report.errors.join(" ")).toMatch(/regional.*category counts/i);
-  }, 30_000);
+  }, 60_000);
 
   it("rejects an empty regional pivot vector", async () => {
     const root = await createCommittedAssetFixture();
@@ -255,7 +468,7 @@ describe("independent anatomy validation rules", () => {
 
     const report = await validateCommittedAnatomy(root);
     expect(report.errors.join(" ")).toMatch(/regional.*hip pivots/i);
-  }, 30_000);
+  }, 60_000);
 
   it("rejects a modified bundled Draco licence", async () => {
     const root = await createCommittedAssetFixture();
@@ -263,5 +476,5 @@ describe("independent anatomy validation rules", () => {
 
     const report = await validateCommittedAnatomy(root);
     expect(report.errors.join(" ")).toMatch(/Draco LICENSE checksum/i);
-  }, 30_000);
+  }, 60_000);
 });

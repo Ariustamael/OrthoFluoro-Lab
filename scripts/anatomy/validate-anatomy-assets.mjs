@@ -23,6 +23,62 @@ const EXPECTED_REGIONAL_GROUPS = [
   "regional-left",
   "regional-right",
 ];
+const EXPECTED_COMPLEMENT_GROUPS = [
+  "head-neck",
+  "torso",
+  "left-upper-arm",
+  "left-forearm",
+  "left-hand",
+  "right-upper-arm",
+  "right-forearm",
+  "right-hand",
+];
+const EXPECTED_COMPLEMENT_JOINT_PIVOTS = [
+  "left-elbow",
+  "left-hip",
+  "left-shoulder",
+  "left-wrist",
+  "right-elbow",
+  "right-hip",
+  "right-shoulder",
+  "right-wrist",
+];
+const EXPECTED_SUPPRESSED_REGIONAL_KEYS = new Set([
+  "Bones/Thoracic vertebra (T12)|midline",
+  "Bones/Lumbar vertebra (L1)|midline",
+  "Bones/Lumbar vertebra (L2)|midline",
+  "Bones/Lumbar vertebra (L3)|midline",
+  "Bones/Lumbar vertebra (L4)|midline",
+  "Bones/Lumbar vertebra (L5)|midline",
+]);
+const ALLOWED_REGIONAL_BODY_REGIONS = new Set([
+  "torso",
+  "pelvis",
+  "left-leg",
+  "right-leg",
+]);
+const EXPECTED_OVERVIEW_SOURCE_DIGEST =
+  "E83543ABB5C8DE013A4BDCBF2C0536AE1CE92980C7AA7951C6AA3DDEA804D10F";
+const EXPECTED_COMPLEMENT_SHA256 =
+  "E736A198C7C41B32445EF0D6868F5A42CFED2F28E0D98DFE32107F2303254223";
+const EXPECTED_COMPLEMENT_BYTES = 1_911_188;
+const EXPECTED_COMPLEMENT_TRIANGLE_COUNT = 584_396;
+const EXPECTED_COMPLEMENT_EXCLUSION_DIGEST =
+  "2E3DA68071209951E042DA28A5387179B20B78999FF0F136D643ECA021420E64";
+const EXPECTED_REGIONAL_BODY_REGIONS_SHA256 =
+  "B55F721E8F166258F700960D905529813D879525FDD6699F5C5B948C8B521E3F";
+const EXPECTED_REGIONAL_BODY_REGIONS_BYTES = 125_422;
+const EXPECTED_REGIONAL_BODY_REGION_ENTRY_DIGEST =
+  "E5D4EC87CA6B8F1CAE2E6BED05F8731BC7340F1AE689F24DEF48DB6304D7BEB7";
+const EXPECTED_LEGACY_GLB_SHA256 = Object.freeze({
+  overview: "3644EC72E8DE4634CCA598185ABB1BBCF523C08A52265726C9ECA14A53CC602F",
+  hip: "10D744127633B61B166478ADAAA007D15B71EE10D948CEDEADB92EBEC6437D72",
+  regional:
+    "10FA60D39ED30EC19A940F0AA460743B9778483E8A63FA498E34E10046F1C2F2",
+});
+const EXPECTED_COMPLEMENT_TRANSLATION_MM = Object.freeze([
+  0, 5.246049163146787, -858.9370491731073,
+]);
 const EXPECTED_REGIONAL_SOURCE_CATEGORY_COUNTS = Object.freeze({
   Bones: 6,
   Cartilages: 36,
@@ -662,6 +718,92 @@ function hasIdentityWorldMatrix(node, tolerance = 1e-8) {
     .every((value, index) => Math.abs(value - identity[index]) <= tolerance);
 }
 
+function canonicalDigest(value) {
+  return sha256(Buffer.from(JSON.stringify(value), "utf8"));
+}
+
+function jointBasisIsValid(localBasis, tolerance = 1e-6) {
+  if (!localBasis) return false;
+  const axes = [localBasis.x, localBasis.y, localBasis.z];
+  if (
+    axes.some(
+      (axis) =>
+        !Array.isArray(axis) ||
+        axis.length !== 3 ||
+        axis.some((value) => !Number.isFinite(value)),
+    )
+  ) {
+    return false;
+  }
+  const dot = (left, right) =>
+    left.reduce((sum, value, index) => sum + value * right[index], 0);
+  const cross = ([ax, ay, az], [bx, by, bz]) => [
+    ay * bz - az * by,
+    az * bx - ax * bz,
+    ax * by - ay * bx,
+  ];
+  return (
+    axes.every((axis) => Math.abs(Math.hypot(...axis) - 1) <= tolerance) &&
+    Math.abs(dot(axes[0], axes[1])) <= tolerance &&
+    Math.abs(dot(axes[1], axes[2])) <= tolerance &&
+    Math.abs(dot(axes[2], axes[0])) <= tolerance &&
+    Math.abs(dot(cross(axes[0], axes[1]), axes[2]) - 1) <= tolerance
+  );
+}
+
+function distance3(left, right) {
+  if (
+    !Array.isArray(left) ||
+    !Array.isArray(right) ||
+    left.length !== 3 ||
+    right.length !== 3
+  ) {
+    return Number.POSITIVE_INFINITY;
+  }
+  return Math.hypot(...left.map((value, axis) => value - right[axis]));
+}
+
+function pointInsideBounds(point, bounds, marginMm = 5) {
+  return (
+    Array.isArray(point) &&
+    point.length === 3 &&
+    point.every(
+      (coordinate, axis) =>
+        coordinate >= bounds.min[axis] - marginMm &&
+        coordinate <= bounds.max[axis] + marginMm,
+    )
+  );
+}
+
+function expectedJointSemantics(id) {
+  const [side, joint] = id.split("-");
+  if (joint === "hip") {
+    return { id, side, parentSegment: "pelvis", childSegment: `${side}-leg` };
+  }
+  if (joint === "shoulder") {
+    return {
+      id,
+      side,
+      parentSegment: "torso",
+      childSegment: `${side}-upper-arm`,
+    };
+  }
+  if (joint === "elbow") {
+    return {
+      id,
+      side,
+      parentSegment: `${side}-upper-arm`,
+      childSegment: `${side}-forearm`,
+    };
+  }
+  return {
+    id,
+    side,
+    parentSegment: `${side}-forearm`,
+    childSegment: `${side}-hand`,
+  };
+}
+
 export async function validateCommittedAnatomy(repositoryRoot) {
   const errors = [];
   let recordedBuildHashesVerified = true;
@@ -675,15 +817,31 @@ export async function validateCommittedAnatomy(repositoryRoot) {
   const overviewPath = join(repositoryRoot, provenance.artifacts.overview.path);
   const hipPath = join(repositoryRoot, provenance.artifacts.hip.path);
   const regionalPath = join(repositoryRoot, provenance.artifacts.regional.path);
-  const [overviewBytes, hipBytes, regionalBytes] = await Promise.all([
+  const complementArtifact = provenance.artifacts.fullBodyComplement;
+  const regionalBodyRegionsArtifact = provenance.artifacts.regionalBodyRegions;
+  const complementPath = join(repositoryRoot, complementArtifact.path);
+  const regionalBodyRegionsPath = join(
+    repositoryRoot,
+    regionalBodyRegionsArtifact.path,
+  );
+  const [
+    overviewBytes,
+    hipBytes,
+    regionalBytes,
+    complementBytes,
+    regionalBodyRegionsBytes,
+  ] = await Promise.all([
     readFile(overviewPath),
     readFile(hipPath),
     readFile(regionalPath),
+    readFile(complementPath),
+    readFile(regionalBodyRegionsPath),
   ]);
   for (const [name, bytes] of [
     ["overview", overviewBytes],
     ["hip", hipBytes],
     ["regional", regionalBytes],
+    ["fullBodyComplement", complementBytes],
   ]) {
     const artifact = provenance.artifacts[name];
     const actualSha256 = sha256(bytes);
@@ -700,7 +858,47 @@ export async function validateCommittedAnatomy(repositoryRoot) {
     const urls = externalRuntimeURLs(readGlbJSON(bytes));
     if (urls.length)
       errors.push(`${name} contains runtime URLs: ${urls.join(", ")}`);
+    if (
+      name in EXPECTED_LEGACY_GLB_SHA256 &&
+      actualSha256 !== EXPECTED_LEGACY_GLB_SHA256[name]
+    ) {
+      errors.push(`${name} differs from its independently pinned digest`);
+    }
   }
+  const regionalBodyRegionsSha256 = sha256(regionalBodyRegionsBytes);
+  if (
+    complementBytes.byteLength !== EXPECTED_COMPLEMENT_BYTES ||
+    sha256(complementBytes) !== EXPECTED_COMPLEMENT_SHA256
+  ) {
+    errors.push("Complement bytes differ from the independently pinned digest");
+  }
+  if (
+    regionalBodyRegionsBytes.byteLength !==
+      EXPECTED_REGIONAL_BODY_REGIONS_BYTES ||
+    regionalBodyRegionsSha256 !== EXPECTED_REGIONAL_BODY_REGIONS_SHA256
+  ) {
+    errors.push(
+      "Regional body-region bytes differ from the independently pinned digest",
+    );
+  }
+  if (
+    regionalBodyRegionsBytes.byteLength !== regionalBodyRegionsArtifact.bytes
+  ) {
+    errors.push("regional body-region byte count differs from provenance");
+  }
+  if (regionalBodyRegionsSha256 !== regionalBodyRegionsArtifact.sha256) {
+    errors.push("regional body-region checksum differs from provenance");
+  }
+  const regionalBodyRegionHashErrors = validateRecordedBuildHashes(
+    regionalBodyRegionsArtifact.buildHashes,
+    regionalBodyRegionsSha256,
+  );
+  recordedBuildHashesVerified &&= regionalBodyRegionHashErrors.length === 0;
+  errors.push(
+    ...regionalBodyRegionHashErrors.map(
+      (error) => `regionalBodyRegions: ${error}`,
+    ),
+  );
   if (
     provenance.licence.id !== "CC-BY-SA-4.0" ||
     provenance.licence.url !== "https://creativecommons.org/licenses/by-sa/4.0/"
@@ -765,10 +963,16 @@ export async function validateCommittedAnatomy(repositoryRoot) {
     .registerDependencies({
       "draco3d.decoder": await draco3d.createDecoderModule(),
     });
-  const [overviewDocument, hipDocument, regionalDocument] = await Promise.all([
+  const [
+    overviewDocument,
+    hipDocument,
+    regionalDocument,
+    complementDocument,
+  ] = await Promise.all([
     io.read(overviewPath),
     io.read(hipPath),
     io.read(regionalPath),
+    io.read(complementPath),
   ]);
   const hipGroups = collectSemanticGroups(hipDocument);
   const groupNames = [...hipGroups.keys()].sort(
@@ -1422,7 +1626,422 @@ export async function validateCommittedAnatomy(repositoryRoot) {
       `Overview contains duplicate geometry: ${JSON.stringify(overviewDuplicateGeometry)}`,
     );
 
-  for (const document of [overviewDocument, hipDocument]) {
+  const complementErrors = [];
+  const complementGroups = collectSemanticGroups(complementDocument);
+  const complementGroupNames = [...complementGroups.keys()].sort(
+    (left, right) =>
+      EXPECTED_COMPLEMENT_GROUPS.indexOf(left) -
+      EXPECTED_COMPLEMENT_GROUPS.indexOf(right),
+  );
+  if (
+    JSON.stringify(complementGroupNames) !==
+    JSON.stringify(EXPECTED_COMPLEMENT_GROUPS)
+  ) {
+    complementErrors.push(
+      `Complement semantic groups differ: ${complementGroupNames.join(", ")}`,
+    );
+  }
+  const complementRootExtras =
+    complementDocument.getRoot().getExtras().orthoFluoro;
+  const complementSceneRoot = complementDocument
+    .getRoot()
+    .listScenes()[0]
+    ?.listChildren()[0];
+  if (
+    !complementSceneRoot ||
+    !hasIdentityWorldMatrix(complementSceneRoot) ||
+    [...complementGroups.values()].some(
+      (groupNode) => !hasIdentityWorldMatrix(groupNode),
+    )
+  ) {
+    complementErrors.push(
+      "Complement root and semantic group transforms must be identity",
+    );
+  }
+  if (
+    complementRootExtras?.sourceDigest !== EXPECTED_OVERVIEW_SOURCE_DIGEST ||
+    complementArtifact.sourceDigest !== EXPECTED_OVERVIEW_SOURCE_DIGEST
+  ) {
+    complementErrors.push("Complement source digest differs from pinned input");
+  }
+  if (
+    complementRootExtras?.rigidTransform?.kind !== "translation-only" ||
+    !approximatelyEqual(
+      complementRootExtras?.rigidTransform?.scale || [],
+      [1, 1, 1],
+      1e-8,
+    ) ||
+    !approximatelyEqual(
+      complementRootExtras?.rigidTransform?.translationMm || [],
+      complementRootExtras?.centeringTransform?.appliedTranslationMm || [],
+      1e-8,
+    ) ||
+    !approximatelyEqual(
+      complementRootExtras?.rigidTransform?.translationMm || [],
+      EXPECTED_COMPLEMENT_TRANSLATION_MM,
+      1e-6,
+    )
+  ) {
+    complementErrors.push("Complement centring is not translation-only");
+  }
+
+  const complementGroupBounds = {};
+  const complementMeshGeometry = [];
+  const complementSourceNames = [];
+  let complementMeshCount = 0;
+  let complementClosedMeshCount = 0;
+  let complementProjectionEligibleMeshCount = 0;
+  let complementNonFiniteAccessorCount = 0;
+  let complementTriangleCount = 0;
+  let complementNegativeSignedVolumeCount = 0;
+  const overviewNodesByName = new Map(
+    overviewDocument
+      .getRoot()
+      .listNodes()
+      .filter((node) => node.getMesh())
+      .map((node) => [node.getName(), node]),
+  );
+  for (const [groupName, groupNode] of complementGroups) {
+    const nodes = meshNodesUnder(groupNode);
+    const meshes = nodes.map((node) => node.getMesh());
+    complementMeshCount += meshes.length;
+    complementGroupBounds[groupName] = boundsForMeshes(meshes);
+    const recordedBounds = complementArtifact.groupBounds?.[groupName];
+    if (
+      !recordedBounds ||
+      !approximatelyEqual(
+        complementGroupBounds[groupName].min,
+        recordedBounds.min,
+      ) ||
+      !approximatelyEqual(
+        complementGroupBounds[groupName].max,
+        recordedBounds.max,
+      )
+    ) {
+      complementErrors.push(`${groupName} complement bounds differ`);
+    }
+    for (const node of nodes) {
+      const extras = node.getExtras();
+      const sourceIdentity = extras.sourceIdentity;
+      complementSourceNames.push(sourceIdentity);
+      if (
+        typeof sourceIdentity !== "string" ||
+        sourceIdentity !== node.getName() ||
+        extras.anatomyGroup !== groupName
+      ) {
+        complementErrors.push(
+          `${node.getName()} has invalid complement source metadata`,
+        );
+      }
+      const overviewNode = overviewNodesByName.get(sourceIdentity);
+      if (overviewNode) {
+        const sourceBounds = boundsForMeshes([overviewNode.getMesh()]);
+        const targetBounds = boundsForMeshes([node.getMesh()]);
+        const translatedSourceBounds = {
+          min: sourceBounds.min.map(
+            (coordinate, axis) =>
+              coordinate + EXPECTED_COMPLEMENT_TRANSLATION_MM[axis],
+          ),
+          max: sourceBounds.max.map(
+            (coordinate, axis) =>
+              coordinate + EXPECTED_COMPLEMENT_TRANSLATION_MM[axis],
+          ),
+        };
+        if (
+          !approximatelyEqual(
+            targetBounds.min,
+            translatedSourceBounds.min,
+            0.25,
+          ) ||
+          !approximatelyEqual(
+            targetBounds.max,
+            translatedSourceBounds.max,
+            0.25,
+          )
+        ) {
+          complementErrors.push(
+            `${node.getName()} coordinates are not overview geometry plus one translation`,
+          );
+        }
+      }
+      if (
+        extras.projectionEligible === true &&
+        complementRootExtras?.projectionEligible === true
+      ) {
+        complementProjectionEligibleMeshCount += 1;
+      }
+    }
+    for (const mesh of meshes) {
+      const geometry = flattenMeshGeometry(mesh);
+      complementMeshGeometry.push(geometry);
+      complementTriangleCount += geometry.indices.length / 3;
+      if (computeSignedVolume(geometry.positions, geometry.indices) <= 0) {
+        complementNegativeSignedVolumeCount += 1;
+        complementErrors.push(
+          `complement/${mesh.getName()} has non-positive signed volume`,
+        );
+      }
+      let meshClosed = true;
+      for (const primitive of mesh.listPrimitives()) {
+        const result = validatePrimitive(
+          primitive,
+          `complement/${mesh.getName()}`,
+          complementErrors,
+        );
+        meshClosed &&= result.closed;
+        complementNonFiniteAccessorCount += result.nonFinite;
+      }
+      if (meshClosed) complementClosedMeshCount += 1;
+    }
+  }
+  const uniqueComplementSources = new Set(complementSourceNames);
+  const overviewSourceNames = new Set(overviewNodesByName.keys());
+  const unknownComplementSources = complementSourceNames.filter(
+    (name) => !overviewSourceNames.has(name),
+  );
+  if (unknownComplementSources.length) {
+    complementErrors.push(
+      `Complement has unknown source identities: ${unknownComplementSources.join(", ")}`,
+    );
+  }
+  if (uniqueComplementSources.size !== complementSourceNames.length) {
+    complementErrors.push("Complement has duplicate source identities");
+  }
+  const recordedComplementSources = complementArtifact.sourceNames || [];
+  if (
+    new Set(recordedComplementSources).size !== recordedComplementSources.length
+  ) {
+    complementErrors.push("Complement provenance has duplicate source identities");
+  }
+  if (
+    recordedComplementSources.some((name) => !overviewSourceNames.has(name))
+  ) {
+    complementErrors.push("Complement provenance has an unknown source identity");
+  }
+  if (
+    JSON.stringify([...recordedComplementSources].sort()) !==
+    JSON.stringify([...complementSourceNames].sort())
+  ) {
+    complementErrors.push(
+      "Complement decoded source identities differ from provenance",
+    );
+  }
+  const exclusionNames = (complementArtifact.exclusions || []).map(
+    (entry) => entry.sourceName,
+  );
+  const expectedExclusionNames = [...overviewSourceNames]
+    .filter((name) => !uniqueComplementSources.has(name))
+    .sort();
+  if (
+    exclusionNames.length !== 66 ||
+    new Set(exclusionNames).size !== 66 ||
+    JSON.stringify([...exclusionNames].sort()) !==
+      JSON.stringify(expectedExclusionNames)
+  ) {
+    complementErrors.push("Complement exclusion accounting differs");
+  }
+  const exclusionDigest = canonicalDigest(complementArtifact.exclusions || []);
+  if (
+    complementArtifact.exclusionDigest !== exclusionDigest ||
+    complementRootExtras?.exclusionDigest !== exclusionDigest ||
+    exclusionDigest !== EXPECTED_COMPLEMENT_EXCLUSION_DIGEST
+  ) {
+    complementErrors.push("Complement exclusion digest differs");
+  }
+  const hipSourceNames = new Set(
+    [...hipGroups.values()]
+      .flatMap(meshNodesUnder)
+      .map((node) => node.getName()),
+  );
+  if (complementSourceNames.some((name) => hipSourceNames.has(name))) {
+    complementErrors.push("Complement and detailed base contain duplicates");
+  }
+  const complementDuplicateGeometry =
+    findDuplicateGeometryFingerprints(complementMeshGeometry);
+  if (complementDuplicateGeometry.length) {
+    complementErrors.push("Complement contains duplicate mesh geometry");
+  }
+  if (
+    complementMeshCount !== 166 ||
+    complementArtifact.meshCount !== 166 ||
+    complementProjectionEligibleMeshCount !== 166 ||
+    complementTriangleCount !== EXPECTED_COMPLEMENT_TRIANGLE_COUNT
+  ) {
+    complementErrors.push(
+      "Complement must contain exactly 166 projection-eligible meshes",
+    );
+  }
+
+  const complementJointPivots = complementRootExtras?.jointPivots || {};
+  const recordedJointPivots = complementArtifact.jointPivots || {};
+  const actualJointPivotIds = Object.keys(complementJointPivots).sort();
+  const missingJointPivots = EXPECTED_COMPLEMENT_JOINT_PIVOTS.filter(
+    (id) => !actualJointPivotIds.includes(id),
+  );
+  if (missingJointPivots.length) {
+    complementErrors.push(
+      `Complement missing joint pivot: ${missingJointPivots.join(", ")}`,
+    );
+  }
+  const missingRecordedJointPivots = EXPECTED_COMPLEMENT_JOINT_PIVOTS.filter(
+    (id) => !recordedJointPivots[id],
+  );
+  if (missingRecordedJointPivots.length) {
+    complementErrors.push(
+      `Complement provenance has a missing joint pivot: ${missingRecordedJointPivots.join(", ")}`,
+    );
+  }
+  for (const id of EXPECTED_COMPLEMENT_JOINT_PIVOTS) {
+    const pivot = complementJointPivots[id];
+    if (
+      !pivot ||
+      !Array.isArray(pivot.positionMm) ||
+      pivot.positionMm.length !== 3 ||
+      pivot.positionMm.some((value) => !Number.isFinite(value))
+    ) {
+      complementErrors.push(`Complement ${id} joint pivot is invalid`);
+      continue;
+    }
+    if (!jointBasisIsValid(pivot.localBasis)) {
+      complementErrors.push(`Complement ${id} joint basis is invalid`);
+    }
+    const semantics = expectedJointSemantics(id);
+    if (
+      pivot.id !== semantics.id ||
+      pivot.side !== semantics.side ||
+      pivot.parentSegment !== semantics.parentSegment ||
+      pivot.childSegment !== semantics.childSegment
+    ) {
+      complementErrors.push(`Complement ${id} joint semantics are invalid`);
+    }
+    if (!id.endsWith("-hip")) {
+      const parentBounds = complementGroupBounds[semantics.parentSegment];
+      const childBounds = complementGroupBounds[semantics.childSegment];
+      if (
+        !parentBounds ||
+        !childBounds ||
+        !pointInsideBounds(pivot.positionMm, parentBounds) ||
+        !pointInsideBounds(pivot.positionMm, childBounds)
+      ) {
+        complementErrors.push(
+          `Complement ${id} pivot is outside adjacent segment bounds`,
+        );
+      }
+    }
+    if (JSON.stringify(recordedJointPivots[id]) !== JSON.stringify(pivot)) {
+      complementErrors.push(
+        `Complement ${id} joint pivot differs from provenance`,
+      );
+    }
+  }
+  for (const [id, pivot] of Object.entries(recordedJointPivots)) {
+    if (!jointBasisIsValid(pivot?.localBasis)) {
+      complementErrors.push(`Recorded complement ${id} joint basis is invalid`);
+    }
+  }
+  const complementHipPivots = complementRootExtras?.hipPivots || {};
+  const hipPivotMismatchMm = {
+    left: distance3(complementHipPivots.left, hipPivots?.left),
+    right: distance3(complementHipPivots.right, hipPivots?.right),
+  };
+  if (Object.values(hipPivotMismatchMm).some((distance) => distance > 5)) {
+    complementErrors.push(
+      "Complement bilateral hip pivots differ from detailed pivots by more than 5 mm",
+    );
+  }
+  const complementMaterials = complementDocument.getRoot().listMaterials();
+  const complementMaterialsOpaqueAndLocal =
+    complementMaterials.length === 1 &&
+    complementMaterials.every(
+      (material) =>
+        material.getAlphaMode() === "OPAQUE" &&
+        material.getBaseColorFactor()[3] === 1 &&
+        !material.getBaseColorTexture(),
+    );
+  if (!complementMaterialsOpaqueAndLocal) {
+    complementErrors.push(
+      "Complement materials are not opaque app-owned local materials",
+    );
+  }
+
+  const regionalBodyRegionErrors = [];
+  let regionalBodyRegionPayload;
+  try {
+    regionalBodyRegionPayload = JSON.parse(regionalBodyRegionsBytes.toString());
+  } catch {
+    regionalBodyRegionErrors.push("Regional body-region sidecar is invalid JSON");
+    regionalBodyRegionPayload = { entries: [] };
+  }
+  const regionalBodyRegionEntries = Array.isArray(
+    regionalBodyRegionPayload.entries,
+  )
+    ? regionalBodyRegionPayload.entries
+    : [];
+  const regionalRuntimeKeys = [...regionalGroups.values()]
+    .flatMap(meshNodesUnder)
+    .map(
+      (node) =>
+        `${node.getExtras().sourceKey}|${node.getExtras().anatomySide}`,
+    )
+    .sort();
+  const sidecarRuntimeKeys = regionalBodyRegionEntries
+    .map((entry) => entry.runtimeKey)
+    .sort();
+  const uniqueRuntimeKeyCount = new Set(sidecarRuntimeKeys).size;
+  if (
+    regionalBodyRegionPayload.schemaVersion !== 1 ||
+    regionalBodyRegionEntries.length !== 817 ||
+    uniqueRuntimeKeyCount !== 817 ||
+    JSON.stringify(sidecarRuntimeKeys) !== JSON.stringify(regionalRuntimeKeys)
+  ) {
+    regionalBodyRegionErrors.push(
+      "Regional body-region sidecar must contain 817 unique runtime assignments",
+    );
+  }
+  if (
+    regionalBodyRegionEntries.some(
+      (entry) => !ALLOWED_REGIONAL_BODY_REGIONS.has(entry.bodyRegion),
+    )
+  ) {
+    regionalBodyRegionErrors.push("Regional body-region sidecar has unknown regions");
+  }
+  const suppressedRegionalKeys = new Set(
+    regionalBodyRegionEntries
+      .filter((entry) => entry.suppressedDuplicateBone === true)
+      .map((entry) => entry.runtimeKey),
+  );
+  if (
+    suppressedRegionalKeys.size !== EXPECTED_SUPPRESSED_REGIONAL_KEYS.size ||
+    [...EXPECTED_SUPPRESSED_REGIONAL_KEYS].some(
+      (key) => !suppressedRegionalKeys.has(key),
+    )
+  ) {
+    regionalBodyRegionErrors.push(
+      "Regional sidecar contains an unsuppressed vertebral overlap",
+    );
+  }
+  const regionalBodyRegionEntryDigest = canonicalDigest(
+    regionalBodyRegionEntries,
+  );
+  if (
+    regionalBodyRegionEntryDigest !== regionalBodyRegionsArtifact.entryDigest ||
+    regionalBodyRegionEntryDigest !==
+      EXPECTED_REGIONAL_BODY_REGION_ENTRY_DIGEST
+  ) {
+    regionalBodyRegionErrors.push("Regional body-region entry digest differs");
+  }
+  if (
+    regionalBodyRegionsArtifact.runtimeMeshCount !== 817 ||
+    regionalBodyRegionsArtifact.suppressedDuplicateBoneCount !== 6
+  ) {
+    regionalBodyRegionErrors.push(
+      "Regional body-region provenance count differs",
+    );
+  }
+
+  errors.push(...complementErrors, ...regionalBodyRegionErrors);
+
+  for (const document of [overviewDocument, hipDocument, complementDocument]) {
     for (const material of document.getRoot().listMaterials()) {
       if (
         material.getAlphaMode() !== "OPAQUE" ||
@@ -1496,6 +2115,31 @@ export async function validateCommittedAnatomy(repositoryRoot) {
       bounds: overviewOverall,
       leftBounds: overviewLeft,
       rightBounds: overviewRight,
+    },
+    fullBodyComplement: {
+      errors: complementErrors,
+      groups: complementGroupNames,
+      meshCount: complementMeshCount,
+      closedMeshCount: complementClosedMeshCount,
+      projectionEligibleMeshCount: complementProjectionEligibleMeshCount,
+      nonFiniteAccessorCount: complementNonFiniteAccessorCount,
+      triangleCount: complementTriangleCount,
+      negativeSignedVolumeCount: complementNegativeSignedVolumeCount,
+      duplicateGeometryCount: complementDuplicateGeometry.length,
+      materialsOpaqueAndLocal: complementMaterialsOpaqueAndLocal,
+      sourceNames: [...complementSourceNames].sort(),
+      exclusionDigest,
+      jointPivots: complementJointPivots,
+      hipPivotMismatchMm,
+      groupBounds: complementGroupBounds,
+    },
+    regionalBodyRegions: {
+      errors: regionalBodyRegionErrors,
+      schemaVersion: regionalBodyRegionPayload.schemaVersion,
+      runtimeMeshCount: regionalBodyRegionEntries.length,
+      uniqueRuntimeKeyCount,
+      suppressedDuplicateBoneCount: suppressedRegionalKeys.size,
+      entryDigest: regionalBodyRegionEntryDigest,
     },
   };
 }

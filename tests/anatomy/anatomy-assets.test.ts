@@ -45,6 +45,49 @@ describe("committed anatomy assets", () => {
     expect(report.overview.duplicateGeometryCount).toBe(0);
     expect(report.overview.negativeSignedVolumeCount).toBe(0);
     expect(report.overview.triangleCount).toBe(725_968);
+    expect(report).toHaveProperty("fullBodyComplement");
+    expect(report).toHaveProperty("regionalBodyRegions");
+    expect(report.fullBodyComplement.meshCount).toBe(166);
+    expect(report.fullBodyComplement.triangleCount).toBe(584_396);
+    expect(report.fullBodyComplement.groups).toEqual([
+      "head-neck",
+      "torso",
+      "left-upper-arm",
+      "left-forearm",
+      "left-hand",
+      "right-upper-arm",
+      "right-forearm",
+      "right-hand",
+    ]);
+    expect(report.fullBodyComplement.errors).toEqual([]);
+    expect(report.fullBodyComplement.closedMeshCount).toBe(166);
+    expect(report.fullBodyComplement.projectionEligibleMeshCount).toBe(166);
+    expect(report.fullBodyComplement.hipPivotMismatchMm.left).toBeLessThanOrEqual(
+      5,
+    );
+    expect(
+      report.fullBodyComplement.hipPivotMismatchMm.right,
+    ).toBeLessThanOrEqual(5);
+    expect(Object.keys(report.fullBodyComplement.jointPivots).sort()).toEqual([
+      "left-elbow",
+      "left-hip",
+      "left-shoulder",
+      "left-wrist",
+      "right-elbow",
+      "right-hip",
+      "right-shoulder",
+      "right-wrist",
+    ]);
+    expect(report.regionalBodyRegions.runtimeMeshCount).toBe(817);
+    expect(report.regionalBodyRegions.uniqueRuntimeKeyCount).toBe(817);
+    expect(report.regionalBodyRegions.suppressedDuplicateBoneCount).toBe(6);
+    expect(report.regionalBodyRegions.errors).toEqual([]);
+    expect(report.fullBodyComplement.exclusionDigest).toBe(
+      "2E3DA68071209951E042DA28A5387179B20B78999FF0F136D643ECA021420E64",
+    );
+    expect(report.regionalBodyRegions.entryDigest).toBe(
+      "E5D4EC87CA6B8F1CAE2E6BED05F8731BC7340F1AE689F24DEF48DB6304D7BEB7",
+    );
     expect(report.regional.groups).toEqual([
       "regional-midline",
       "regional-left",
@@ -110,6 +153,27 @@ describe("committed anatomy assets", () => {
     expect(provenance.artifacts.regional.sourceKeys).toEqual(
       report.regional.sourceKeys,
     );
+    expect(provenance.artifacts.fullBodyComplement).toMatchObject({
+      path: "public/anatomy/open3dmodel-full-body-complement.glb",
+      meshCount: 166,
+      groups: report.fullBodyComplement.groups,
+    });
+    expect(provenance.artifacts.fullBodyComplement.sha256).toBe(
+      "E736A198C7C41B32445EF0D6868F5A42CFED2F28E0D98DFE32107F2303254223",
+    );
+    expect(provenance.artifacts.regionalBodyRegions).toMatchObject({
+      path: "public/anatomy/open3dmodel-regional-body-regions.json",
+      runtimeMeshCount: 817,
+      suppressedDuplicateBoneCount: 6,
+      entryDigest: report.regionalBodyRegions.entryDigest,
+    });
+    expect(provenance.artifacts.regionalBodyRegions.sha256).toBe(
+      "B55F721E8F166258F700960D905529813D879525FDD6699F5C5B948C8B521E3F",
+    );
+    expect(provenance.generationVerification.input).toMatchObject({
+      mode: "byte-verified-committed-derived-assets",
+      sourceArchiveReadThisRun: false,
+    });
 
     const licenceRegistry = await readFile(
       join(process.cwd(), "docs", "ASSET-LICENCES.md"),
@@ -120,5 +184,5 @@ describe("committed anatomy assets", () => {
     );
     expect(licenceRegistry).toContain(provenance.artifacts.regional.sha256);
     expect(licenceRegistry).toMatch(/CC BY-SA 4\.0/i);
-  }, 30_000);
+  }, 60_000);
 });

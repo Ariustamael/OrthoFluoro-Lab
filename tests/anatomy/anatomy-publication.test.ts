@@ -1,4 +1,7 @@
 import {
+  createHash,
+} from "node:crypto";
+import {
   mkdir,
   mkdtemp,
   readFile,
@@ -21,12 +24,27 @@ const publicationFiles = [
   "anatomy/open3dmodel-overview-skeleton.glb",
   "anatomy/open3dmodel-hip-lower-limbs.glb",
   "anatomy/open3dmodel-hip-lower-limbs-regional.glb",
+  "anatomy/open3dmodel-full-body-complement.glb",
+  "anatomy/open3dmodel-regional-body-regions.json",
   "anatomy/open3dmodel-provenance.json",
   "draco/draco_decoder.js",
   "draco/draco_decoder.wasm",
   "draco/draco_wasm_wrapper.js",
   "draco/LICENSE",
 ] as const;
+
+const EXISTING_GLB_DIGESTS = Object.freeze({
+  "anatomy/open3dmodel-overview-skeleton.glb":
+    "3644EC72E8DE4634CCA598185ABB1BBCF523C08A52265726C9ECA14A53CC602F",
+  "anatomy/open3dmodel-hip-lower-limbs.glb":
+    "10D744127633B61B166478ADAAA007D15B71EE10D948CEDEADB92EBEC6437D72",
+  "anatomy/open3dmodel-hip-lower-limbs-regional.glb":
+    "10FA60D39ED30EC19A940F0AA460743B9778483E8A63FA498E34E10046F1C2F2",
+});
+
+function sha256(bytes: Uint8Array) {
+  return createHash("sha256").update(bytes).digest("hex").toUpperCase();
+}
 
 async function temporaryRoot() {
   const root = await mkdtemp(join(tmpdir(), "orthofluoro-publication-"));
@@ -154,6 +172,19 @@ describe("bounded pinned downloads", () => {
 });
 
 describe("staged anatomy publication", () => {
+  it("pins all pre-existing GLBs byte-identically while extending the atomic set", async () => {
+    for (const [path, digest] of Object.entries(EXISTING_GLB_DIGESTS)) {
+      expect(sha256(await readFile(join(process.cwd(), "public", path)))).toBe(
+        digest,
+      );
+    }
+    expect(publicationFiles).toContain(
+      "anatomy/open3dmodel-full-body-complement.glb",
+    );
+    expect(publicationFiles).toContain(
+      "anatomy/open3dmodel-regional-body-regions.json",
+    );
+  });
   it("leaves every destination byte unchanged when failure is injected before promotion", async () => {
     const root = await temporaryRoot();
     const destinationPublicRoot = join(root, "public");
