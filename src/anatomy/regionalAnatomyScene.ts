@@ -1,4 +1,4 @@
-import { Group, Material, MathUtils, Mesh } from "three";
+import { Group, Material, MathUtils, Matrix4, Mesh } from "three";
 import {
   REFERENCE_HIP_ANATOMY_POSE,
   type HipAnatomyPose,
@@ -8,10 +8,15 @@ import {
   anatomyRootRotation,
 } from "./anatomyTransforms";
 import type { LoadedRegionalAnatomy } from "./regionalAnatomyTypes";
+import {
+  regionalRuntimeKey,
+  type RegionalBodyRegion,
+} from "./regionalBodyRegions";
 
 export interface RegionalAnatomyViewportScene {
   readonly root: Group;
-  readonly midline: Group;
+  readonly torso: Group;
+  readonly pelvis: Group;
   readonly left: Group;
   readonly right: Group;
   readonly leftPivot: Group;
@@ -25,13 +30,24 @@ function meshMaterials(mesh: Mesh): Material[] {
   return Array.isArray(mesh.material) ? mesh.material : [mesh.material];
 }
 
-function cloneGroup(
+function cloneAssignedMeshes(
   source: Group,
+  destinations: ReadonlyMap<RegionalBodyRegion, Group>,
+  assignments: LoadedRegionalAnatomy["assignments"],
   materialClones: Map<Material, Material>,
-): Group {
-  const clone = source.clone(true);
-  clone.traverse((object) => {
+): void {
+  source.updateWorldMatrix(true, true);
+  const sourceInverse = source.matrixWorld.clone().invert();
+  source.traverse((object) => {
     if (!(object instanceof Mesh)) return;
+    const assignment = assignments.get(regionalRuntimeKey(object));
+    if (assignment === undefined) {
+      throw new Error(
+        `Regional anatomy has no body-region assignment for ${regionalRuntimeKey(object)}.`,
+      );
+    }
+    if (assignment.suppressedDuplicateBone) return;
+    const clone = object.clone(false);
     const clonedMaterials = meshMaterials(object).map((material) => {
       const existing = materialClones.get(material);
       if (existing !== undefined) return existing;
@@ -39,13 +55,19 @@ function cloneGroup(
       materialClones.set(material, cloned);
       return cloned;
     });
-    object.material = Array.isArray(object.material)
+    clone.material = Array.isArray(object.material)
       ? clonedMaterials
       : clonedMaterials[0];
-    object.castShadow = true;
-    object.receiveShadow = true;
+    clone.castShadow = true;
+    clone.receiveShadow = true;
+    const relativeMatrix = new Matrix4().multiplyMatrices(
+      sourceInverse,
+      object.matrixWorld,
+    );
+    relativeMatrix.decompose(clone.position, clone.quaternion, clone.scale);
+    clone.updateMatrix();
+    destinations.get(assignment.bodyRegion)!.add(clone);
   });
-  return clone;
 }
 
 function attachSide(
@@ -74,22 +96,40 @@ export function createRegionalAnatomyScene(
 ): RegionalAnatomyViewportScene {
   const root = new Group();
   root.name = "Hip and lower-limb regional anatomy";
+  const torso = new Group();
+  torso.name = "Regional torso";
+  const pelvis = new Group();
+  pelvis.name = "Regional pelvis";
+  const left = new Group();
+  left.name = "Regional left leg";
+  const right = new Group();
+  right.name = "Regional right leg";
+  root.add(torso, pelvis);
   const leftSide = attachSide(root, "left", resource.hipPivots.left);
   const rightSide = attachSide(root, "right", resource.hipPivots.right);
   const materialClones = new Map<Material, Material>();
-  const midline = cloneGroup(
-    resource.groups["regional-midline"],
-    materialClones,
-  );
-  const left = cloneGroup(resource.groups["regional-left"], materialClones);
-  const right = cloneGroup(resource.groups["regional-right"], materialClones);
-
-  root.add(midline);
+  const destinations = new Map<RegionalBodyRegion, Group>([
+    ["torso", torso],
+    ["pelvis", pelvis],
+    ["left-leg", left],
+    ["right-leg", right],
+  ]);
+  Object.values(resource.groups).forEach((group) => {
+    cloneAssignedMeshes(
+      group,
+      destinations,
+      resource.assignments,
+      materialClones,
+    );
+  });
   leftSide.offset.add(left);
   rightSide.offset.add(right);
 
+  let disposed = false;
   const view: RegionalAnatomyViewportScene = {
     dispose() {
+      if (disposed) return;
+      disposed = true;
       materialClones.forEach((material) => material.dispose());
       materialClones.clear();
       root.clear();
@@ -97,11 +137,12 @@ export function createRegionalAnatomyScene(
     left,
     leftOffset: leftSide.offset,
     leftPivot: leftSide.pivot,
-    midline,
+    pelvis,
     right,
     rightOffset: rightSide.offset,
     rightPivot: rightSide.pivot,
     root,
+    torso,
   };
   updateRegionalAnatomyScene(view, REFERENCE_HIP_ANATOMY_POSE);
   return view;
@@ -130,7 +171,8 @@ export function updateRegionalAnatomyScene(
     MathUtils.degToRad(rightRotation[1]),
     MathUtils.degToRad(rightRotation[2]),
   );
-  view.midline.visible = true;
+  view.torso.visible = pose.regionVisibility.torso;
+  view.pelvis.visible = pose.regionVisibility.pelvis;
   view.left.visible = pose.regionVisibility["left-leg"];
   view.right.visible = pose.regionVisibility["right-leg"];
   view.root.updateMatrixWorld(true);

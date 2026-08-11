@@ -19,6 +19,11 @@ import {
   ANATOMY_ASSETS,
   REGIONAL_HIP_ANATOMY_ASSET_ID,
 } from "../content/assets/anatomyAssets";
+import {
+  parseRegionalBodyRegions,
+  regionalRuntimeKey,
+  type RegionalRuntimeAssignment,
+} from "./regionalBodyRegions";
 
 interface CacheEntry {
   consumers: number;
@@ -30,6 +35,8 @@ interface CacheEntry {
 const asset = ANATOMY_ASSETS[REGIONAL_HIP_ANATOMY_ASSET_ID];
 const PIVOT_EPSILON_MM = 1e-6;
 const TRANSFORM_EPSILON = 1e-9;
+const EXPECTED_BODY_REGION_MAP_CHECKSUM =
+  "B55F721E8F166258F700960D905529813D879525FDD6699F5C5B948C8B521E3F";
 let cacheEntry: CacheEntry | null = null;
 
 function typedError(
@@ -208,13 +215,40 @@ export function disposeLoadedRegionalAnatomy(
 
 function disposeUnvalidatedScene(scene: Group): void {
   disposeLoadedRegionalAnatomy({
+    assignments: new Map<string, RegionalRuntimeAssignment>(),
     groups: {} as LoadedRegionalAnatomy["groups"],
     hipPivots: { left: new Vector3(), right: new Vector3() },
     scene,
   });
 }
 
-function prepareLoadedScene(scene: Group): LoadedRegionalAnatomy {
+function validateRuntimeAssignments(
+  groups: Readonly<Record<RegionalAnatomyGroup, Group>>,
+  assignments: ReadonlyMap<string, RegionalRuntimeAssignment>,
+): void {
+  const runtimeKeys: string[] = [];
+  Object.values(groups).forEach((group) => {
+    group.traverse((object) => {
+      if (object instanceof Mesh) runtimeKeys.push(regionalRuntimeKey(object));
+    });
+  });
+  const uniqueRuntimeKeys = new Set(runtimeKeys);
+  if (
+    runtimeKeys.length !== 817 ||
+    uniqueRuntimeKeys.size !== 817 ||
+    assignments.size !== 817 ||
+    runtimeKeys.some((runtimeKey) => !assignments.has(runtimeKey))
+  ) {
+    throw typedError(
+      "Regional anatomy body-region map must cover all 817 unique runtime meshes.",
+    );
+  }
+}
+
+function prepareLoadedScene(
+  scene: Group,
+  assignments: ReadonlyMap<string, RegionalRuntimeAssignment>,
+): LoadedRegionalAnatomy {
   try {
     const metadataRoot = findMetadataRoot(scene);
     validateIdentityTransform("metadata root", metadataRoot);
@@ -245,8 +279,11 @@ function prepareLoadedScene(scene: Group): LoadedRegionalAnatomy {
         "Regional anatomy centred hip pivots are not symmetric.",
       );
     }
+    const groups = validateSemanticGroups(scene);
+    validateRuntimeAssignments(groups, assignments);
     return {
-      groups: validateSemanticGroups(scene),
+      assignments,
+      groups,
       hipPivots: {
         left: new Vector3(...leftPivot),
         right: new Vector3(...rightPivot),
@@ -258,6 +295,91 @@ function prepareLoadedScene(scene: Group): LoadedRegionalAnatomy {
     throw error instanceof RegionalAnatomyAssetError
       ? error
       : typedError("Regional anatomy validation failed.", error);
+  }
+}
+
+export function validateRegionalBodyRegionMapPath(
+  path: string,
+  baseUrl = typeof globalThis.location === "undefined"
+    ? "http://localhost/"
+    : globalThis.location.href,
+): string {
+  let resolved: URL;
+  try {
+    resolved = new URL(path, baseUrl);
+  } catch (error) {
+    throw typedError(
+      `External anatomy dependency is not permitted: ${path}`,
+      error,
+    );
+  }
+  if (
+    !path.startsWith("/") ||
+    path.startsWith("//") ||
+    resolved.origin !== new URL(baseUrl).origin
+  ) {
+    throw typedError(`External anatomy dependency is not permitted: ${path}`);
+  }
+  return path;
+}
+
+function bodyRegionMapPath(): string {
+  if (asset.bodyRegionMapChecksum !== EXPECTED_BODY_REGION_MAP_CHECKSUM) {
+    throw typedError(
+      "Regional anatomy body-region map manifest checksum is not the validated checksum.",
+    );
+  }
+  return validateRegionalBodyRegionMapPath(asset.bodyRegionMapPath);
+}
+
+async function sha256Hex(bytes: ArrayBuffer): Promise<string> {
+  const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)]
+    .map((value) => value.toString(16).padStart(2, "0"))
+    .join("")
+    .toUpperCase();
+}
+
+async function loadBodyRegionAssignments(
+  path: string,
+): Promise<ReadonlyMap<string, RegionalRuntimeAssignment>> {
+  let response: Response;
+  try {
+    response = await fetch(path);
+  } catch (error) {
+    throw typedError(
+      "Regional anatomy body-region sidecar could not be fetched.",
+      error,
+    );
+  }
+  if (!response.ok) {
+    throw typedError(
+      `Regional anatomy body-region sidecar request failed with status ${response.status}.`,
+    );
+  }
+  const bytes = await response.arrayBuffer();
+  let actualChecksum: string;
+  try {
+    actualChecksum = await sha256Hex(bytes);
+  } catch (error) {
+    throw typedError(
+      "Regional anatomy body-region sidecar checksum could not be verified.",
+      error,
+    );
+  }
+  if (actualChecksum !== EXPECTED_BODY_REGION_MAP_CHECKSUM) {
+    throw typedError(
+      `Regional anatomy body-region sidecar checksum mismatch: expected ${EXPECTED_BODY_REGION_MAP_CHECKSUM}, received ${actualChecksum}.`,
+    );
+  }
+  try {
+    return parseRegionalBodyRegions(new TextDecoder().decode(bytes))
+      .assignments;
+  } catch (error) {
+    throw typedError(
+      "Regional anatomy body-region sidecar could not be parsed.",
+      error,
+    );
   }
 }
 
@@ -283,11 +405,21 @@ async function loadFreshRegionalAnatomy(): Promise<LoadedRegionalAnatomy> {
   const gltfLoader = new GLTFLoader(manager);
   gltfLoader.setDRACOLoader(dracoLoader);
   try {
-    const gltf = await gltfLoader.loadAsync(asset.filePath);
+    const mapPath = bodyRegionMapPath();
+    const [gltfResult, assignmentsResult] = await Promise.allSettled([
+      gltfLoader.loadAsync(asset.filePath),
+      loadBodyRegionAssignments(mapPath),
+    ]);
+    if (gltfResult.status === "rejected") throw gltfResult.reason;
+    const gltf = gltfResult.value;
     if (!(gltf.scene instanceof Group)) {
       throw typedError("Regional anatomy GLB did not contain a group scene.");
     }
-    return prepareLoadedScene(gltf.scene);
+    if (assignmentsResult.status === "rejected") {
+      disposeUnvalidatedScene(gltf.scene);
+      throw assignmentsResult.reason;
+    }
+    return prepareLoadedScene(gltf.scene, assignmentsResult.value);
   } catch (error) {
     throw error instanceof RegionalAnatomyAssetError
       ? error

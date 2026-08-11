@@ -50,6 +50,7 @@ function baseResource(): LoadedHipAnatomy {
 
 function regionalResource(): LoadedRegionalAnatomy {
   return {
+    assignments: new Map(),
     groups: {} as LoadedRegionalAnatomy["groups"],
     hipPivots: {
       left: new Vector3(85.58369749004112, 0, 0),

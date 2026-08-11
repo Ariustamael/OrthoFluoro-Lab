@@ -96,6 +96,7 @@ function AutoLoadRegionalConsumer() {
 
 function regionalResource(): LoadedRegionalAnatomy {
   return {
+    assignments: new Map(),
     groups: {} as LoadedRegionalAnatomy["groups"],
     hipPivots: {
       left: new Vector3(85.58369749004112, 0, 0),
@@ -380,6 +381,9 @@ describe("AnatomyAssetProvider", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Regional anatomy could not be decoded",
     );
+    expect(
+      screen.getByRole("status", { name: "Asset status" }),
+    ).toHaveTextContent("ready");
     await user.click(
       screen.getByRole("button", { name: "Retry regional anatomy" }),
     );

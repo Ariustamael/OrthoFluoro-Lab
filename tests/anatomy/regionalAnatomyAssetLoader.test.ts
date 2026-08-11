@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { BoxGeometry, Group, Mesh, MeshBasicMaterial, Object3D } from "three";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -7,6 +9,7 @@ import {
 import {
   acquireRegionalAnatomy,
   clearRegionalAnatomyAssetCacheForTests,
+  validateRegionalBodyRegionMapPath,
 } from "../../src/anatomy/regionalAnatomyAssetLoader";
 import { ANATOMY_ASSETS } from "../../src/content/assets/anatomyAssets";
 
@@ -17,6 +20,23 @@ const loaderHarness = vi.hoisted(() => ({
   loadedUrls: [] as string[],
   managers: [] as Array<{ resolveURL(url: string): string }>,
 }));
+
+const sidecarText = readFileSync(
+  join(
+    process.cwd(),
+    "public",
+    "anatomy",
+    "open3dmodel-regional-body-regions.json",
+  ),
+  "utf8",
+);
+const sidecar = JSON.parse(sidecarText) as {
+  entries: Array<{
+    bodyRegion: string;
+    runtimeKey: string;
+    suppressedDuplicateBone: boolean;
+  }>;
+};
 
 vi.mock("three/examples/jsm/loaders/DRACOLoader.js", () => ({
   DRACOLoader: class {
@@ -65,17 +85,27 @@ function validRegionalScene(): Group {
   };
   scene.add(metadataRoot);
 
+  const groups = new Map<string, Object3D>();
   REGIONAL_ANATOMY_GROUPS.forEach((name) => {
     const group = new Object3D();
     group.name = name;
     group.userData.anatomyGroup = name;
-    group.add(
-      new Mesh(
-        new BoxGeometry(1, 1, 1),
-        new MeshBasicMaterial({ color: 0xff0000 }),
-      ),
-    );
+    groups.set(name, group);
     metadataRoot.add(group);
+  });
+  const geometry = new BoxGeometry(1, 1, 1);
+  const material = new MeshBasicMaterial({ color: 0xff0000 });
+  sidecar.entries.forEach((entry) => {
+    const [sourceKey, anatomySide] = entry.runtimeKey.split("|");
+    const mesh = new Mesh(geometry, material);
+    mesh.userData = { anatomySide, sourceKey };
+    const group =
+      anatomySide === "left"
+        ? groups.get("regional-left")
+        : anatomySide === "right"
+          ? groups.get("regional-right")
+          : groups.get("regional-midline");
+    group!.add(mesh);
   });
   return scene;
 }
@@ -87,9 +117,39 @@ beforeEach(() => {
   loaderHarness.loadAsync.mockReset();
   loaderHarness.loadedUrls.length = 0;
   loaderHarness.managers.length = 0;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      async () =>
+        new Response(sidecarText, {
+          headers: { "content-type": "application/json" },
+          status: 200,
+        }),
+    ),
+  );
 });
 
 describe("regional anatomy asset loading", () => {
+  it.each([
+    "https://example.com/body-regions.json",
+    "//example.com/body-regions.json",
+    "data:application/json,{}",
+    "anatomy/body-regions.json",
+  ])("rejects external or non-rooted sidecar URL %s", (path) => {
+    expect(() =>
+      validateRegionalBodyRegionMapPath(path, "https://fluorolab.test/lab"),
+    ).toThrow(/external anatomy dependency/i);
+  });
+
+  it("accepts the manifest-declared same-origin sidecar URL", () => {
+    expect(
+      validateRegionalBodyRegionMapPath(
+        "/anatomy/open3dmodel-regional-body-regions.json",
+        "https://fluorolab.test/lab",
+      ),
+    ).toBe("/anatomy/open3dmodel-regional-body-regions.json");
+  });
+
   it("loads only the manifest-owned supplement and local Draco decoder", async () => {
     loaderHarness.loadAsync.mockResolvedValue({ scene: validRegionalScene() });
 
@@ -98,16 +158,85 @@ describe("regional anatomy asset loading", () => {
 
     const manifest = ANATOMY_ASSETS["hip-lower-limbs-regional"];
     expect(loaderHarness.loadedUrls).toEqual([manifest.filePath]);
+    expect(fetch).toHaveBeenCalledExactlyOnceWith(manifest.bodyRegionMapPath);
     expect(loaderHarness.decoderPaths).toEqual([manifest.dracoDecoderPath]);
     expect(() =>
       loaderHarness.managers[0]?.resolveURL("https://example.com/tissue.bin"),
     ).toThrow(/external anatomy dependency/i);
     expect(loaderHarness.dracoDisposals).toBe(1);
     expect(Object.keys(resource.groups)).toEqual(REGIONAL_ANATOMY_GROUPS);
+    expect(resource.assignments.size).toBe(817);
     expect(resource.hipPivots.left.toArray()).toEqual([
       85.58369749004112, 0, 0,
     ]);
     lease.release();
+  });
+
+  it("starts the manifest sidecar fetch without waiting for the GLB", async () => {
+    let resolveScene!: (value: { scene: Group }) => void;
+    loaderHarness.loadAsync.mockReturnValue(
+      new Promise<{ scene: Group }>((resolve) => {
+        resolveScene = resolve;
+      }),
+    );
+
+    const lease = acquireRegionalAnatomy();
+
+    await vi.waitFor(() => {
+      expect(loaderHarness.loadAsync).toHaveBeenCalledOnce();
+      expect(fetch).toHaveBeenCalledOnce();
+    });
+    resolveScene({ scene: validRegionalScene() });
+    await lease.promise;
+    lease.release();
+  });
+
+  it("rejects a sidecar whose bytes do not match the exact manifest checksum", async () => {
+    const scene = validRegionalScene();
+    const mesh = scene.getObjectByProperty("isMesh", true) as Mesh;
+    const geometryDispose = vi.spyOn(mesh.geometry, "dispose");
+    loaderHarness.loadAsync.mockResolvedValue({ scene });
+    const parse = vi.spyOn(JSON, "parse");
+    vi.mocked(fetch).mockResolvedValue(
+      new Response(`${sidecarText} `, { status: 200 }),
+    );
+
+    const lease = acquireRegionalAnatomy();
+
+    await expect(lease.promise).rejects.toThrow(/checksum/i);
+    expect(parse).not.toHaveBeenCalled();
+    expect(geometryDispose).toHaveBeenCalledOnce();
+    lease.release();
+  });
+
+  it("rejects a complete sidecar that does not cover every decoded runtime identity", async () => {
+    const scene = validRegionalScene();
+    const mesh = scene.getObjectByProperty("isMesh", true) as Mesh;
+    mesh.userData.sourceKey = "Unexpected/runtime identity";
+    const geometryDispose = vi.spyOn(mesh.geometry, "dispose");
+    loaderHarness.loadAsync.mockResolvedValue({ scene });
+
+    const lease = acquireRegionalAnatomy();
+
+    await expect(lease.promise).rejects.toThrow(/cover all 817/i);
+    expect(geometryDispose).toHaveBeenCalledOnce();
+    lease.release();
+  });
+
+  it("rejects a failed sidecar fetch while leaving the retry cache empty", async () => {
+    loaderHarness.loadAsync.mockResolvedValue({ scene: validRegionalScene() });
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(new Response("unavailable", { status: 503 }))
+      .mockResolvedValueOnce(new Response(sidecarText, { status: 200 }));
+
+    const failed = acquireRegionalAnatomy();
+    await expect(failed.promise).rejects.toThrow(/sidecar.*503/i);
+    failed.release();
+    const retry = acquireRegionalAnatomy();
+    await expect(retry.promise).resolves.toMatchObject({
+      assignments: expect.objectContaining({ size: 817 }),
+    });
+    retry.release();
   });
 
   it("shares one resource until the last lease releases its GPU resources", async () => {
