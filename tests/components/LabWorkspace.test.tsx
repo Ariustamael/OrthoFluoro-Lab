@@ -29,6 +29,7 @@ import type {
 } from "../../src/engine/projection/rendererTypes";
 import { LabPage } from "../../src/pages/LabPage";
 import { useSimulationStore } from "../../src/state/simulationStore";
+import { REFERENCE_HIP_ANATOMY_POSE } from "../../src/anatomy/anatomyTypes";
 
 const appCss = readFileSync(join(process.cwd(), "src/styles/app.css"), "utf8");
 let mockedAnatomyStatus: "loading" | "ready" | "error" = "error";
@@ -144,12 +145,12 @@ it("exposes the regional layer's authoritative presentation and pose", () => {
   useSimulationStore.setState({
     anatomyPresentationMode: "full-regional",
     hipAnatomyPose: {
+      ...REFERENCE_HIP_ANATOMY_POSE,
       leftHipRotationDegrees: 25,
-      rightHipRotationDegrees: 0,
-      rootPosition: [0, 0, 0],
-      rootRotationDegrees: [0, 0, 0],
-      selectedSide: "left",
-      visibility: "left-only",
+      regionVisibility: {
+        ...REFERENCE_HIP_ANATOMY_POSE.regionVisibility,
+        "right-leg": false,
+      },
     },
   });
 

@@ -131,7 +131,8 @@ function cloneHipAnatomyPose(pose: HipAnatomyPose): HipAnatomyPose {
     rootPosition: cloneVec3(pose.rootPosition),
     rootRotationDegrees: cloneVec3(pose.rootRotationDegrees),
     selectedSide: pose.selectedSide,
-    visibility: pose.visibility,
+    regionVisibility: pose.regionVisibility,
+    upperLimbs: pose.upperLimbs,
   });
 }
 

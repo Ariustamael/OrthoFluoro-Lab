@@ -92,12 +92,16 @@ describe("regional anatomy viewport scene", () => {
     ["right-only", false, true],
   ] as const)(
     "applies %s visibility to whole side groups while retaining midline anatomy",
-    (visibility, leftVisible, rightVisible) => {
+    (_label, leftVisible, rightVisible) => {
       const view = createRegionalAnatomyScene(loadedRegionalAnatomy());
 
       updateRegionalAnatomyScene(view, {
         ...REFERENCE_HIP_ANATOMY_POSE,
-        visibility,
+        regionVisibility: {
+          ...REFERENCE_HIP_ANATOMY_POSE.regionVisibility,
+          "left-leg": leftVisible,
+          "right-leg": rightVisible,
+        },
       });
 
       expect(view.midline.visible).toBe(true);

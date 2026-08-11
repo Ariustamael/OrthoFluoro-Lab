@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { Group, Vector3 } from "three";
 import type { LoadedHipAnatomy } from "../../src/anatomy/anatomyAssetLoader";
-import type { HipAnatomyPose } from "../../src/anatomy/anatomyTypes";
+import {
+  REFERENCE_HIP_ANATOMY_POSE,
+  type HipAnatomyPose,
+} from "../../src/anatomy/anatomyTypes";
 import {
   captureProjectionSnapshot,
   detectorDimensions,
@@ -62,12 +65,11 @@ function createGeometry(): CArmGeometry {
 
 function createPose(): HipAnatomyPose {
   return {
+    ...REFERENCE_HIP_ANATOMY_POSE,
     leftHipRotationDegrees: 11,
     rightHipRotationDegrees: -7,
     rootPosition: [1, 2, 3],
     rootRotationDegrees: [4, 5, 6],
-    selectedSide: "left",
-    visibility: "bilateral",
   };
 }
 

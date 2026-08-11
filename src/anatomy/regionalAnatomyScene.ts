@@ -131,7 +131,7 @@ export function updateRegionalAnatomyScene(
     MathUtils.degToRad(rightRotation[2]),
   );
   view.midline.visible = true;
-  view.left.visible = pose.visibility !== "right-only";
-  view.right.visible = pose.visibility !== "left-only";
+  view.left.visible = pose.regionVisibility["left-leg"];
+  view.right.visible = pose.regionVisibility["right-leg"];
   view.root.updateMatrixWorld(true);
 }

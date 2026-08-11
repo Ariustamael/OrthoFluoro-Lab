@@ -158,7 +158,7 @@ export function updateHipAnatomyViewportScene(
     MathUtils.degToRad(rightRotation[1]),
     MathUtils.degToRad(rightRotation[2]),
   );
-  const visible = new Set(visibleAnatomyGroups(pose.visibility));
+  const visible = new Set(visibleAnatomyGroups(pose.regionVisibility));
   view.groups.forEach((group, name) => {
     group.visible = visible.has(name);
   });

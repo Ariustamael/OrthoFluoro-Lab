@@ -1,28 +1,45 @@
 import {
+  ANATOMY_REGIONS,
   HIP_ANATOMY_GROUPS,
+  type AnatomyRegion,
+  type AnatomyRegionVisibility,
   type AnatomySide,
-  type AnatomyVisibility,
   type HipAnatomyGroup,
   type HipAnatomyPose,
 } from "./anatomyTypes";
 
-export function visibleAnatomyGroups(
-  visibility: AnatomyVisibility,
-): HipAnatomyGroup[] {
-  if (visibility === "bilateral") return [...HIP_ANATOMY_GROUPS];
-
-  const visibleSide = visibility === "left-only" ? "left" : "right";
-  return HIP_ANATOMY_GROUPS.filter(
-    (group) => group === "pelvis" || group.startsWith(`${visibleSide}-`),
+export function createAnatomyRegionVisibility(
+  value: boolean,
+): AnatomyRegionVisibility {
+  return Object.freeze(
+    Object.fromEntries(
+      ANATOMY_REGIONS.map((region) => [region, value]),
+    ) as Record<AnatomyRegion, boolean>,
   );
 }
 
+export function visibleAnatomyRegions(
+  visibility: AnatomyRegionVisibility,
+): AnatomyRegion[] {
+  return ANATOMY_REGIONS.filter((region) => visibility[region]);
+}
+
+export function visibleAnatomyGroups(
+  visibility: AnatomyRegionVisibility,
+): HipAnatomyGroup[] {
+  return HIP_ANATOMY_GROUPS.filter((group) => {
+    if (group === "pelvis") return visibility.pelvis;
+    if (group.startsWith("left-")) return visibility["left-leg"];
+    return visibility["right-leg"];
+  });
+}
+
 export function effectiveSelectedSide(
-  visibility: AnatomyVisibility,
+  visibility: AnatomyRegionVisibility,
   requested: AnatomySide,
 ): AnatomySide {
-  if (visibility === "left-only") return "left";
-  if (visibility === "right-only") return "right";
+  if (visibility["left-leg"] && !visibility["right-leg"]) return "left";
+  if (visibility["right-leg"] && !visibility["left-leg"]) return "right";
   return requested;
 }
 

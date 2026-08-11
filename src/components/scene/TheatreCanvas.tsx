@@ -128,11 +128,13 @@ function TheatreAnatomyPresentationStatus() {
           ? "Full regional unavailable"
           : "Full regional loading";
   const visibility =
-    pose.visibility === "bilateral"
+    pose.regionVisibility["left-leg"] && pose.regionVisibility["right-leg"]
       ? "Both legs"
-      : pose.visibility === "left-only"
+      : pose.regionVisibility["left-leg"]
         ? "Left leg only"
-        : "Right leg only";
+        : pose.regionVisibility["right-leg"]
+          ? "Right leg only"
+          : "Legs hidden";
 
   return (
     <p

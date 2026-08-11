@@ -267,7 +267,10 @@ describe("AnatomyControls", () => {
     );
     expect(useSimulationStore.getState().hipAnatomyPose).toMatchObject({
       selectedSide: "right",
-      visibility: "right-only",
+      regionVisibility: {
+        "left-leg": false,
+        "right-leg": true,
+      },
     });
     expect(
       within(group).queryByRole("radio", { name: "Select left leg" }),
@@ -282,6 +285,19 @@ describe("AnatomyControls", () => {
     expect(
       within(group).getByRole("radio", { name: "Select right leg" }),
     ).toBeChecked();
+  });
+
+  it("does not misreport a selected legacy leg mode when both legs are hidden", () => {
+    useSimulationStore.getState().hideAllAnatomyRegions();
+    renderControls();
+    const { group } = getAnatomyControls();
+
+    ["Both legs", "Left leg only", "Right leg only"].forEach((name) => {
+      expect(within(group).getByRole("radio", { name })).not.toBeChecked();
+    });
+    expect(
+      within(group).queryByRole("group", { name: "Leg to rotate" }),
+    ).not.toBeInTheDocument();
   });
 
   it("retains independent angles when visibility and selection change", async () => {
@@ -335,7 +351,7 @@ describe("AnatomyControls", () => {
     useSimulationStore.getState().setCArmParameter("orbitDegrees", 27);
     useSimulationStore.getState().setCArmParameter("translationX", 80);
     const cArmBefore = useSimulationStore.getState().cArmPose;
-    useSimulationStore.getState().setAnatomyVisibility("right-only");
+    useSimulationStore.getState().setAnatomyRegionVisible("left-leg", false);
     useSimulationStore.getState().setSelectedHipRotation(31);
     useSimulationStore
       .getState()

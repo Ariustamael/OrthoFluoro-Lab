@@ -50,11 +50,23 @@ describe("SimplifiedProjectionRenderer", () => {
     const bilateral = await renderer.render(input);
     const leftOnly = await renderer.render({
       ...input,
-      anatomyPose: { ...input.anatomyPose, visibility: "left-only" },
+      anatomyPose: {
+        ...input.anatomyPose,
+        regionVisibility: {
+          ...input.anatomyPose.regionVisibility,
+          "right-leg": false,
+        },
+      },
     });
     const rightOnly = await renderer.render({
       ...input,
-      anatomyPose: { ...input.anatomyPose, visibility: "right-only" },
+      anatomyPose: {
+        ...input.anatomyPose,
+        regionVisibility: {
+          ...input.anatomyPose.regionVisibility,
+          "left-leg": false,
+        },
+      },
     });
 
     expect(leftOnly.artifact.dataUrl).not.toBe(bilateral.artifact.dataUrl);
@@ -80,7 +92,13 @@ describe("SimplifiedProjectionRenderer", () => {
     const input = projectionInput(resource);
     const leftOnly = {
       ...input,
-      anatomyPose: { ...input.anatomyPose, visibility: "left-only" as const },
+      anatomyPose: {
+        ...input.anatomyPose,
+        regionVisibility: {
+          ...input.anatomyPose.regionVisibility,
+          "right-leg": false,
+        },
+      },
     };
 
     const reference = await renderer.render(leftOnly);
@@ -135,7 +153,10 @@ describe("SimplifiedProjectionRenderer", () => {
     const anatomyPose = {
       ...projectionInput(resource).anatomyPose,
       leftHipRotationDegrees: 23,
-      visibility: "left-only" as const,
+      regionVisibility: {
+        ...projectionInput(resource).anatomyPose.regionVisibility,
+        "right-leg": false,
+      },
     };
     const setups = [
       { approachSide: "left", tubeOrientation: "detector-over" },

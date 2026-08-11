@@ -1,14 +1,15 @@
 import { create } from "zustand";
 import {
   clampHipRotation,
+  createAnatomyRegionVisibility,
   effectiveSelectedSide,
 } from "../anatomy/anatomyTransforms";
 import {
   REFERENCE_HIP_ANATOMY_POSE,
   type AcquisitionMode,
   type AnatomyPresentationMode,
+  type AnatomyRegion,
   type AnatomySide,
-  type AnatomyVisibility,
   type HipAnatomyPose,
 } from "../anatomy/anatomyTypes";
 import { clampCArmPose } from "../engine/geometry/cArmTransforms";
@@ -58,7 +59,10 @@ export interface SimulationState {
   toggleXrayFlip: (axis: "horizontal" | "vertical") => void;
   resetXrayDisplay: () => void;
   setShowBeam: (show: boolean) => void;
-  setAnatomyVisibility: (visibility: AnatomyVisibility) => void;
+  setAnatomyRegionVisible: (region: AnatomyRegion, visible: boolean) => void;
+  showAllAnatomyRegions: () => void;
+  hideAllAnatomyRegions: () => void;
+  isolateAnatomyRegion: (region: AnatomyRegion) => void;
   setSelectedAnatomySide: (side: AnatomySide) => void;
   setSelectedHipRotation: (degrees: number) => void;
   resetAnatomy: () => void;
@@ -75,6 +79,26 @@ function createReferenceHipAnatomyPose(): HipAnatomyPose {
     ...REFERENCE_HIP_ANATOMY_POSE,
     rootPosition: [...REFERENCE_HIP_ANATOMY_POSE.rootPosition],
     rootRotationDegrees: [...REFERENCE_HIP_ANATOMY_POSE.rootRotationDegrees],
+    regionVisibility: { ...REFERENCE_HIP_ANATOMY_POSE.regionVisibility },
+    upperLimbs: {
+      left: { ...REFERENCE_HIP_ANATOMY_POSE.upperLimbs.left },
+      right: { ...REFERENCE_HIP_ANATOMY_POSE.upperLimbs.right },
+    },
+  };
+}
+
+function updatedRegionVisibility(
+  current: HipAnatomyPose,
+  regionVisibility: HipAnatomyPose["regionVisibility"],
+): HipAnatomyPose {
+  const frozenVisibility = Object.freeze({ ...regionVisibility });
+  return {
+    ...current,
+    regionVisibility: frozenVisibility,
+    selectedSide: effectiveSelectedSide(
+      frozenVisibility,
+      current.selectedSide,
+    ),
   };
 }
 
@@ -154,16 +178,36 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   setShowBeam: (showBeam) => {
     set({ showBeam });
   },
-  setAnatomyVisibility: (visibility) => {
+  setAnatomyRegionVisible: (region, visible) => {
     set((state) => ({
-      hipAnatomyPose: {
-        ...state.hipAnatomyPose,
-        visibility,
-        selectedSide: effectiveSelectedSide(
-          visibility,
-          state.hipAnatomyPose.selectedSide,
-        ),
-      },
+      hipAnatomyPose: updatedRegionVisibility(state.hipAnatomyPose, {
+        ...state.hipAnatomyPose.regionVisibility,
+        [region]: visible,
+      }),
+    }));
+  },
+  showAllAnatomyRegions: () => {
+    set((state) => ({
+      hipAnatomyPose: updatedRegionVisibility(
+        state.hipAnatomyPose,
+        createAnatomyRegionVisibility(true),
+      ),
+    }));
+  },
+  hideAllAnatomyRegions: () => {
+    set((state) => ({
+      hipAnatomyPose: updatedRegionVisibility(
+        state.hipAnatomyPose,
+        createAnatomyRegionVisibility(false),
+      ),
+    }));
+  },
+  isolateAnatomyRegion: (region) => {
+    set((state) => ({
+      hipAnatomyPose: updatedRegionVisibility(state.hipAnatomyPose, {
+        ...createAnatomyRegionVisibility(false),
+        [region]: true,
+      }),
     }));
   },
   setSelectedAnatomySide: (side) => {
@@ -171,7 +215,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
       hipAnatomyPose: {
         ...state.hipAnatomyPose,
         selectedSide: effectiveSelectedSide(
-          state.hipAnatomyPose.visibility,
+          state.hipAnatomyPose.regionVisibility,
           side,
         ),
       },
@@ -180,7 +224,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   setSelectedHipRotation: (degrees) => {
     set((state) => {
       const selectedSide = effectiveSelectedSide(
-        state.hipAnatomyPose.visibility,
+        state.hipAnatomyPose.regionVisibility,
         state.hipAnatomyPose.selectedSide,
       );
       const rotationDegrees = clampHipRotation(degrees);

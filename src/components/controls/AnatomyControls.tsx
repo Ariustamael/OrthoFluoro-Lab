@@ -6,14 +6,16 @@ import { formatSignedDegrees } from "../../anatomy/anatomyPresentation";
 import type {
   AnatomyPresentationMode,
   AnatomySide,
-  AnatomyVisibility,
 } from "../../anatomy/anatomyTypes";
 import { useSimulationStore } from "../../state/simulationStore";
+
+type LegVisibilityOption = "bilateral" | "left-only" | "right-only";
+type LegVisibility = LegVisibilityOption | "hidden";
 
 const VISIBILITY_OPTIONS: readonly {
   label: string;
   shortLabel: string;
-  value: AnatomyVisibility;
+  value: LegVisibilityOption;
 }[] = [
   { label: "Both legs", shortLabel: "Both", value: "bilateral" },
   { label: "Left leg only", shortLabel: "Left", value: "left-only" },
@@ -60,8 +62,8 @@ export function AnatomyControls() {
   const setPresentationMode = useSimulationStore(
     (state) => state.setAnatomyPresentationMode,
   );
-  const setVisibility = useSimulationStore(
-    (state) => state.setAnatomyVisibility,
+  const setRegionVisible = useSimulationStore(
+    (state) => state.setAnatomyRegionVisible,
   );
   const setSelectedSide = useSimulationStore(
     (state) => state.setSelectedAnatomySide,
@@ -75,6 +77,14 @@ export function AnatomyControls() {
       ? pose.leftHipRotationDegrees
       : pose.rightHipRotationDegrees;
   const sideName = pose.selectedSide === "left" ? "Left" : "Right";
+  const legVisibility: LegVisibility =
+    pose.regionVisibility["left-leg"] && pose.regionVisibility["right-leg"]
+      ? "bilateral"
+      : pose.regionVisibility["left-leg"]
+        ? "left-only"
+        : pose.regionVisibility["right-leg"]
+          ? "right-only"
+          : "hidden";
 
   useEffect(() => {
     if (
@@ -107,6 +117,11 @@ export function AnatomyControls() {
   const retryRegionalAnatomy = () => {
     setPresentationMode("full-regional");
     retryRegionalAnatomyAsset();
+  };
+
+  const setLegVisibility = (visibility: LegVisibilityOption) => {
+    setRegionVisible("left-leg", visibility !== "right-only");
+    setRegionVisible("right-leg", visibility !== "left-only");
   };
 
   return (
@@ -167,9 +182,9 @@ export function AnatomyControls() {
           {VISIBILITY_OPTIONS.map((option) => (
             <label key={option.value}>
               <input
-                checked={pose.visibility === option.value}
+                checked={legVisibility === option.value}
                 name="anatomy-visibility"
-                onChange={() => setVisibility(option.value)}
+                onChange={() => setLegVisibility(option.value)}
                 type="radio"
               />
               <span aria-hidden="true">{option.shortLabel}</span>
@@ -179,7 +194,7 @@ export function AnatomyControls() {
         </div>
       </fieldset>
 
-      {pose.visibility === "bilateral" ? (
+      {legVisibility === "bilateral" ? (
         <fieldset className="anatomy-controls__option-group anatomy-controls__option-group--side">
           <legend>Leg to rotate</legend>
           <div className="anatomy-controls__segments">

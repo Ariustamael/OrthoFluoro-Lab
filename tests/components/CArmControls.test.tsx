@@ -11,7 +11,14 @@ import {
   REFERENCE_C_ARM_PHYSICAL_SETUP,
   REFERENCE_C_ARM_POSE,
 } from "../../src/engine/geometry/geometryTypes";
-import { REFERENCE_HIP_ANATOMY_POSE } from "../../src/anatomy/anatomyTypes";
+import {
+  REFERENCE_HIP_ANATOMY_POSE,
+  type AnatomyRegion,
+} from "../../src/anatomy/anatomyTypes";
+import {
+  createAnatomyRegionVisibility,
+  visibleAnatomyRegions,
+} from "../../src/anatomy/anatomyTransforms";
 import { REFERENCE_XRAY_DISPLAY_ORIENTATION } from "../../src/components/projection/xrayDisplayOrientation";
 import { useSimulationStore } from "../../src/state/simulationStore";
 
@@ -168,34 +175,96 @@ describe("simulation store", () => {
     });
   });
 
-  it("forces selected side to match single-leg visibility without losing angles", () => {
+  it("keeps region updates immutable and selects the only visible leg", () => {
     const store = useSimulationStore.getState();
+    const originalVisibility = store.hipAnatomyPose.regionVisibility;
     store.setSelectedHipRotation(18);
-    store.setAnatomyVisibility("right-only");
+    store.setAnatomyRegionVisible("left-leg", false);
     store.setSelectedHipRotation(-12);
     store.setSelectedAnatomySide("left");
 
     expect(useSimulationStore.getState().hipAnatomyPose).toMatchObject({
-      visibility: "right-only",
+      regionVisibility: {
+        ...createAnatomyRegionVisibility(true),
+        "left-leg": false,
+      },
       selectedSide: "right",
       leftHipRotationDegrees: 18,
       rightHipRotationDegrees: -12,
     });
+    expect(useSimulationStore.getState().hipAnatomyPose.regionVisibility).not.toBe(
+      originalVisibility,
+    );
+    expect(originalVisibility["left-leg"]).toBe(true);
 
-    useSimulationStore.getState().setAnatomyVisibility("bilateral");
+    useSimulationStore.getState().setAnatomyRegionVisible("left-leg", true);
     useSimulationStore.getState().setSelectedAnatomySide("left");
     expect(useSimulationStore.getState().hipAnatomyPose).toMatchObject({
-      visibility: "bilateral",
       selectedSide: "left",
       leftHipRotationDegrees: 18,
       rightHipRotationDegrees: -12,
     });
   });
 
+  it("shows, hides, and isolates all seven authoritative anatomy regions", () => {
+    const store = useSimulationStore.getState();
+
+    store.hideAllAnatomyRegions();
+    expect(visibleAnatomyRegions(
+      useSimulationStore.getState().hipAnatomyPose.regionVisibility,
+    )).toEqual([]);
+
+    store.showAllAnatomyRegions();
+    expect(visibleAnatomyRegions(
+      useSimulationStore.getState().hipAnatomyPose.regionVisibility,
+    )).toEqual([
+      "head-neck",
+      "torso",
+      "pelvis",
+      "left-arm",
+      "right-arm",
+      "left-leg",
+      "right-leg",
+    ] satisfies AnatomyRegion[]);
+
+    store.isolateAnatomyRegion("left-arm");
+    expect(visibleAnatomyRegions(
+      useSimulationStore.getState().hipAnatomyPose.regionVisibility,
+    )).toEqual(["left-arm"]);
+  });
+
+  it("leaves C-arm, acquisition, and display state untouched by region actions", () => {
+    const store = useSimulationStore.getState();
+    store.setCArmParameter("orbitDegrees", 27);
+    store.setAcquisitionMode("shots-only");
+    store.rotateXrayDisplay(1);
+    const before = useSimulationStore.getState();
+
+    store.isolateAnatomyRegion("torso");
+
+    expect(useSimulationStore.getState()).toMatchObject({
+      cArmPose: before.cArmPose,
+      acquisitionMode: "shots-only",
+      xrayDisplayOrientation: before.xrayDisplayOrientation,
+    });
+  });
+
   it("resets both hip angles and pose while preserving quality and fresh arrays", () => {
     useSimulationStore.getState().setQuality("high");
-    useSimulationStore.getState().setAnatomyVisibility("right-only");
+    useSimulationStore.getState().isolateAnatomyRegion("right-leg");
     useSimulationStore.getState().setSelectedHipRotation(30);
+    useSimulationStore.setState((state) => ({
+      hipAnatomyPose: {
+        ...state.hipAnatomyPose,
+        upperLimbs: {
+          ...state.hipAnatomyPose.upperLimbs,
+          left: {
+            ...state.hipAnatomyPose.upperLimbs.left,
+            elbowFlexionDegrees: 35,
+          },
+        },
+      },
+    }));
     useSimulationStore.getState().resetGeometry();
 
     const state = useSimulationStore.getState();
@@ -250,7 +319,7 @@ describe("simulation store", () => {
   });
 
   it("updates rig display state and resets the complete geometry", () => {
-    useSimulationStore.getState().setAnatomyVisibility("right-only");
+    useSimulationStore.getState().isolateAnatomyRegion("right-leg");
     useSimulationStore.getState().setSelectedHipRotation(30);
     useSimulationStore.getState().setCArmParameter("orbitDegrees", 25);
     useSimulationStore.getState().setCArmMode("non-isocentric");
@@ -620,7 +689,7 @@ describe("CArmControls", () => {
 
   it("globally resets the hip anatomy along with C-arm geometry", async () => {
     const user = userEvent.setup();
-    useSimulationStore.getState().setAnatomyVisibility("left-only");
+    useSimulationStore.getState().isolateAnatomyRegion("left-leg");
     useSimulationStore.getState().setSelectedHipRotation(20);
     render(<CArmControls />);
 

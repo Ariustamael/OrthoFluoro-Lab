@@ -9,12 +9,16 @@ import {
   anatomyGroupLocalRotation,
   anatomyRootRotation,
   clampHipRotation,
+  createAnatomyRegionVisibility,
   effectiveSelectedSide,
   visibleAnatomyGroups,
+  visibleAnatomyRegions,
 } from "../../src/anatomy/anatomyTransforms";
 import {
+  ANATOMY_REGIONS,
   HIP_ANATOMY_GROUPS,
   REFERENCE_HIP_ANATOMY_POSE,
+  type AnatomyRegionVisibility,
   type HipAnatomyGroup,
   type HipAnatomyPose,
   type OverviewAnatomyGroup,
@@ -35,10 +39,9 @@ const EXPECTED_GROUPS: readonly HipAnatomyGroup[] = [
 
 function pose(overrides: Partial<HipAnatomyPose> = {}): HipAnatomyPose {
   return {
+    ...REFERENCE_HIP_ANATOMY_POSE,
     rootPosition: [10, 20, 30],
     rootRotationDegrees: [4, 5, 6],
-    visibility: "bilateral",
-    selectedSide: "left",
     leftHipRotationDegrees: 17,
     rightHipRotationDegrees: -23,
     ...overrides,
@@ -57,13 +60,53 @@ function provenanceSource(id: string) {
   return source;
 }
 
-describe("hip anatomy visibility", () => {
-  it("shows the approved nine semantic groups bilaterally", () => {
-    expect(visibleAnatomyGroups("bilateral")).toEqual(EXPECTED_GROUPS);
+describe("anatomy region visibility", () => {
+  it("defines the seven regions in stable display order", () => {
+    expect(ANATOMY_REGIONS).toEqual([
+      "head-neck",
+      "torso",
+      "pelvis",
+      "left-arm",
+      "right-arm",
+      "left-leg",
+      "right-leg",
+    ]);
   });
 
-  it("keeps the pelvis and the complete left leg in left-only mode", () => {
-    expect(visibleAnatomyGroups("left-only")).toEqual([
+  it("creates complete frozen visibility records and lists only visible regions", () => {
+    const hidden = createAnatomyRegionVisibility(false);
+    const leftArmOnly: AnatomyRegionVisibility = Object.freeze({
+      ...hidden,
+      "left-arm": true,
+    });
+
+    expect(hidden).toEqual({
+      "head-neck": false,
+      torso: false,
+      pelvis: false,
+      "left-arm": false,
+      "right-arm": false,
+      "left-leg": false,
+      "right-leg": false,
+    });
+    expect(Object.isFrozen(hidden)).toBe(true);
+    expect(visibleAnatomyRegions(leftArmOnly)).toEqual(["left-arm"]);
+  });
+
+  it("shows the approved nine semantic groups bilaterally", () => {
+    expect(visibleAnatomyGroups(createAnatomyRegionVisibility(true))).toEqual(
+      EXPECTED_GROUPS,
+    );
+  });
+
+  it("maps independently visible pelvis and left-leg regions to detailed groups", () => {
+    expect(
+      visibleAnatomyGroups({
+        ...createAnatomyRegionVisibility(false),
+        pelvis: true,
+        "left-leg": true,
+      }),
+    ).toEqual([
       "pelvis",
       "left-femur",
       "left-patella",
@@ -72,9 +115,13 @@ describe("hip anatomy visibility", () => {
     ]);
   });
 
-  it("keeps the pelvis and the complete right leg in right-only mode", () => {
-    expect(visibleAnatomyGroups("right-only")).toEqual([
-      "pelvis",
+  it("maps the right-leg region without implicitly showing the pelvis", () => {
+    expect(
+      visibleAnatomyGroups({
+        ...createAnatomyRegionVisibility(false),
+        "right-leg": true,
+      }),
+    ).toEqual([
       "right-femur",
       "right-patella",
       "right-tibia-fibula",
@@ -83,8 +130,9 @@ describe("hip anatomy visibility", () => {
   });
 
   it("returns fresh visibility arrays without exposing the canonical group list", () => {
-    const first = visibleAnatomyGroups("bilateral");
-    const second = visibleAnatomyGroups("bilateral");
+    const visibility = createAnatomyRegionVisibility(true);
+    const first = visibleAnatomyGroups(visibility);
+    const second = visibleAnatomyGroups(visibility);
 
     expect(first).not.toBe(HIP_ANATOMY_GROUPS);
     expect(second).not.toBe(first);
@@ -93,9 +141,19 @@ describe("hip anatomy visibility", () => {
 
 describe("hip anatomy side and rotation rules", () => {
   it("forces the visible side in single-leg modes and honours bilateral selection", () => {
-    expect(effectiveSelectedSide("left-only", "right")).toBe("left");
-    expect(effectiveSelectedSide("right-only", "left")).toBe("right");
-    expect(effectiveSelectedSide("bilateral", "right")).toBe("right");
+    const both = createAnatomyRegionVisibility(true);
+    const leftOnly = { ...both, "right-leg": false };
+    const rightOnly = { ...both, "left-leg": false };
+    const neither = {
+      ...both,
+      "left-leg": false,
+      "right-leg": false,
+    };
+
+    expect(effectiveSelectedSide(leftOnly, "right")).toBe("left");
+    expect(effectiveSelectedSide(rightOnly, "left")).toBe("right");
+    expect(effectiveSelectedSide(both, "right")).toBe("right");
+    expect(effectiveSelectedSide(neither, "right")).toBe("right");
   });
 
   it("clamps finite hip rotation to the approved range", () => {
@@ -178,11 +236,40 @@ describe("anatomy public contracts", () => {
     expect(REFERENCE_HIP_ANATOMY_POSE).toEqual({
       rootPosition: [0, 0, 0],
       rootRotationDegrees: [0, 0, 0],
-      visibility: "bilateral",
+      regionVisibility: {
+        "head-neck": true,
+        torso: true,
+        pelvis: true,
+        "left-arm": true,
+        "right-arm": true,
+        "left-leg": true,
+        "right-leg": true,
+      },
       selectedSide: "left",
       leftHipRotationDegrees: 0,
       rightHipRotationDegrees: 0,
+      upperLimbs: {
+        left: {
+          shoulderAbductionDegrees: 0,
+          shoulderFlexionDegrees: 0,
+          shoulderAxialRotationDegrees: 0,
+          elbowFlexionDegrees: 0,
+          forearmRotationDegrees: 0,
+          wristFlexionDegrees: 0,
+          wristDeviationDegrees: 0,
+        },
+        right: {
+          shoulderAbductionDegrees: 0,
+          shoulderFlexionDegrees: 0,
+          shoulderAxialRotationDegrees: 0,
+          elbowFlexionDegrees: 0,
+          forearmRotationDegrees: 0,
+          wristFlexionDegrees: 0,
+          wristDeviationDegrees: 0,
+        },
+      },
     });
+    expectDeeplyFrozen(REFERENCE_HIP_ANATOMY_POSE);
   });
 
   it("publishes the complete approved runtime and provenance metadata", () => {

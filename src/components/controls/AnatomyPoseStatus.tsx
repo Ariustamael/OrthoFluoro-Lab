@@ -10,10 +10,18 @@ export function AnatomyPoseStatus({ label }: { readonly label: string }) {
       ? pose.leftHipRotationDegrees
       : pose.rightHipRotationDegrees;
   const sideName = pose.selectedSide === "left" ? "Left" : "Right";
+  const legVisibility =
+    pose.regionVisibility["left-leg"] && pose.regionVisibility["right-leg"]
+      ? "bilateral"
+      : pose.regionVisibility["left-leg"]
+        ? "left-only"
+        : pose.regionVisibility["right-leg"]
+          ? "right-only"
+          : "hidden";
 
   return (
     <p aria-label={label} className="visually-hidden" role="status">
-      Anatomy {pose.visibility} · {sideName} leg rotation{" "}
+      Anatomy {legVisibility} · {sideName} leg rotation{" "}
       {formatSignedDegrees(rotation)}
     </p>
   );

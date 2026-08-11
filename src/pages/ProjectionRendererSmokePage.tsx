@@ -181,7 +181,10 @@ async function runSmokeTest(): Promise<SmokeResult> {
         await silhouette.render(
           input(single, {
             ...REFERENCE_HIP_ANATOMY_POSE,
-            visibility: "left-only",
+            regionVisibility: {
+              ...REFERENCE_HIP_ANATOMY_POSE.regionVisibility,
+              "right-leg": false,
+            },
           }),
         )
       ).artifact,

@@ -49,7 +49,10 @@ describe("hip anatomy viewport scene", () => {
       rootRotationDegrees: [5, 10, 15] as const,
       leftHipRotationDegrees: 30,
       rightHipRotationDegrees: -20,
-      visibility: "right-only" as const,
+      regionVisibility: {
+        ...REFERENCE_HIP_ANATOMY_POSE.regionVisibility,
+        "left-leg": false,
+      },
     };
 
     updateHipAnatomyViewportScene(view, pose);

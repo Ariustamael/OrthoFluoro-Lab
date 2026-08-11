@@ -23,7 +23,10 @@ describe("MeshSilhouetteProjectionRenderer", () => {
         ...input.anatomyPose,
         leftHipRotationDegrees: 30,
         rightHipRotationDegrees: -20,
-        visibility: "left-only",
+        regionVisibility: {
+          ...input.anatomyPose.regionVisibility,
+          "right-leg": false,
+        },
       },
     });
 

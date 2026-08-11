@@ -940,7 +940,9 @@ describe("ProjectionView renderer orchestration", () => {
     });
     const bilateralSource = image.getAttribute("src");
 
-    act(() => useSimulationStore.getState().setAnatomyVisibility("left-only"));
+    act(() =>
+      useSimulationStore.getState().setAnatomyRegionVisible("right-leg", false),
+    );
     await waitFor(() =>
       expect(image.getAttribute("src")).not.toBe(bilateralSource),
     );
@@ -1004,7 +1006,9 @@ describe("ProjectionView renderer orchestration", () => {
     expect(layered.render).toHaveBeenCalledWith(
       expect.objectContaining({
         anatomy: expect.objectContaining({ scene: expect.anything() }),
-        anatomyPose: expect.objectContaining({ visibility: "bilateral" }),
+        anatomyPose: expect.objectContaining({
+          regionVisibility: REFERENCE_HIP_ANATOMY_POSE.regionVisibility,
+        }),
         geometry: expect.objectContaining({ sourceDetectorDistance: 1000 }),
         height: 768,
         width: 768,
@@ -1099,7 +1103,9 @@ describe("ProjectionView renderer orchestration", () => {
       Object.keys(state).filter((key) => key.toLowerCase().includes("object")),
     ).toEqual([]);
     expect(state.hipAnatomyPose).toEqual(
-      expect.objectContaining({ visibility: "bilateral" }),
+      expect.objectContaining({
+        regionVisibility: REFERENCE_HIP_ANATOMY_POSE.regionVisibility,
+      }),
     );
   });
 
