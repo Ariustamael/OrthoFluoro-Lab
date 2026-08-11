@@ -145,6 +145,36 @@ function expectSamePointSet(
 }
 
 describe("default theatre visual contracts", () => {
+  it("uses one full-length tabletop at the unchanged upper-surface height and removes the pedestal", () => {
+    const source = readFileSync(
+      join(process.cwd(), "src/components/scene/TheatreScene.tsx"),
+      "utf8",
+    );
+
+    const operatingTableSource = source.match(
+      /function OperatingTable\(\) \{[\s\S]*?^\}/m,
+    )?.[0];
+
+    expect(source).toContain(
+      "export const OPERATING_TABLE_TOP_SIZE_MM = [550, 50, 2100] as const;",
+    );
+    expect(source).toContain(
+      "export const OPERATING_TABLE_TOP_POSITION_MM = [0, -85, 0] as const;",
+    );
+    expect(source).toMatch(
+      /<mesh position=\{OPERATING_TABLE_TOP_POSITION_MM\}[\s\S]*?<boxGeometry args=\{OPERATING_TABLE_TOP_SIZE_MM\} \/>/,
+    );
+    expect(operatingTableSource?.match(/<mesh\b/g)).toHaveLength(1);
+    expect(source).not.toContain("[170, 500, 500]");
+    expect(source).not.toMatch(/pedestal/i);
+    expect(source).toContain("const FLOOR_POSITION = [0, -700, 0] as const;");
+    expect(source).toContain(
+      "const FLOOR_ROTATION = [-Math.PI / 2, 0, 0] as const;",
+    );
+    expect(source).toContain('<planeGeometry args={[4200, 4200]} />');
+    expect(-85 + 50 / 2).toBe(-60);
+  });
+
   it("always retains the skeleton and gates the regional supplement on mode and readiness", () => {
     expect(anatomyLayerComposition("bones-only", "ready")).toEqual({
       showRegional: false,

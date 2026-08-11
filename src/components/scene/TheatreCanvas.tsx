@@ -18,6 +18,7 @@ import {
   type QualityPreset,
 } from "../../state/simulationStore";
 import { anatomyLayerComposition, TheatreScene } from "./TheatreScene";
+import { TheatreAnglePlaque } from "./TheatreAnglePlaque";
 import { cArmCueHint, type CArmCueHint, type CArmCueId } from "./cArmCueHints";
 import {
   canInitializeWebGL,
@@ -216,6 +217,7 @@ function TheatreViewport() {
     <section aria-label="3D theatre" className="theatre-canvas">
       <AnatomyPoseStatus label="3D anatomy status" />
       <TheatreAnatomyPresentationStatus />
+      <TheatreAnglePlaque />
       <CArmCueHintOverlay hint={cueHint} />
       {graphicsStatus === "checking" ? (
         <p role="status">Starting 3D view…</p>

@@ -26,6 +26,8 @@ export const DEFAULT_THEATRE_TARGET = [0, -200, 0] satisfies [
 const BACKGROUND_COLOR = [THEATRE_BACKGROUND_COLOR] as const;
 const FLOOR_POSITION = [0, -700, 0] as const;
 const FLOOR_ROTATION = [-Math.PI / 2, 0, 0] as const;
+export const OPERATING_TABLE_TOP_SIZE_MM = [550, 50, 2100] as const;
+export const OPERATING_TABLE_TOP_POSITION_MM = [0, -85, 0] as const;
 
 export function orbitControlsEnabled(
   interactionMode: "inspect" | "move-carm",
@@ -36,24 +38,14 @@ export function orbitControlsEnabled(
 
 function OperatingTable() {
   return (
-    <group>
-      <mesh position={[0, -100, 0]} receiveShadow>
-        <boxGeometry args={[650, 80, 1500]} />
-        <meshStandardMaterial
-          color="#344a59"
-          metalness={0.18}
-          roughness={0.72}
-        />
-      </mesh>
-      <mesh position={[0, -390, 0]} receiveShadow>
-        <boxGeometry args={[170, 500, 500]} />
-        <meshStandardMaterial
-          color="#223746"
-          metalness={0.45}
-          roughness={0.52}
-        />
-      </mesh>
-    </group>
+    <mesh position={OPERATING_TABLE_TOP_POSITION_MM} receiveShadow>
+      <boxGeometry args={OPERATING_TABLE_TOP_SIZE_MM} />
+      <meshStandardMaterial
+        color="#344a59"
+        metalness={0.18}
+        roughness={0.72}
+      />
+    </mesh>
   );
 }
 

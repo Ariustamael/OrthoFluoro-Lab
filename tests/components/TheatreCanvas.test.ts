@@ -1,5 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import { createElement } from "react";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   CArmCueHintOverlay,
@@ -9,6 +11,17 @@ import {
 } from "../../src/components/scene/TheatreCanvas";
 
 describe("theatre render quality", () => {
+  it("places the angle plaque before the transient C-arm cue", () => {
+    const source = readFileSync(
+      join(process.cwd(), "src/components/scene/TheatreCanvas.tsx"),
+      "utf8",
+    );
+
+    expect(source).toMatch(
+      /<TheatreAnglePlaque \/>[\s\S]*?<CArmCueHintOverlay hint=\{cueHint\} \/>/,
+    );
+  });
+
   it("renders fixed semantic help without a numeric value", () => {
     render(
       createElement(CArmCueHintOverlay, {
