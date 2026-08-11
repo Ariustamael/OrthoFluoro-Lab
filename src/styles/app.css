@@ -890,7 +890,9 @@ button:hover {
 }
 
 .anatomy-controls__presentation-helper,
-.anatomy-controls__regional-status {
+.anatomy-controls__regional-status,
+.anatomy-controls__complement-status,
+.anatomy-controls__rotation-unavailable {
   color: var(--text-muted);
   font-size: 0.72rem;
   line-height: 1.4;
@@ -912,6 +914,103 @@ button:hover {
 .anatomy-controls__regional-status--error button {
   min-block-size: var(--target-min);
   padding: 0.4rem var(--space-2);
+}
+
+.anatomy-controls__complement-status {
+  color: var(--cyan-300);
+}
+
+.anatomy-controls__complement-status--error {
+  align-items: flex-start;
+  color: var(--warning);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.anatomy-controls__complement-status--error button,
+.anatomy-controls__region-actions button {
+  min-block-size: var(--target-min);
+  padding: 0.4rem var(--space-2);
+}
+
+.anatomy-controls__region-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-block-start: var(--space-1);
+}
+
+.anatomy-controls__region-actions button {
+  flex: 1 1 auto;
+  font-size: 0.72rem;
+}
+
+.anatomy-controls__region-grid {
+  display: grid;
+  gap: 0.4rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-block-start: var(--space-1);
+}
+
+.anatomy-controls__region-tile {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.anatomy-controls__region-toggle,
+.anatomy-controls__region-only {
+  background: rgb(3 10 18 / 48%);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  color: var(--text-muted);
+  min-block-size: var(--target-min);
+}
+
+.anatomy-controls__region-toggle {
+  border-radius: 0.35rem 0 0 0.35rem;
+  font-size: 0.76rem;
+  justify-content: flex-start;
+  min-inline-size: 0;
+  padding: 0.45rem 0.55rem;
+  text-align: start;
+}
+
+.anatomy-controls__region-only {
+  border-inline-start: 0;
+  border-radius: 0 0.35rem 0.35rem 0;
+  font-size: 0.65rem;
+  letter-spacing: 0.04em;
+  min-inline-size: var(--target-min);
+  padding-inline: 0.55rem;
+  text-transform: uppercase;
+}
+
+.anatomy-controls__region-toggle[aria-pressed="true"] {
+  background: var(--navy-800);
+  border-color: var(--cyan-500);
+  box-shadow: inset 0.18rem 0 0 var(--cyan-500);
+  color: var(--cyan-300);
+  font-weight: 750;
+}
+
+.anatomy-controls__region-toggle[aria-pressed="true"]
+  + .anatomy-controls__region-only {
+  border-color: var(--cyan-500);
+}
+
+.anatomy-controls__region-toggle:focus-visible,
+.anatomy-controls__region-only:focus-visible {
+  box-shadow: var(--focus-ring);
+  position: relative;
+  z-index: 1;
+}
+
+.anatomy-controls__region-toggle:disabled,
+.anatomy-controls__region-only:disabled,
+.anatomy-controls__region-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
 }
 
 .anatomy-controls__rotation {
@@ -940,6 +1039,10 @@ button:hover {
   font-size: 0.65rem;
   grid-column: 1 / -1;
   justify-content: space-between;
+}
+
+.anatomy-controls__rotation-unavailable {
+  grid-column: 1 / -1;
 }
 
 .anatomy-controls__reset {
@@ -1221,6 +1324,10 @@ button:hover {
   .anatomy-controls__segments label > span:first-of-type,
   .anatomy-controls__reset {
     min-block-size: var(--target-min);
+  }
+
+  .anatomy-controls__region-grid {
+    grid-template-columns: 1fr;
   }
 
   .setup-control-options--schematic label {

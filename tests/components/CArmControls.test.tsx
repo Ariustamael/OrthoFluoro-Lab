@@ -28,6 +28,12 @@ vi.mock("../../src/anatomy/AnatomyAssetProvider", () => ({
     resource: null,
     retry: vi.fn(),
     status: "ready",
+    fullBodyComplement: {
+      error: null,
+      resource: {},
+      retry: vi.fn(),
+      status: "ready",
+    },
     regional: {
       error: null,
       load: vi.fn(),
@@ -192,9 +198,9 @@ describe("simulation store", () => {
       leftHipRotationDegrees: 18,
       rightHipRotationDegrees: -12,
     });
-    expect(useSimulationStore.getState().hipAnatomyPose.regionVisibility).not.toBe(
-      originalVisibility,
-    );
+    expect(
+      useSimulationStore.getState().hipAnatomyPose.regionVisibility,
+    ).not.toBe(originalVisibility);
     expect(originalVisibility["left-leg"]).toBe(true);
 
     useSimulationStore.getState().setAnatomyRegionVisible("left-leg", true);
@@ -210,14 +216,18 @@ describe("simulation store", () => {
     const store = useSimulationStore.getState();
 
     store.hideAllAnatomyRegions();
-    expect(visibleAnatomyRegions(
-      useSimulationStore.getState().hipAnatomyPose.regionVisibility,
-    )).toEqual([]);
+    expect(
+      visibleAnatomyRegions(
+        useSimulationStore.getState().hipAnatomyPose.regionVisibility,
+      ),
+    ).toEqual([]);
 
     store.showAllAnatomyRegions();
-    expect(visibleAnatomyRegions(
-      useSimulationStore.getState().hipAnatomyPose.regionVisibility,
-    )).toEqual([
+    expect(
+      visibleAnatomyRegions(
+        useSimulationStore.getState().hipAnatomyPose.regionVisibility,
+      ),
+    ).toEqual([
       "head-neck",
       "torso",
       "pelvis",
@@ -228,9 +238,11 @@ describe("simulation store", () => {
     ] satisfies AnatomyRegion[]);
 
     store.isolateAnatomyRegion("left-arm");
-    expect(visibleAnatomyRegions(
-      useSimulationStore.getState().hipAnatomyPose.regionVisibility,
-    )).toEqual(["left-arm"]);
+    expect(
+      visibleAnatomyRegions(
+        useSimulationStore.getState().hipAnatomyPose.regionVisibility,
+      ),
+    ).toEqual(["left-arm"]);
   });
 
   it("leaves C-arm, acquisition, and display state untouched by region actions", () => {
@@ -428,6 +440,12 @@ describe("CArmControls", () => {
       screen.getByRole("radio", { name: "Detector over source" }),
     ).toBeChecked();
     expect(screen.getByRole("radio", { name: "Medium quality" })).toBeChecked();
+    expect(
+      screen.getByRole("button", { name: "Show head and neck" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.queryByRole("radio", { name: "Both legs" }),
+    ).not.toBeInTheDocument();
   });
 
   it("preserves physical and display state across presets and resets them independently", async () => {

@@ -5,21 +5,23 @@ import { useAnatomyAsset } from "../../anatomy/AnatomyAssetProvider";
 import { formatSignedDegrees } from "../../anatomy/anatomyPresentation";
 import type {
   AnatomyPresentationMode,
+  AnatomyRegion,
   AnatomySide,
 } from "../../anatomy/anatomyTypes";
 import { useSimulationStore } from "../../state/simulationStore";
 
-type LegVisibilityOption = "bilateral" | "left-only" | "right-only";
-type LegVisibility = LegVisibilityOption | "hidden";
-
-const VISIBILITY_OPTIONS: readonly {
+const REGION_OPTIONS: readonly {
+  region: AnatomyRegion;
   label: string;
-  shortLabel: string;
-  value: LegVisibilityOption;
+  requiresComplement: boolean;
 }[] = [
-  { label: "Both legs", shortLabel: "Both", value: "bilateral" },
-  { label: "Left leg only", shortLabel: "Left", value: "left-only" },
-  { label: "Right leg only", shortLabel: "Right", value: "right-only" },
+  { label: "Head and neck", region: "head-neck", requiresComplement: true },
+  { label: "Torso", region: "torso", requiresComplement: true },
+  { label: "Pelvis", region: "pelvis", requiresComplement: false },
+  { label: "Left arm", region: "left-arm", requiresComplement: true },
+  { label: "Right arm", region: "right-arm", requiresComplement: true },
+  { label: "Left leg", region: "left-leg", requiresComplement: false },
+  { label: "Right leg", region: "right-leg", requiresComplement: false },
 ];
 
 const SIDE_OPTIONS: readonly {
@@ -50,6 +52,8 @@ const PRESENTATION_OPTIONS: readonly {
 
 export function AnatomyControls() {
   const anatomy = useAnatomyAsset();
+  const { retry: retryFullBodyAnatomy, status: fullBodyStatus } =
+    anatomy.fullBodyComplement;
   const {
     load: loadRegionalAnatomy,
     retry: retryRegionalAnatomyAsset,
@@ -65,6 +69,15 @@ export function AnatomyControls() {
   const setRegionVisible = useSimulationStore(
     (state) => state.setAnatomyRegionVisible,
   );
+  const showAllRegions = useSimulationStore(
+    (state) => state.showAllAnatomyRegions,
+  );
+  const hideAllRegions = useSimulationStore(
+    (state) => state.hideAllAnatomyRegions,
+  );
+  const isolateRegion = useSimulationStore(
+    (state) => state.isolateAnatomyRegion,
+  );
   const setSelectedSide = useSimulationStore(
     (state) => state.setSelectedAnatomySide,
   );
@@ -77,27 +90,17 @@ export function AnatomyControls() {
       ? pose.leftHipRotationDegrees
       : pose.rightHipRotationDegrees;
   const sideName = pose.selectedSide === "left" ? "Left" : "Right";
-  const legVisibility: LegVisibility =
-    pose.regionVisibility["left-leg"] && pose.regionVisibility["right-leg"]
-      ? "bilateral"
-      : pose.regionVisibility["left-leg"]
-        ? "left-only"
-        : pose.regionVisibility["right-leg"]
-          ? "right-only"
-          : "hidden";
+  const bothLegsVisible =
+    pose.regionVisibility["left-leg"] && pose.regionVisibility["right-leg"];
+  const eitherLegVisible =
+    pose.regionVisibility["left-leg"] || pose.regionVisibility["right-leg"];
 
   useEffect(() => {
-    if (
-      regionalStatus === "idle" &&
-      presentationMode === "full-regional"
-    ) {
+    if (regionalStatus === "idle" && presentationMode === "full-regional") {
       loadRegionalAnatomy();
       return;
     }
-    if (
-      regionalStatus === "error" &&
-      presentationMode === "full-regional"
-    ) {
+    if (regionalStatus === "error" && presentationMode === "full-regional") {
       setPresentationMode("bones-only");
     }
   }, [
@@ -119,16 +122,8 @@ export function AnatomyControls() {
     retryRegionalAnatomyAsset();
   };
 
-  const setLegVisibility = (visibility: LegVisibilityOption) => {
-    setRegionVisible("left-leg", visibility !== "right-only");
-    setRegionVisible("right-leg", visibility !== "left-only");
-  };
-
   return (
-    <fieldset
-      aria-label="Anatomy"
-      className="anatomy-controls control-column"
-    >
+    <fieldset aria-label="Anatomy" className="anatomy-controls control-column">
       <legend className="control-column__title">Anatomy</legend>
       <p className="anatomy-controls__instruction">
         Rotate the selected complete leg at the hip.
@@ -151,7 +146,8 @@ export function AnatomyControls() {
           ))}
         </div>
         <p className="anatomy-controls__presentation-helper">
-          X-rays remain bones only
+          Regional detail is concentrated in the lower torso, pelvis and lower
+          limbs. X-rays remain bones only.
         </p>
         {regionalStatus === "loading" ? (
           <p
@@ -178,23 +174,82 @@ export function AnatomyControls() {
 
       <fieldset className="anatomy-controls__option-group">
         <legend>Visible anatomy</legend>
-        <div className="anatomy-controls__segments">
-          {VISIBILITY_OPTIONS.map((option) => (
-            <label key={option.value}>
-              <input
-                checked={legVisibility === option.value}
-                name="anatomy-visibility"
-                onChange={() => setLegVisibility(option.value)}
-                type="radio"
-              />
-              <span aria-hidden="true">{option.shortLabel}</span>
-              <span className="visually-hidden">{option.label}</span>
-            </label>
-          ))}
+        {fullBodyStatus === "loading" ? (
+          <p
+            aria-label="Full-body anatomy status"
+            className="anatomy-controls__complement-status"
+            role="status"
+          >
+            Loading full-body anatomy
+          </p>
+        ) : null}
+        {fullBodyStatus === "error" ? (
+          <div
+            aria-label="Full-body anatomy status"
+            className="anatomy-controls__complement-status anatomy-controls__complement-status--error"
+            role="alert"
+          >
+            <span>Full-body anatomy unavailable</span>
+            <button onClick={retryFullBodyAnatomy} type="button">
+              Retry full-body anatomy
+            </button>
+          </div>
+        ) : null}
+        <div className="anatomy-controls__region-actions">
+          <button onClick={showAllRegions} type="button">
+            Show all
+          </button>
+          <button onClick={hideAllRegions} type="button">
+            Hide all
+          </button>
+          <button aria-describedby="fit-anatomy-pending" disabled type="button">
+            Fit anatomy
+          </button>
+          <span className="visually-hidden" id="fit-anatomy-pending">
+            Camera fitting is not active yet.
+          </span>
+        </div>
+        <div className="anatomy-controls__region-grid">
+          {REGION_OPTIONS.map((option) => {
+            const unavailable =
+              option.requiresComplement && fullBodyStatus !== "ready";
+            const accessibleLabel = option.label.toLowerCase();
+            return (
+              <div
+                className="anatomy-controls__region-tile"
+                key={option.region}
+              >
+                <button
+                  aria-label={`Show ${accessibleLabel}`}
+                  aria-pressed={pose.regionVisibility[option.region]}
+                  className="anatomy-controls__region-toggle"
+                  disabled={unavailable}
+                  onClick={() =>
+                    setRegionVisible(
+                      option.region,
+                      !pose.regionVisibility[option.region],
+                    )
+                  }
+                  type="button"
+                >
+                  {option.label}
+                </button>
+                <button
+                  aria-label={`Show only ${accessibleLabel}`}
+                  className="anatomy-controls__region-only"
+                  disabled={unavailable}
+                  onClick={() => isolateRegion(option.region)}
+                  type="button"
+                >
+                  Only
+                </button>
+              </div>
+            );
+          })}
         </div>
       </fieldset>
 
-      {legVisibility === "bilateral" ? (
+      {bothLegsVisible ? (
         <fieldset className="anatomy-controls__option-group anatomy-controls__option-group--side">
           <legend>Leg to rotate</legend>
           <div className="anatomy-controls__segments">
@@ -222,6 +277,7 @@ export function AnatomyControls() {
           {formatSignedDegrees(selectedRotation)}
         </output>
         <input
+          disabled={!eitherLegVisible}
           id="hip-rotation"
           max={45}
           min={-45}
@@ -237,6 +293,11 @@ export function AnatomyControls() {
           <span>Neutral</span>
           <span>Internal</span>
         </div>
+        {!eitherLegVisible ? (
+          <p className="anatomy-controls__rotation-unavailable">
+            Show a leg to adjust hip rotation.
+          </p>
+        ) : null}
       </div>
 
       <button

@@ -18,6 +18,10 @@ import {
 import type { LoadedHipAnatomy } from "../../src/anatomy/anatomyAssetLoader";
 import { REFERENCE_HIP_ANATOMY_POSE } from "../../src/anatomy/anatomyTypes";
 import type {
+  FullBodyAnatomyAssetLease,
+  LoadedFullBodyComplement,
+} from "../../src/anatomy/fullBodyAnatomyTypes";
+import type {
   LoadedRegionalAnatomy,
   RegionalAnatomyAssetLease,
 } from "../../src/anatomy/regionalAnatomyTypes";
@@ -60,9 +64,21 @@ function regionalResource(): LoadedRegionalAnatomy {
   };
 }
 
+function fullBodyResource(): LoadedFullBodyComplement {
+  return {
+    groups: new Map(),
+    jointPivots: new Map(),
+    scene: new Group(),
+  };
+}
+
 function renderControls(
   acquireRegionalLease: () => RegionalAnatomyAssetLease = () => ({
     promise: new Promise<LoadedRegionalAnatomy>(() => undefined),
+    release: vi.fn(),
+  }),
+  acquireFullBodyLease: () => FullBodyAnatomyAssetLease = () => ({
+    promise: Promise.resolve(fullBodyResource()),
     release: vi.fn(),
   }),
 ) {
@@ -73,6 +89,7 @@ function renderControls(
   return render(
     <AnatomyAssetProvider
       acquireLease={acquireLease}
+      acquireFullBodyLease={acquireFullBodyLease}
       acquireRegionalLease={acquireRegionalLease}
     >
       <AnatomyControls />
@@ -111,14 +128,59 @@ describe("AnatomyControls", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("exposes semantic side visibility controls and one clinical slider", async () => {
+  it("exposes seven pressed region controls and explicit isolation actions", async () => {
+    renderControls();
+    const { group, user } = getAnatomyControls();
+
+    expect(group).toBeVisible();
+    const regionLabels = [
+      "head and neck",
+      "torso",
+      "pelvis",
+      "left arm",
+      "right arm",
+      "left leg",
+      "right leg",
+    ];
+    await waitFor(() =>
+      expect(
+        within(group).getByRole("button", { name: "Show head and neck" }),
+      ).toBeEnabled(),
+    );
+    regionLabels.forEach((label) => {
+      expect(
+        within(group).getByRole("button", { name: `Show ${label}` }),
+      ).toHaveAttribute("aria-pressed", "true");
+      expect(
+        within(group).getByRole("button", { name: `Show only ${label}` }),
+      ).toBeVisible();
+    });
+
+    await user.click(
+      within(group).getByRole("button", { name: "Show only left arm" }),
+    );
+
+    expect(
+      within(group).getByRole("button", { name: "Show left arm" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      within(group).getByRole("button", { name: "Show torso" }),
+    ).toHaveAttribute("aria-pressed", "false");
+    expect(
+      within(group).getByRole("button", { name: "Show all" }),
+    ).toBeVisible();
+    expect(
+      within(group).getByRole("button", { name: "Hide all" }),
+    ).toBeVisible();
+    expect(
+      within(group).getByRole("button", { name: "Fit anatomy" }),
+    ).toBeDisabled();
+  });
+
+  it("keeps the clinical hip-rotation control and explains mixed regional detail", () => {
     renderControls();
     const { group } = getAnatomyControls();
 
-    expect(group).toBeVisible();
-    expect(
-      within(group).getByRole("radio", { name: "Both legs" }),
-    ).toBeChecked();
     expect(
       within(group).getByRole("radio", { name: "Select left leg" }),
     ).toBeChecked();
@@ -129,6 +191,11 @@ describe("AnatomyControls", () => {
     ).toHaveAttribute("min", "-45");
     expect(
       within(group).getByText("Rotate the selected complete leg at the hip."),
+    ).toBeVisible();
+    expect(
+      within(group).getByText(
+        "Regional detail is concentrated in the lower torso, pelvis and lower limbs. X-rays remain bones only.",
+      ),
     ).toBeVisible();
   });
 
@@ -144,7 +211,11 @@ describe("AnatomyControls", () => {
         name: "Show full regional anatomy in 3D",
       }),
     ).not.toBeChecked();
-    expect(within(group).getByText("X-rays remain bones only")).toBeVisible();
+    expect(
+      within(group).getByText(
+        "Regional detail is concentrated in the lower torso, pelvis and lower limbs. X-rays remain bones only.",
+      ),
+    ).toBeVisible();
   });
 
   it("lazy loads Full regional on first selection and reuses the ready resource", async () => {
@@ -170,7 +241,7 @@ describe("AnatomyControls", () => {
       }),
     ).toHaveTextContent("Loading full regional anatomy");
     expect(
-      within(group).getByRole("radio", { name: "Both legs" }),
+      within(group).getByRole("button", { name: "Show left leg" }),
     ).toBeEnabled();
 
     await act(async () => pending.resolve(regionalResource()));
@@ -240,9 +311,7 @@ describe("AnatomyControls", () => {
       promise: pending.promise,
       release: vi.fn(),
     }));
-    useSimulationStore
-      .getState()
-      .setAnatomyPresentationMode("full-regional");
+    useSimulationStore.getState().setAnatomyPresentationMode("full-regional");
 
     renderControls(acquireRegionalLease);
 
@@ -264,7 +333,7 @@ describe("AnatomyControls", () => {
     const { group, user } = getAnatomyControls();
 
     await user.click(
-      within(group).getByRole("radio", { name: "Right leg only" }),
+      within(group).getByRole("button", { name: "Show only right leg" }),
     );
     expect(useSimulationStore.getState().hipAnatomyPose).toMatchObject({
       selectedSide: "right",
@@ -282,23 +351,93 @@ describe("AnatomyControls", () => {
       }),
     ).toBeVisible();
 
-    await user.click(within(group).getByRole("radio", { name: "Both legs" }));
+    await user.click(
+      within(group).getByRole("button", { name: "Show left leg" }),
+    );
     expect(
       within(group).getByRole("radio", { name: "Select right leg" }),
     ).toBeChecked();
   });
 
-  it("does not misreport a selected legacy leg mode when both legs are hidden", () => {
+  it("disables hip rotation and explains when both legs are hidden", () => {
     useSimulationStore.getState().hideAllAnatomyRegions();
     renderControls();
     const { group } = getAnatomyControls();
 
-    ["Both legs", "Left leg only", "Right leg only"].forEach((name) => {
-      expect(within(group).getByRole("radio", { name })).not.toBeChecked();
-    });
     expect(
       within(group).queryByRole("group", { name: "Leg to rotate" }),
     ).not.toBeInTheDocument();
+    expect(
+      within(group).getByRole("slider", {
+        name: "Left leg internal or external rotation",
+      }),
+    ).toBeDisabled();
+    expect(
+      within(group).getByText("Show a leg to adjust hip rotation."),
+    ).toBeVisible();
+  });
+
+  it("shows complement loading and disables only complement-backed regions", () => {
+    const pending = deferred<LoadedFullBodyComplement>();
+    renderControls(undefined, () => ({
+      promise: pending.promise,
+      release: vi.fn(),
+    }));
+    const { group } = getAnatomyControls();
+
+    expect(
+      within(group).getByRole("status", { name: "Full-body anatomy status" }),
+    ).toHaveTextContent("Loading full-body anatomy");
+    ["head and neck", "torso", "left arm", "right arm"].forEach((label) => {
+      expect(
+        within(group).getByRole("button", { name: `Show ${label}` }),
+      ).toBeDisabled();
+      expect(
+        within(group).getByRole("button", { name: `Show only ${label}` }),
+      ).toBeDisabled();
+    });
+    ["pelvis", "left leg", "right leg"].forEach((label) => {
+      expect(
+        within(group).getByRole("button", { name: `Show ${label}` }),
+      ).toBeEnabled();
+    });
+  });
+
+  it("keeps pelvis and legs usable when the complement fails and retries it", async () => {
+    const first = deferred<LoadedFullBodyComplement>();
+    const second = deferred<LoadedFullBodyComplement>();
+    const acquireFullBodyLease = vi
+      .fn<() => FullBodyAnatomyAssetLease>()
+      .mockReturnValueOnce({ promise: first.promise, release: vi.fn() })
+      .mockReturnValueOnce({ promise: second.promise, release: vi.fn() });
+    renderControls(undefined, acquireFullBodyLease);
+    const { group, user } = getAnatomyControls();
+
+    await act(async () => first.reject(new Error("Complement failed")));
+
+    expect(
+      within(group).getByRole("alert", { name: "Full-body anatomy status" }),
+    ).toHaveTextContent("Full-body anatomy unavailable");
+    expect(
+      within(group).getByRole("button", { name: "Show head and neck" }),
+    ).toBeDisabled();
+    expect(
+      within(group).getByRole("button", { name: "Show pelvis" }),
+    ).toBeEnabled();
+
+    await user.click(
+      within(group).getByRole("button", { name: "Retry full-body anatomy" }),
+    );
+    expect(acquireFullBodyLease).toHaveBeenCalledTimes(2);
+    expect(
+      within(group).getByRole("status", { name: "Full-body anatomy status" }),
+    ).toHaveTextContent("Loading full-body anatomy");
+    await act(async () => second.resolve(fullBodyResource()));
+    await waitFor(() =>
+      expect(
+        within(group).getByRole("button", { name: "Show head and neck" }),
+      ).toBeEnabled(),
+    );
   });
 
   it("retains independent angles when visibility and selection change", async () => {
@@ -354,9 +493,7 @@ describe("AnatomyControls", () => {
     const cArmBefore = useSimulationStore.getState().cArmPose;
     useSimulationStore.getState().setAnatomyRegionVisible("left-leg", false);
     useSimulationStore.getState().setSelectedHipRotation(31);
-    useSimulationStore
-      .getState()
-      .setAnatomyPresentationMode("full-regional");
+    useSimulationStore.getState().setAnatomyPresentationMode("full-regional");
     renderControls();
     const { group, user } = getAnatomyControls();
 
@@ -394,7 +531,7 @@ describe("AnatomyControls", () => {
     );
   });
 
-  it("gives segmented controls 44px targets and visible keyboard focus", () => {
+  it("gives segmented and region controls 44px targets with visible keyboard focus", () => {
     expect(appCss).toMatch(
       /\.anatomy-controls__segments label > span:first-of-type\s*\{[^}]*min-block-size:\s*var\(--target-min\)/s,
     );
@@ -406,6 +543,21 @@ describe("AnatomyControls", () => {
     );
     expect(appCss).toMatch(
       /\.anatomy-controls__reset\s*\{[^}]*min-block-size:\s*var\(--target-min\)/s,
+    );
+    expect(appCss).toMatch(
+      /\.anatomy-controls__region-grid\s*\{[^}]*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\)/s,
+    );
+    expect(appCss).toMatch(
+      /\.anatomy-controls__region-toggle,[\s\S]*?\.anatomy-controls__region-only\s*\{[^}]*min-block-size:\s*var\(--target-min\)/s,
+    );
+    expect(appCss).toMatch(
+      /\.anatomy-controls__region-only\s*\{[^}]*min-inline-size:\s*var\(--target-min\)/s,
+    );
+    expect(appCss).toMatch(
+      /\.anatomy-controls__region-toggle:focus-visible,[\s\S]*?\.anatomy-controls__region-only:focus-visible\s*\{[^}]*box-shadow:\s*var\(--focus-ring\)/s,
+    );
+    expect(appCss).toMatch(
+      /@media \(max-width: 759px\)\s*\{[\s\S]*?\.anatomy-controls__region-grid\s*\{[^}]*grid-template-columns:\s*1fr/s,
     );
   });
 });

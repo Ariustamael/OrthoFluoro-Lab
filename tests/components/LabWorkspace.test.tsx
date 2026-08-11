@@ -35,8 +35,7 @@ const appCss = readFileSync(join(process.cwd(), "src/styles/app.css"), "utf8");
 let mockedAnatomyStatus: "loading" | "ready" | "error" = "error";
 let mockedAnatomyResource: object | null = null;
 let mockedFullBodyComplementResource: object | null = null;
-let mockedFullBodyComplementStatus: "loading" | "ready" | "error" =
-  "loading";
+let mockedFullBodyComplementStatus: "loading" | "ready" | "error" = "loading";
 let mockedRegionalStatus: "idle" | "loading" | "ready" | "error" = "idle";
 let mockedRegionalResource: object | null = null;
 
@@ -201,6 +200,12 @@ describe("responsive laboratory workspace", () => {
     ["Move C-arm", "Rig setup", "Anatomy"].forEach((name) => {
       expect(within(provider).getByRole("group", { name })).toBeInTheDocument();
     });
+    expect(
+      within(provider).getByRole("button", { name: "Show pelvis" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(
+      within(provider).getByRole("button", { name: "Show only pelvis" }),
+    ).toBeVisible();
   });
 
   it("retains accessible names for simulator modes, beam, and numeric inputs", () => {
@@ -255,20 +260,34 @@ describe("responsive laboratory workspace", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("note")).not.toBeInTheDocument();
-    expect(screen.queryByText(/must not be used for diagnosis/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/must not be used for diagnosis/i),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps mobile source order X-ray, theatre, then controls", () => {
     render(<LabWorkspace />);
 
-    const projection = screen.getByRole("region", { name: "Simulated X-ray view" });
+    const projection = screen.getByRole("region", {
+      name: "Simulated X-ray view",
+    });
     const theatre = screen.getByRole("region", { name: "3D theatre" });
     const controls = screen.getByRole("heading", { name: "C-arm controls" });
-    expect(projection.compareDocumentPosition(theatre) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(theatre.compareDocumentPosition(controls) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      projection.compareDocumentPosition(theatre) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      theatre.compareDocumentPosition(controls) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "Information" })).not.toBeInTheDocument();
-    expect(screen.queryByText(/first projection is a geometric visualisation/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Information" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/first projection is a geometric visualisation/i),
+    ).not.toBeInTheDocument();
   });
 });
 
