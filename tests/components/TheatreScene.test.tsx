@@ -329,13 +329,14 @@ describe("real anatomy scene boundary", () => {
     expect(retry).toHaveBeenCalledOnce();
   });
 
-  it("mounts HipAnatomy without the procedural body or world-space handles", () => {
+  it("mounts the atomic full-body base without the procedural body or world-space handles", () => {
     const source = readFileSync(
       join(process.cwd(), "src/components/scene/TheatreScene.tsx"),
       "utf8",
     );
 
-    expect(source).toContain("<HipAnatomy");
+    expect(source).toContain("<FullBodyAnatomy");
+    expect(source).not.toMatch(/<HipAnatomy\s+resource=/);
     expect(source).not.toContain(["Anatomical", "Placeholder"].join(""));
     expect(source).not.toContain("AnatomyRotationHandle");
     expect(source).not.toContain("ANATOMY_ROTATION_HANDLE_DEFINITIONS");

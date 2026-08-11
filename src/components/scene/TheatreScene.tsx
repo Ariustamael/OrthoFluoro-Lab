@@ -12,7 +12,7 @@ import type { AnatomyPresentationMode } from "../../anatomy/anatomyTypes";
 import { useSimulationStore } from "../../state/simulationStore";
 import { CArmRig } from "./CArmRig";
 import type { CArmCueId } from "./cArmCueHints";
-import { HipAnatomy } from "./HipAnatomy";
+import { FullBodyAnatomy } from "./FullBodyAnatomy";
 import { RegionalAnatomy } from "./RegionalAnatomy";
 
 export const THEATRE_BACKGROUND_COLOR = "#07131f";
@@ -123,7 +123,14 @@ export function HipAnatomyLayer() {
     return (
       <>
         {composition.showSkeleton ? (
-          <HipAnatomy resource={anatomy.resource} />
+          <FullBodyAnatomy
+            complement={
+              anatomy.fullBodyComplement.status === "ready"
+                ? anatomy.fullBodyComplement.resource
+                : null
+            }
+            hip={anatomy.resource}
+          />
         ) : null}
         {composition.showRegional && anatomy.regional.resource !== null ? (
           <RegionalAnatomy resource={anatomy.regional.resource} />

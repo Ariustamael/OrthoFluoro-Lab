@@ -13,8 +13,13 @@ const mocks = vi.hoisted(() => ({
 vi.mock("../../src/anatomy/AnatomyAssetProvider", () => ({
   useAnatomyAsset: mocks.useAnatomyAsset,
 }));
-vi.mock("../../src/components/scene/HipAnatomy", () => ({
-  HipAnatomy: () => <div data-testid="skeleton-layer" />,
+vi.mock("../../src/components/scene/FullBodyAnatomy", () => ({
+  FullBodyAnatomy: ({ complement }: { complement: Group | null }) => (
+    <div
+      data-composition={complement === null ? "hip-only" : "full-body"}
+      data-testid="base-bone-layer"
+    />
+  ),
 }));
 vi.mock("../../src/components/scene/RegionalAnatomy", () => ({
   RegionalAnatomy: () => <div data-testid="regional-layer" />,
@@ -22,9 +27,23 @@ vi.mock("../../src/components/scene/RegionalAnatomy", () => ({
 
 function anatomyContext(
   regionalStatus: AnatomyAssetContextValue["regional"]["status"],
+  complementStatus: AnatomyAssetContextValue["fullBodyComplement"]["status"] =
+    "ready",
 ): AnatomyAssetContextValue {
   return {
     error: null,
+    fullBodyComplement: {
+      error:
+        complementStatus === "error"
+          ? new Error("Complement unavailable")
+          : null,
+      resource:
+        complementStatus === "ready"
+          ? ({ scene: new Group() } as AnatomyAssetContextValue["fullBodyComplement"]["resource"])
+          : null,
+      retry: vi.fn(),
+      status: complementStatus,
+    },
     regional: {
       error: null,
       load: vi.fn(),
@@ -53,7 +72,10 @@ describe("TheatreScene regional anatomy layers", () => {
 
       render(<HipAnatomyLayer />);
 
-      expect(screen.getByTestId("skeleton-layer")).toBeInTheDocument();
+      expect(screen.getByTestId("base-bone-layer")).toHaveAttribute(
+        "data-composition",
+        "full-body",
+      );
       expect(screen.queryByTestId("regional-layer")).not.toBeInTheDocument();
     },
   );
@@ -66,7 +88,7 @@ describe("TheatreScene regional anatomy layers", () => {
 
     render(<HipAnatomyLayer />);
 
-    expect(screen.getByTestId("skeleton-layer")).toBeInTheDocument();
+    expect(screen.getByTestId("base-bone-layer")).toBeInTheDocument();
     expect(screen.queryByTestId("regional-layer")).not.toBeInTheDocument();
   });
 
@@ -78,7 +100,43 @@ describe("TheatreScene regional anatomy layers", () => {
 
     render(<HipAnatomyLayer />);
 
-    expect(screen.getByTestId("skeleton-layer")).toBeInTheDocument();
+    expect(screen.getByTestId("base-bone-layer")).toBeInTheDocument();
     expect(screen.getByTestId("regional-layer")).toBeInTheDocument();
+  });
+
+  it.each(["loading", "error"] as const)(
+    "keeps the detailed hip base usable while the complement is %s",
+    (complementStatus) => {
+      mocks.useAnatomyAsset.mockReturnValue(
+        anatomyContext("idle", complementStatus),
+      );
+
+      render(<HipAnatomyLayer />);
+
+      expect(screen.getAllByTestId("base-bone-layer")).toHaveLength(1);
+      expect(screen.getByTestId("base-bone-layer")).toHaveAttribute(
+        "data-composition",
+        "hip-only",
+      );
+      expect(screen.queryByText("Anatomy unavailable")).not.toBeInTheDocument();
+    },
+  );
+
+  it("atomically replaces the hip-only composition when the complement becomes ready", () => {
+    mocks.useAnatomyAsset.mockReturnValue(anatomyContext("idle", "loading"));
+    const view = render(<HipAnatomyLayer />);
+    expect(screen.getByTestId("base-bone-layer")).toHaveAttribute(
+      "data-composition",
+      "hip-only",
+    );
+
+    mocks.useAnatomyAsset.mockReturnValue(anatomyContext("idle", "ready"));
+    view.rerender(<HipAnatomyLayer />);
+
+    expect(screen.getAllByTestId("base-bone-layer")).toHaveLength(1);
+    expect(screen.getByTestId("base-bone-layer")).toHaveAttribute(
+      "data-composition",
+      "full-body",
+    );
   });
 });
