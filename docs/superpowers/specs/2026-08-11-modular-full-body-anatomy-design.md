@@ -128,11 +128,12 @@ Overview pelvis and lower-limb meshes are excluded. Runtime composition combines
 the complement with the unchanged detailed pelvis and lower limbs to form one
 full body.
 
-Arm regions are internally subdivided at build time even though stage-one UI
-exposes each arm as one region:
+The clavicles and scapulae remain part of the torso so a glenohumeral movement
+does not rotate the shoulder girdle as though it were rigidly fused to the
+humerus. Arm regions are internally subdivided at build time even though
+stage-one UI exposes each arm as one region:
 
 ```text
-shoulder girdle
 upper arm
 forearm
 hand
@@ -210,12 +211,10 @@ FullBodyAnatomyRoot
 +-- Torso                  (overview complement)
 +-- Pelvis                 (detailed existing base)
 +-- LeftArm                (overview complement)
-|   +-- ShoulderGirdle
 |   +-- UpperArm
 |   +-- Forearm
 |   +-- Hand
 +-- RightArm               (overview complement)
-|   +-- ShoulderGirdle
 |   +-- UpperArm
 |   +-- Forearm
 |   +-- Hand
