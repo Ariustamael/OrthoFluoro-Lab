@@ -2,7 +2,8 @@
 
 import { OrbitControls } from "@react-three/drei/core/OrbitControls";
 import { Html } from "@react-three/drei/web/Html";
-import { useState } from "react";
+import { useRef, useState, type ComponentRef } from "react";
+import type { Group } from "three";
 import {
   useAnatomyAsset,
   type AnatomyAssetStatus,
@@ -14,6 +15,7 @@ import { CArmRig } from "./CArmRig";
 import type { CArmCueId } from "./cArmCueHints";
 import { FullBodyAnatomy } from "./FullBodyAnatomy";
 import { RegionalAnatomy } from "./RegionalAnatomy";
+import { AnatomyCameraFit } from "./anatomyCameraFit";
 
 export const THEATRE_BACKGROUND_COLOR = "#07131f";
 export const DEFAULT_THEATRE_TARGET = [0, -200, 0] satisfies [
@@ -157,16 +159,20 @@ export function anatomyLayerComposition(
 }
 
 interface TheatreSceneProps {
+  consumeFitAnatomyRevision: (revision: number) => boolean;
   onManipulatorHintChange?: (id: CArmCueId | null) => void;
 }
 
 const ignoreManipulatorHint = () => undefined;
 
 export function TheatreScene({
+  consumeFitAnatomyRevision,
   onManipulatorHintChange = ignoreManipulatorHint,
 }: TheatreSceneProps) {
   const interactionMode = useSimulationStore((state) => state.interactionMode);
   const [manipulatorActive, setManipulatorActive] = useState(false);
+  const anatomyRootRef = useRef<Group>(null);
+  const orbitControlsRef = useRef<ComponentRef<typeof OrbitControls>>(null);
 
   return (
     <>
@@ -182,16 +188,24 @@ export function TheatreScene({
         <meshStandardMaterial color="#142a38" roughness={0.92} />
       </mesh>
       <OperatingTable />
-      <HipAnatomyLayer />
+      <group ref={anatomyRootRef}>
+        <HipAnatomyLayer />
+      </group>
       <CArmRig
         onManipulatorDragStateChange={setManipulatorActive}
         onManipulatorHintChange={onManipulatorHintChange}
+      />
+      <AnatomyCameraFit
+        anatomyRootRef={anatomyRootRef}
+        consumeFitAnatomyRevision={consumeFitAnatomyRevision}
+        controlsRef={orbitControlsRef}
       />
       <OrbitControls
         enabled={orbitControlsEnabled(interactionMode, manipulatorActive)}
         enableDamping
         maxDistance={3600}
         minDistance={650}
+        ref={orbitControlsRef}
         target={DEFAULT_THEATRE_TARGET}
       />
     </>

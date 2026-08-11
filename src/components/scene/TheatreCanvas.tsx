@@ -168,6 +168,14 @@ function TheatreViewport() {
   );
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [cueHint, setCueHint] = useState<CArmCueHint | null>(null);
+  const fitAnatomyLastHandledRevisionRef = useRef(
+    useSimulationStore.getState().fitAnatomyRequestRevision,
+  );
+  const consumeFitAnatomyRevision = useCallback((revision: number) => {
+    if (fitAnatomyLastHandledRevisionRef.current === revision) return false;
+    fitAnatomyLastHandledRevisionRef.current = revision;
+    return true;
+  }, []);
   const handleManipulatorHintChange = useCallback((id: CArmCueId | null) => {
     setCueHint(id === null ? null : cArmCueHint(id));
   }, []);
@@ -227,6 +235,7 @@ function TheatreViewport() {
             shadows={renderConfig.shadows}
           >
             <TheatreScene
+              consumeFitAnatomyRevision={consumeFitAnatomyRevision}
               onManipulatorHintChange={handleManipulatorHintChange}
             />
           </Canvas>

@@ -341,6 +341,35 @@ describe("real anatomy scene boundary", () => {
     expect(source).not.toContain("AnatomyRotationHandle");
     expect(source).not.toContain("ANATOMY_ROTATION_HANDLE_DEFINITIONS");
   });
+
+  it("wires camera-only anatomy fitting to the theatre anatomy root and OrbitControls", () => {
+    const source = readFileSync(
+      join(process.cwd(), "src/components/scene/TheatreScene.tsx"),
+      "utf8",
+    );
+    const canvasSource = readFileSync(
+      join(process.cwd(), "src/components/scene/TheatreCanvas.tsx"),
+      "utf8",
+    );
+
+    expect(source).toMatch(
+      /<group ref=\{anatomyRootRef\}>[\s\S]*?<HipAnatomyLayer \/>[\s\S]*?<\/group>/,
+    );
+    expect(source).toMatch(
+      /<AnatomyCameraFit[\s\S]*?anatomyRootRef=\{anatomyRootRef\}[\s\S]*?consumeFitAnatomyRevision=\{consumeFitAnatomyRevision\}[\s\S]*?controlsRef=\{orbitControlsRef\}/,
+    );
+    expect(source).toMatch(/<OrbitControls[\s\S]*?ref=\{orbitControlsRef\}/);
+    expect(source).not.toMatch(/useFrame\(/);
+    expect(canvasSource).toMatch(
+      /fitAnatomyLastHandledRevisionRef = useRef\([\s\S]*?fitAnatomyRequestRevision/,
+    );
+    expect(canvasSource).toMatch(
+      /consumeFitAnatomyRevision = useCallback\([\s\S]*?fitAnatomyLastHandledRevisionRef\.current = revision/,
+    );
+    expect(canvasSource).toMatch(
+      /<TheatreScene[\s\S]*?consumeFitAnatomyRevision=\{consumeFitAnatomyRevision\}/,
+    );
+  });
 });
 
 describe("six-DoF C-arm manipulator math", () => {

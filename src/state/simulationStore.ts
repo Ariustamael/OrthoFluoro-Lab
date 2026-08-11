@@ -40,6 +40,7 @@ export interface SimulationState {
   anatomyPresentationMode: AnatomyPresentationMode;
   acquisitionMode: AcquisitionMode;
   shotRequestRevision: number;
+  fitAnatomyRequestRevision: number;
   interactionMode: InteractionMode;
   quality: QualityPreset;
   setCArmPose: (pose: CArmPose) => void;
@@ -69,6 +70,7 @@ export interface SimulationState {
   setAnatomyPresentationMode: (mode: AnatomyPresentationMode) => void;
   setAcquisitionMode: (mode: AcquisitionMode) => void;
   requestShot: () => void;
+  requestFitAnatomy: () => void;
   setInteractionMode: (mode: InteractionMode) => void;
   setQuality: (quality: QualityPreset) => void;
   resetGeometry: () => void;
@@ -122,6 +124,7 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   anatomyPresentationMode: "bones-only",
   acquisitionMode: "continuous",
   shotRequestRevision: 0,
+  fitAnatomyRequestRevision: 0,
   interactionMode: "inspect",
   quality: "medium",
   setCArmPose: (pose) => {
@@ -254,6 +257,11 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   requestShot: () => {
     set((state) => ({
       shotRequestRevision: state.shotRequestRevision + 1,
+    }));
+  },
+  requestFitAnatomy: () => {
+    set((state) => ({
+      fitAnatomyRequestRevision: state.fitAnatomyRequestRevision + 1,
     }));
   },
   setInteractionMode: (interactionMode) => {

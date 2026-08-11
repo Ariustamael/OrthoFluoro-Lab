@@ -135,6 +135,7 @@ beforeEach(() => {
     cArmMode: "isocentric",
     cArmPhysicalSetup: { ...REFERENCE_C_ARM_PHYSICAL_SETUP },
     cArmPose: { ...REFERENCE_C_ARM_POSE },
+    fitAnatomyRequestRevision: 0,
     hipAnatomyPose: {
       ...REFERENCE_HIP_ANATOMY_POSE,
       rootPosition: [...REFERENCE_HIP_ANATOMY_POSE.rootPosition],
@@ -151,6 +152,62 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("ProjectionView renderer orchestration", () => {
+  it("does not request a new Continuous projection when anatomy fitting is requested", async () => {
+    const layered = renderer<AnatomyProjectionInput>(
+      output("Camera-independent continuous artifact", "fit-continuous"),
+    );
+    const factories: ProjectionRendererFactories = {
+      createLayered: () => layered,
+      createSilhouette: () => renderer(output("Silhouette", "mesh-silhouette")),
+      createSimplified: () =>
+        renderer(output("Unavailable", "simplified-procedural")),
+    };
+    renderProjection(factories, {
+      precision: "float32",
+      reason: null,
+      strategy: "layered-thickness",
+    });
+    const image = await screen.findByRole("img", {
+      name: "Camera-independent continuous artifact",
+    });
+    const callsBeforeFit = vi.mocked(layered.render).mock.calls.length;
+    const sourceBeforeFit = image.getAttribute("src");
+
+    await act(async () => useSimulationStore.getState().requestFitAnatomy());
+
+    expect(layered.render).toHaveBeenCalledTimes(callsBeforeFit);
+    expect(image).toHaveAttribute("src", sourceBeforeFit);
+  });
+
+  it("keeps the current Shots-only artifact unchanged when anatomy fitting is requested", async () => {
+    useSimulationStore.setState({ acquisitionMode: "shots-only" });
+    const layered = renderer<AnatomyProjectionInput>(
+      output("Camera-independent shot artifact", "fit-shot"),
+    );
+    const factories: ProjectionRendererFactories = {
+      createLayered: () => layered,
+      createSilhouette: () => renderer(output("Silhouette", "mesh-silhouette")),
+      createSimplified: () =>
+        renderer(output("Unavailable", "simplified-procedural")),
+    };
+    renderProjection(factories, {
+      precision: "float32",
+      reason: null,
+      strategy: "layered-thickness",
+    });
+    await findDetectorMessage("Ready for exposure");
+    act(() => useSimulationStore.getState().requestShot());
+    const image = await screen.findByRole("img", {
+      name: "Camera-independent shot artifact",
+    });
+    const sourceBeforeFit = image.getAttribute("src");
+
+    await act(async () => useSimulationStore.getState().requestFitAnatomy());
+
+    expect(layered.render).toHaveBeenCalledOnce();
+    expect(image).toHaveAttribute("src", sourceBeforeFit);
+  });
+
   it("treats complement readiness as a continuous anatomy change without recreating the renderer or reproving hip capability", async () => {
     const complement = deferred<LoadedFullBodyComplement>();
     const loadedComplement = fullBodyComplementResource();

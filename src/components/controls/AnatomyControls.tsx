@@ -85,6 +85,9 @@ export function AnatomyControls() {
     (state) => state.setSelectedHipRotation,
   );
   const resetAnatomy = useSimulationStore((state) => state.resetAnatomy);
+  const requestFitAnatomy = useSimulationStore(
+    (state) => state.requestFitAnatomy,
+  );
   const selectedRotation =
     pose.selectedSide === "left"
       ? pose.leftHipRotationDegrees
@@ -94,6 +97,15 @@ export function AnatomyControls() {
     pose.regionVisibility["left-leg"] && pose.regionVisibility["right-leg"];
   const eitherLegVisible =
     pose.regionVisibility["left-leg"] || pose.regionVisibility["right-leg"];
+  const baseAnatomyReady =
+    anatomy.status === "ready" && anatomy.resource !== null;
+  const hasEffectivelyVisibleRegion =
+    baseAnatomyReady &&
+    REGION_OPTIONS.some(
+      (option) =>
+        pose.regionVisibility[option.region] &&
+        (!option.requiresComplement || fullBodyStatus === "ready"),
+    );
 
   useEffect(() => {
     if (regionalStatus === "idle" && presentationMode === "full-regional") {
@@ -202,12 +214,13 @@ export function AnatomyControls() {
           <button onClick={hideAllRegions} type="button">
             Hide all
           </button>
-          <button aria-describedby="fit-anatomy-pending" disabled type="button">
+          <button
+            disabled={!hasEffectivelyVisibleRegion}
+            onClick={requestFitAnatomy}
+            type="button"
+          >
             Fit anatomy
           </button>
-          <span className="visually-hidden" id="fit-anatomy-pending">
-            Camera fitting is not active yet.
-          </span>
         </div>
         <div className="anatomy-controls__region-grid">
           {REGION_OPTIONS.map((option) => {

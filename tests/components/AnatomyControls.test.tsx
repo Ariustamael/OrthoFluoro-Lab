@@ -107,6 +107,7 @@ beforeEach(() => {
       rootRotationDegrees: [...REFERENCE_HIP_ANATOMY_POSE.rootRotationDegrees],
     },
     anatomyPresentationMode: "bones-only",
+    fitAnatomyRequestRevision: 0,
     interactionMode: "inspect",
     quality: "medium",
     showBeam: true,
@@ -174,7 +175,53 @@ describe("AnatomyControls", () => {
     ).toBeVisible();
     expect(
       within(group).getByRole("button", { name: "Fit anatomy" }),
-    ).toBeDisabled();
+    ).toBeEnabled();
+  });
+
+  it("requests only a camera fit and keeps the request revision monotonic across resets", async () => {
+    useSimulationStore.setState({
+      acquisitionMode: "shots-only",
+      shotRequestRevision: 7,
+    });
+    renderControls();
+    const { group, user } = getAnatomyControls();
+    const fit = within(group).getByRole("button", { name: "Fit anatomy" });
+    await waitFor(() => expect(fit).toBeEnabled());
+    const before = useSimulationStore.getState();
+
+    await user.click(fit);
+
+    const after = useSimulationStore.getState();
+    expect(after.fitAnatomyRequestRevision).toBe(1);
+    expect(after.cArmPose).toBe(before.cArmPose);
+    expect(after.hipAnatomyPose).toBe(before.hipAnatomyPose);
+    expect(after.acquisitionMode).toBe("shots-only");
+    expect(after.shotRequestRevision).toBe(7);
+
+    after.resetGeometry();
+    expect(useSimulationStore.getState().fitAnatomyRequestRevision).toBe(1);
+    useSimulationStore.getState().requestFitAnatomy();
+    expect(useSimulationStore.getState().fitAnatomyRequestRevision).toBe(2);
+  });
+
+  it("enables fitting only when an effectively available region is visible", async () => {
+    const pending = deferred<LoadedFullBodyComplement>();
+    useSimulationStore.getState().hideAllAnatomyRegions();
+    useSimulationStore.getState().setAnatomyRegionVisible("head-neck", true);
+    renderControls(undefined, () => ({
+      promise: pending.promise,
+      release: vi.fn(),
+    }));
+    const { group, user } = getAnatomyControls();
+    const fit = within(group).getByRole("button", { name: "Fit anatomy" });
+
+    await waitFor(() => expect(fit).toBeDisabled());
+    await user.click(
+      within(group).getByRole("button", { name: "Show pelvis" }),
+    );
+    expect(fit).toBeEnabled();
+    await user.click(within(group).getByRole("button", { name: "Hide all" }));
+    expect(fit).toBeDisabled();
   });
 
   it("keeps the clinical hip-rotation control and explains mixed regional detail", () => {
