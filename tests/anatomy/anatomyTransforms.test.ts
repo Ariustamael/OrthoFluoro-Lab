@@ -3,8 +3,10 @@ import provenance from "../../public/anatomy/open3dmodel-provenance.json";
 import {
   ACTIVE_HIP_ANATOMY_ASSET_ID,
   ANATOMY_ASSETS,
+  FULL_BODY_COMPLEMENT_ASSET_ID,
   REGIONAL_HIP_ANATOMY_ASSET_ID,
 } from "../../src/content/assets/anatomyAssets";
+import type { FullBodyComplementGroup } from "../../src/anatomy/fullBodyAnatomyTypes";
 import {
   anatomyGroupLocalRotation,
   anatomyRootRotation,
@@ -277,6 +279,7 @@ describe("anatomy public contracts", () => {
     const hipSource = provenanceSource("open3dmodel-lower-limb");
 
     expect(ACTIVE_HIP_ANATOMY_ASSET_ID).toBe("hip-lower-limbs");
+    expect(FULL_BODY_COMPLEMENT_ASSET_ID).toBe("full-body-complement");
     expect(REGIONAL_HIP_ANATOMY_ASSET_ID).toBe("hip-lower-limbs-regional");
     expect(ANATOMY_ASSETS).toEqual({
       "whole-skeleton": {
@@ -328,6 +331,37 @@ describe("anatomy public contracts", () => {
         sourceMember: hipSource.member,
         sourceMemberChecksum: hipSource.memberSha256,
         derivedChecksum: provenance.artifacts.regional.sha256,
+        bodyRegionMapPath:
+          "/anatomy/open3dmodel-regional-body-regions.json",
+        bodyRegionMapChecksum:
+          provenance.artifacts.regionalBodyRegions.sha256,
+        licence: provenance.licence.id,
+        attribution: provenance.attribution,
+        dracoDecoderPath: "/draco/",
+        provenanceUrl: "/anatomy/open3dmodel-provenance.json",
+      },
+      "full-body-complement": {
+        id: "full-body-complement",
+        name: "Open3DModel full-body skeleton complement",
+        region: "full-body-complement",
+        filePath: "/anatomy/open3dmodel-full-body-complement.glb",
+        coordinateSystem: "orthofluoro-anatomical-v1",
+        millimetresPerUnit: 1,
+        groups: [
+          "head-neck",
+          "torso",
+          "left-upper-arm",
+          "left-forearm",
+          "left-hand",
+          "right-upper-arm",
+          "right-forearm",
+          "right-hand",
+        ],
+        sourceUrl: overviewSource.archiveUrl,
+        sourceArchiveChecksum: overviewSource.sha256,
+        sourceMember: overviewSource.member,
+        sourceMemberChecksum: overviewSource.memberSha256,
+        derivedChecksum: provenance.artifacts.fullBodyComplement.sha256,
         licence: provenance.licence.id,
         attribution: provenance.attribution,
         dracoDecoderPath: "/draco/",
@@ -353,6 +387,10 @@ describe("anatomy public contracts", () => {
       {
         asset: ANATOMY_ASSETS["hip-lower-limbs-regional"],
         source: provenanceSource("open3dmodel-lower-limb"),
+      },
+      {
+        asset: ANATOMY_ASSETS["full-body-complement"],
+        source: provenanceSource("open3dmodel-overview-skeleton"),
       },
     ] as const;
 
@@ -395,5 +433,8 @@ describe("anatomy public contracts", () => {
     expectTypeOf(
       ANATOMY_ASSETS["hip-lower-limbs-regional"].groups,
     ).toEqualTypeOf<readonly RegionalAnatomyGroup[]>();
+    expectTypeOf(
+      ANATOMY_ASSETS["full-body-complement"].groups,
+    ).toEqualTypeOf<readonly FullBodyComplementGroup[]>();
   });
 });

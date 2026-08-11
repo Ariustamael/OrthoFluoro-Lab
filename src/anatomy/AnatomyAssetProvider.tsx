@@ -16,6 +16,11 @@ import {
   type LoadedHipAnatomy,
 } from "./anatomyAssetLoader";
 import { acquireRegionalAnatomy } from "./regionalAnatomyAssetLoader";
+import { acquireFullBodyAnatomy } from "./fullBodyAnatomyAssetLoader";
+import type {
+  FullBodyAnatomyAssetLease,
+  LoadedFullBodyComplement,
+} from "./fullBodyAnatomyTypes";
 import type {
   LoadedRegionalAnatomy,
   RegionalAnatomyAssetLease,
@@ -33,10 +38,18 @@ export interface RegionalAnatomyState {
   retry(): void;
 }
 
+export interface FullBodyComplementState {
+  readonly status: AnatomyAssetStatus;
+  readonly resource: LoadedFullBodyComplement | null;
+  readonly error: Error | null;
+  retry(): void;
+}
+
 export interface AnatomyAssetContextValue {
   readonly status: AnatomyAssetStatus;
   readonly resource: LoadedHipAnatomy | null;
   readonly error: Error | null;
+  readonly fullBodyComplement: FullBodyComplementState;
   readonly regional: RegionalAnatomyState;
   retry(): void;
 }
@@ -44,6 +57,7 @@ export interface AnatomyAssetContextValue {
 interface AnatomyAssetProviderProps {
   readonly children: ReactNode;
   readonly acquireLease?: () => AnatomyAssetLease;
+  readonly acquireFullBodyLease?: () => FullBodyAnatomyAssetLease;
   readonly acquireRegionalLease?: () => RegionalAnatomyAssetLease;
 }
 
@@ -59,6 +73,7 @@ function normalizeError(error: unknown): Error {
 
 export function AnatomyAssetProvider({
   acquireLease = acquireHipAnatomy,
+  acquireFullBodyLease = acquireFullBodyAnatomy,
   acquireRegionalLease = acquireRegionalAnatomy,
   children,
 }: AnatomyAssetProviderProps) {
@@ -69,6 +84,10 @@ export function AnatomyAssetProvider({
   const [regionalState, setRegionalState] = useState<
     Pick<RegionalAnatomyState, "status" | "resource" | "error">
   >({ error: null, resource: null, status: "idle" });
+  const [fullBodyAttempt, setFullBodyAttempt] = useState(0);
+  const [fullBodyState, setFullBodyState] = useState<
+    Pick<FullBodyComplementState, "status" | "resource" | "error">
+  >({ error: null, resource: null, status: "loading" });
   const regionalStateRef = useRef(regionalState);
   const regionalLeaseRef = useRef<RegionalAnatomyAssetLease | null>(null);
   const mountedRef = useRef(false);
@@ -105,6 +124,44 @@ export function AnatomyAssetProvider({
       lease.release();
     };
   }, [acquireLease, attempt]);
+
+  useEffect(() => {
+    let active = true;
+    let lease: FullBodyAnatomyAssetLease;
+    try {
+      lease = acquireFullBodyLease();
+    } catch (error: unknown) {
+      void Promise.resolve().then(() => {
+        if (!active) return;
+        setFullBodyState({
+          error: normalizeError(error),
+          resource: null,
+          status: "error",
+        });
+      });
+      return () => {
+        active = false;
+      };
+    }
+    void lease.promise.then(
+      (resource) => {
+        if (!active) return;
+        setFullBodyState({ error: null, resource, status: "ready" });
+      },
+      (error: unknown) => {
+        if (!active) return;
+        setFullBodyState({
+          error: normalizeError(error),
+          resource: null,
+          status: "error",
+        });
+      },
+    );
+    return () => {
+      active = false;
+      lease.release();
+    };
+  }, [acquireFullBodyLease, fullBodyAttempt]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -174,9 +231,17 @@ export function AnatomyAssetProvider({
     setState({ error: null, resource: null, status: "loading" });
     setAttempt((currentAttempt) => currentAttempt + 1);
   }, []);
+  const retryFullBodyComplement = useCallback(() => {
+    setFullBodyState({ error: null, resource: null, status: "loading" });
+    setFullBodyAttempt((currentAttempt) => currentAttempt + 1);
+  }, []);
   const value = useMemo<AnatomyAssetContextValue>(
     () => ({
       ...state,
+      fullBodyComplement: {
+        ...fullBodyState,
+        retry: retryFullBodyComplement,
+      },
       regional: {
         ...regionalState,
         load: loadRegional,
@@ -184,7 +249,15 @@ export function AnatomyAssetProvider({
       },
       retry,
     }),
-    [loadRegional, regionalState, retry, retryRegional, state],
+    [
+      fullBodyState,
+      loadRegional,
+      regionalState,
+      retry,
+      retryFullBodyComplement,
+      retryRegional,
+      state,
+    ],
   );
 
   return (

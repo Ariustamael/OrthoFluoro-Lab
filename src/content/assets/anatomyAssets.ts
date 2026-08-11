@@ -8,9 +8,16 @@ import {
   REGIONAL_ANATOMY_GROUPS,
   type RegionalAnatomyGroup,
 } from "../../anatomy/regionalAnatomyTypes";
+import {
+  FULL_BODY_COMPLEMENT_GROUPS,
+  type FullBodyComplementGroup,
+} from "../../anatomy/fullBodyAnatomyTypes";
 
 export type AnatomyAssetId =
-  "whole-skeleton" | "hip-lower-limbs" | "hip-lower-limbs-regional";
+  | "whole-skeleton"
+  | "hip-lower-limbs"
+  | "hip-lower-limbs-regional"
+  | "full-body-complement";
 export type AnatomyCoordinateSystem = "orthofluoro-anatomical-v1";
 export type AnatomyLicence = "CC-BY-SA-4.0";
 export type LocalAnatomyModelPath = `/anatomy/${string}.glb`;
@@ -49,6 +56,13 @@ export interface AnatomyAssetManifest {
   readonly "hip-lower-limbs-regional": AnatomyAssetManifestEntry<
     "hip-lower-limbs-regional",
     RegionalAnatomyGroup
+  > & {
+    readonly bodyRegionMapPath: "/anatomy/open3dmodel-regional-body-regions.json";
+    readonly bodyRegionMapChecksum: string;
+  };
+  readonly "full-body-complement": AnatomyAssetManifestEntry<
+    "full-body-complement",
+    FullBodyComplementGroup
   >;
 }
 
@@ -69,6 +83,10 @@ const HIP_GROUPS: readonly HipAnatomyGroup[] = Object.freeze([
 
 const REGIONAL_GROUPS: readonly RegionalAnatomyGroup[] = Object.freeze([
   ...REGIONAL_ANATOMY_GROUPS,
+]);
+
+const FULL_BODY_GROUPS: readonly FullBodyComplementGroup[] = Object.freeze([
+  ...FULL_BODY_COMPLEMENT_GROUPS,
 ]);
 
 export const ANATOMY_ASSETS: AnatomyAssetManifest = Object.freeze({
@@ -133,6 +151,32 @@ export const ANATOMY_ASSETS: AnatomyAssetManifest = Object.freeze({
       "5A889D5CAE00421885AAF1841E72364E5F215F0C29FB0116CA5E9844EC4C5FE7",
     derivedChecksum:
       "10FA60D39ED30EC19A940F0AA460743B9778483E8A63FA498E34E10046F1C2F2",
+    bodyRegionMapPath:
+      "/anatomy/open3dmodel-regional-body-regions.json",
+    bodyRegionMapChecksum:
+      "B55F721E8F166258F700960D905529813D879525FDD6699F5C5B948C8B521E3F",
+    licence: LICENCE,
+    attribution: ATTRIBUTION,
+    dracoDecoderPath: DRACO_DECODER_PATH,
+    provenanceUrl: PROVENANCE_URL,
+  }),
+  "full-body-complement": Object.freeze({
+    id: "full-body-complement",
+    name: "Open3DModel full-body skeleton complement",
+    region: "full-body-complement",
+    filePath: "/anatomy/open3dmodel-full-body-complement.glb",
+    coordinateSystem: COORDINATE_SYSTEM,
+    millimetresPerUnit: 1,
+    groups: FULL_BODY_GROUPS,
+    sourceUrl:
+      "https://caskanatomy.info/open3dmodelfiles/overview-skeleton/overview-skeleton-glb.zip",
+    sourceArchiveChecksum:
+      "A6E0803EC66EC236979DDD35945FC2033FA7CDBCD0AB1B4FE06B47E848706364",
+    sourceMember: "overview-skeleton.glb",
+    sourceMemberChecksum:
+      "E83543ABB5C8DE013A4BDCBF2C0536AE1CE92980C7AA7951C6AA3DDEA804D10F",
+    derivedChecksum:
+      "E736A198C7C41B32445EF0D6868F5A42CFED2F28E0D98DFE32107F2303254223",
     licence: LICENCE,
     attribution: ATTRIBUTION,
     dracoDecoderPath: DRACO_DECODER_PATH,
@@ -143,3 +187,5 @@ export const ANATOMY_ASSETS: AnatomyAssetManifest = Object.freeze({
 export const ACTIVE_HIP_ANATOMY_ASSET_ID = "hip-lower-limbs" as const;
 export const REGIONAL_HIP_ANATOMY_ASSET_ID =
   "hip-lower-limbs-regional" as const;
+export const FULL_BODY_COMPLEMENT_ASSET_ID =
+  "full-body-complement" as const;
