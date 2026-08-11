@@ -40,8 +40,8 @@ the upper limbs.
 7. A hidden region disappears from both the 3D theatre and the bones-only X-ray
    projection.
 8. Preserve `Bones only` and `Full regional`. Full regional remains a mixed
-   presentation because detailed regional structures currently exist only for
-   the pelvis and lower limbs.
+   presentation because detailed regional structures are concentrated in the
+   lower torso, pelvis, and lower limbs.
 9. Do not create, infer, or sculpt a skin or external body envelope.
 10. Add explicit `Show all`, `Hide all`, per-region visibility, per-region
     isolation, and `Fit anatomy` controls inside Anatomy.
@@ -225,6 +225,13 @@ FullBodyAnatomyRoot
 The regional lower-limb supplement remains a 3D-only sibling aligned under the
 same authoritative root. It never enters the projection renderer.
 
+The unchanged regional supplement includes six vertebral bone meshes also
+supplied by the overview complement. Runtime composition suppresses those six
+regional bone clones so each visible bone appears exactly once. A deterministic
+source-key map assigns every remaining regional mesh to lower torso, pelvis,
+left leg, or right leg for the seven-region visibility policy; the source GLB
+itself remains byte-identical.
+
 Each loaded runtime scene owns its material instances and disposes them through
 the existing resource lifecycle. Immutable provider geometry may be shared, but
 the theatre and projection renderer must not mutate one another's scene graph.
@@ -361,9 +368,9 @@ The presentation control remains:
 ```
 
 When Full regional is active, helper/status text states that detailed regional
-anatomy is currently available only for the pelvis and lower limbs. Hidden
-pelvis or leg regions also hide their corresponding regional structures.
-Head/neck, torso, and arms remain skeletal rather than appearing incomplete or
+anatomy is concentrated in the lower torso, pelvis, and lower limbs. Hidden
+regions also hide their corresponding regional structures. Head/neck, most of
+the torso, and arms remain skeletal rather than appearing incomplete or
 fabricated.
 
 `Reset anatomy` restores:
