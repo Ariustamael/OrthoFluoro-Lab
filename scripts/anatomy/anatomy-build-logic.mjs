@@ -140,6 +140,25 @@ export function fitSphere(points) {
 }
 
 function boundsDiagonal(points) {
+  const { min, max } = pointBounds(points);
+  return Math.hypot(...max.map((coordinate, axis) => coordinate - min[axis]));
+}
+
+export function pointBounds(points) {
+  if (!Array.isArray(points) || points.length === 0) {
+    throw new Error("Point bounds require at least one sample");
+  }
+  if (
+    points.some(
+      (point) =>
+        !Array.isArray(point) ||
+        point.length !== 3 ||
+        point.some((coordinate) => !Number.isFinite(coordinate)),
+    )
+  ) {
+    throw new Error("Point bounds require three finite coordinates per sample");
+  }
+
   const min = [...points[0]];
   const max = [...points[0]];
   for (const point of points.slice(1)) {
@@ -148,7 +167,7 @@ function boundsDiagonal(points) {
       max[axis] = Math.max(max[axis], point[axis]);
     }
   }
-  return Math.hypot(...max.map((coordinate, axis) => coordinate - min[axis]));
+  return { min, max };
 }
 
 function ensureWellConditionedSpatialSamples(centeredPoints, inputSpan) {
