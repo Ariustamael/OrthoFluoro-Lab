@@ -34,6 +34,9 @@ import { REFERENCE_HIP_ANATOMY_POSE } from "../../src/anatomy/anatomyTypes";
 const appCss = readFileSync(join(process.cwd(), "src/styles/app.css"), "utf8");
 let mockedAnatomyStatus: "loading" | "ready" | "error" = "error";
 let mockedAnatomyResource: object | null = null;
+let mockedFullBodyComplementResource: object | null = null;
+let mockedFullBodyComplementStatus: "loading" | "ready" | "error" =
+  "loading";
 let mockedRegionalStatus: "idle" | "loading" | "ready" | "error" = "idle";
 let mockedRegionalResource: object | null = null;
 
@@ -102,6 +105,12 @@ vi.mock("../../src/anatomy/AnatomyAssetProvider", () => ({
     resource: mockedAnatomyResource,
     retry: vi.fn(),
     status: mockedAnatomyStatus,
+    fullBodyComplement: {
+      error: null,
+      resource: mockedFullBodyComplementResource,
+      retry: vi.fn(),
+      status: mockedFullBodyComplementStatus,
+    },
     regional: {
       error: null,
       load: vi.fn(),
@@ -126,6 +135,8 @@ vi.mock(
 beforeEach(() => {
   mockedAnatomyStatus = "error";
   mockedAnatomyResource = null;
+  mockedFullBodyComplementResource = null;
+  mockedFullBodyComplementStatus = "loading";
   mockedRegionalStatus = "idle";
   mockedRegionalResource = null;
   useSimulationStore.setState({

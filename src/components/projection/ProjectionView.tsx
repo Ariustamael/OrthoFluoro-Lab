@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAnatomyAsset } from "../../anatomy/AnatomyAssetProvider";
+import type { LoadedHipAnatomy } from "../../anatomy/anatomyAssetLoader";
+import type { FullBodyBaseResource } from "../../anatomy/fullBodyAnatomyScene";
 import { C_ARM_RIG_PRESETS } from "../../engine/geometry/cArmRigPresets";
 import { buildCArmGeometry } from "../../engine/geometry/cArmTransforms";
 import { magnitude, subtract } from "../../engine/geometry/coordinateSystems";
@@ -218,7 +220,7 @@ interface ForcedSilhouette {
 interface CapabilitySnapshot {
   readonly capability: ProjectionCapability;
   readonly recoveryRevision: number;
-  readonly resource: AnatomyProjectionInput["anatomy"];
+  readonly resource: LoadedHipAnatomy;
 }
 
 const CAPABILITY_REASON_LABELS: Readonly<
@@ -397,16 +399,30 @@ export function ProjectionView({
     }),
     [geometry, renderDimensions.height, renderDimensions.width],
   );
-  const anatomyInput = useMemo<AnatomyProjectionInput | null>(
+  const complementResource =
+    anatomy.fullBodyComplement.status === "ready"
+      ? anatomy.fullBodyComplement.resource
+      : null;
+  const baseAnatomyResource = useMemo<FullBodyBaseResource | null>(
     () =>
       anatomy.status === "ready" && anatomy.resource !== null
         ? {
+            complement: complementResource,
+            hip: anatomy.resource,
+          }
+        : null,
+    [anatomy.resource, anatomy.status, complementResource],
+  );
+  const anatomyInput = useMemo<AnatomyProjectionInput | null>(
+    () =>
+      baseAnatomyResource !== null
+        ? {
             ...frameInput,
-            anatomy: anatomy.resource,
+            anatomy: baseAnatomyResource,
             anatomyPose: hipAnatomyPose,
           }
         : null,
-    [anatomy.resource, anatomy.status, frameInput, hipAnatomyPose],
+    [baseAnatomyResource, frameInput, hipAnatomyPose],
   );
   const latestProjectionInputsRef = useRef({
     anatomyInput,

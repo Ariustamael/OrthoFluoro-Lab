@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { C_ARM_RIG_PRESETS } from "../../src/engine/geometry/cArmRigPresets";
 import { buildCArmGeometry } from "../../src/engine/geometry/cArmTransforms";
 import {
@@ -9,6 +9,7 @@ import {
   createCompatibilityProjectionRenderer,
   SimplifiedProjectionRenderer,
 } from "../../src/engine/projection/SimplifiedProjectionRenderer";
+import { ProjectionAnatomyScene } from "../../src/engine/projection/projectionRendererSupport";
 import { anatomyResource, projectionInput } from "./projectionRendererFixtures";
 
 function silhouettePoints(dataUrl: string): readonly string[] {
@@ -38,7 +39,7 @@ describe("SimplifiedProjectionRenderer", () => {
 
   it("builds the compatibility image from visible resource geometry", async () => {
     const resource = anatomyResource();
-    resource.groups.forEach((group, name) => {
+    resource.hip.groups.forEach((group, name) => {
       if (name.startsWith("left-")) group.position.x = 55;
       if (name.startsWith("right-")) group.position.x = -35;
     });
@@ -72,9 +73,9 @@ describe("SimplifiedProjectionRenderer", () => {
     expect(leftOnly.artifact.dataUrl).not.toBe(bilateral.artifact.dataUrl);
     expect(rightOnly.artifact.dataUrl).not.toBe(bilateral.artifact.dataUrl);
     expect(rightOnly.artifact.dataUrl).not.toBe(leftOnly.artifact.dataUrl);
-    expect(silhouettePoints(leftOnly.artifact.dataUrl)).toHaveLength(5);
-    expect(silhouettePoints(rightOnly.artifact.dataUrl)).toHaveLength(5);
-    expect(silhouettePoints(bilateral.artifact.dataUrl)).toHaveLength(9);
+    expect(silhouettePoints(leftOnly.artifact.dataUrl)).toHaveLength(13);
+    expect(silhouettePoints(rightOnly.artifact.dataUrl)).toHaveLength(13);
+    expect(silhouettePoints(bilateral.artifact.dataUrl)).toHaveLength(17);
     expect(leftOnly.description).toBe(
       "Compatibility anatomy silhouette — WebGL 2 required",
     );
@@ -82,6 +83,48 @@ describe("SimplifiedProjectionRenderer", () => {
       badge: "Compatibility",
       reason: "WebGL 2 required",
     });
+  });
+
+  it("projects complement regions, respects hiding, and stays hip-only without the complement", async () => {
+    const renderer = createCompatibilityProjectionRenderer(
+      "WebGL 2 required",
+    );
+    const composite = projectionInput();
+    const hiddenHead = await renderer.render({
+      ...composite,
+      anatomyPose: {
+        ...composite.anatomyPose,
+        regionVisibility: {
+          ...composite.anatomyPose.regionVisibility,
+          "head-neck": false,
+        },
+      },
+    });
+    const hipOnly = await renderer.render(
+      projectionInput(anatomyResource({ complement: false })),
+    );
+
+    expect(silhouettePoints(hiddenHead.artifact.dataUrl)).toHaveLength(16);
+    expect(silhouettePoints(hipOnly.artifact.dataUrl)).toHaveLength(9);
+  });
+
+  it("rebuilds and disposes its shared anatomy scene once per composite identity change", async () => {
+    const renderer = createCompatibilityProjectionRenderer(
+      "WebGL 2 required",
+    );
+    const first = anatomyResource({ complement: false });
+    const second = anatomyResource();
+    const disposeScene = vi.spyOn(ProjectionAnatomyScene.prototype, "dispose");
+
+    await renderer.render(projectionInput(first));
+    await renderer.render(projectionInput(first));
+    expect(disposeScene).not.toHaveBeenCalled();
+    await renderer.render(projectionInput(second));
+    await renderer.render(projectionInput(second));
+    expect(disposeScene).toHaveBeenCalledOnce();
+    renderer.dispose();
+    renderer.dispose();
+    expect(disposeScene).toHaveBeenCalledTimes(2);
   });
 
   it("changes the compatibility image with hip pose and resource geometry", async () => {
@@ -111,7 +154,7 @@ describe("SimplifiedProjectionRenderer", () => {
     });
 
     const changedResource = anatomyResource();
-    changedResource.groups.get("left-femur")!.scale.set(1.7, 0.8, 1.2);
+    changedResource.hip.groups.get("left-femur")!.scale.set(1.7, 0.8, 1.2);
     const changedGeometry = await renderer.render({
       ...leftOnly,
       anatomy: changedResource,
@@ -131,7 +174,7 @@ describe("SimplifiedProjectionRenderer", () => {
 
   it("renders distinct asymmetric anatomy for every physical rig setup", async () => {
     const resource = anatomyResource();
-    resource.groups.forEach((group, name) => {
+    resource.hip.groups.forEach((group, name) => {
       group.position.set(
         name.startsWith("left-") ? 68 : -31,
         name.endsWith("femur") ? 22 : -14,

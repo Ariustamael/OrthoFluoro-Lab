@@ -9,10 +9,10 @@ import {
   type WebGLRenderTarget,
 } from "three";
 import {
-  createHipAnatomyViewportScene,
-  updateHipAnatomyViewportScene,
-  type HipAnatomyViewportScene,
-} from "../../anatomy/hipAnatomyScene";
+  createFullBodyAnatomyViewportScene,
+  updateFullBodyAnatomyViewportScene,
+  type FullBodyAnatomyViewportScene,
+} from "../../anatomy/fullBodyAnatomyScene";
 import type { HipAnatomyPose } from "../../anatomy/anatomyTypes";
 import type {
   AnatomyProjectionResource,
@@ -47,24 +47,20 @@ export interface ProjectionDimensions {
 
 export class ProjectionAnatomyScene {
   readonly scene = new Scene();
-  readonly view: HipAnatomyViewportScene;
+  readonly view: FullBodyAnatomyViewportScene;
   readonly meshes: readonly Mesh[];
 
   constructor(readonly resource: AnatomyProjectionResource) {
     this.scene.name = "Anatomy projection scene";
-    this.view = createHipAnatomyViewportScene(resource, {
+    this.view = createFullBodyAnatomyViewportScene(resource, {
       cloneMaterials: false,
     });
     this.scene.add(this.view.root);
-    const meshes: Mesh[] = [];
-    this.view.root.traverse((object) => {
-      if (object instanceof Mesh) meshes.push(object);
-    });
-    this.meshes = meshes;
+    this.meshes = this.view.meshes;
   }
 
   update(pose: HipAnatomyPose): void {
-    updateHipAnatomyViewportScene(this.view, pose);
+    updateFullBodyAnatomyViewportScene(this.view, pose);
     this.scene.updateMatrixWorld(true);
   }
 

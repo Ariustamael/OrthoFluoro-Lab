@@ -12,6 +12,10 @@ import {
   AnatomyAssetProvider,
   type AnatomyAssetLease,
 } from "../../src/anatomy/AnatomyAssetProvider";
+import type {
+  FullBodyAnatomyAssetLease,
+  LoadedFullBodyComplement,
+} from "../../src/anatomy/fullBodyAnatomyTypes";
 import { REFERENCE_HIP_ANATOMY_POSE } from "../../src/anatomy/anatomyTypes";
 import { CArmControls } from "../../src/components/controls/CArmControls";
 import {
@@ -34,7 +38,10 @@ import type {
   ProjectionRenderer,
 } from "../../src/engine/projection/rendererTypes";
 import { useSimulationStore } from "../../src/state/simulationStore";
-import { anatomyResource } from "../engine/projectionRendererFixtures";
+import {
+  fullBodyComplementResource,
+  hipAnatomyResource,
+} from "../engine/projectionRendererFixtures";
 
 function output(
   description: string,
@@ -75,7 +82,14 @@ function renderer<TInput extends ProjectionFrameInput>(
 
 function readyLease(): AnatomyAssetLease {
   return {
-    promise: Promise.resolve(anatomyResource()),
+    promise: Promise.resolve(hipAnatomyResource()),
+    release: vi.fn(),
+  };
+}
+
+function readyFullBodyLease(): FullBodyAnatomyAssetLease {
+  return {
+    promise: Promise.resolve(fullBodyComplementResource()),
     release: vi.fn(),
   };
 }
@@ -89,13 +103,19 @@ function errorLease(message = "asset failed"): AnatomyAssetLease {
 
 function renderProjection(
   factories: ProjectionRendererFactories,
-  capability: ProjectionCapability,
+  capability: ProjectionCapability | (() => ProjectionCapability),
   acquireLease: () => AnatomyAssetLease = readyLease,
+  acquireFullBodyLease: () => FullBodyAnatomyAssetLease = readyFullBodyLease,
 ) {
   return render(
-    <AnatomyAssetProvider acquireLease={acquireLease}>
+    <AnatomyAssetProvider
+      acquireFullBodyLease={acquireFullBodyLease}
+      acquireLease={acquireLease}
+    >
       <ProjectionView
-        detectCapability={() => capability}
+        detectCapability={
+          typeof capability === "function" ? capability : () => capability
+        }
         rendererFactories={factories}
       />
     </AnatomyAssetProvider>,
@@ -131,6 +151,97 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("ProjectionView renderer orchestration", () => {
+  it("treats complement readiness as a continuous anatomy change without recreating the renderer or reproving hip capability", async () => {
+    const complement = deferred<LoadedFullBodyComplement>();
+    const loadedComplement = fullBodyComplementResource();
+    const acquireFullBodyLease = vi.fn(
+      (): FullBodyAnatomyAssetLease => ({
+        promise: complement.promise,
+        release: vi.fn(),
+      }),
+    );
+    const layered = renderer<AnatomyProjectionInput>(
+      output("Composite readiness", "composite-readiness"),
+    );
+    const createLayered = vi.fn(() => layered);
+    const detectCapability = vi.fn(
+      (): ProjectionCapability => ({
+        precision: "float32",
+        reason: null,
+        strategy: "layered-thickness",
+      }),
+    );
+    const factories: ProjectionRendererFactories = {
+      createLayered,
+      createSilhouette: () => renderer(output("Silhouette", "mesh-silhouette")),
+      createSimplified: () =>
+        renderer(output("Unavailable", "simplified-procedural")),
+    };
+
+    renderProjection(
+      factories,
+      detectCapability,
+      readyLease,
+      acquireFullBodyLease,
+    );
+    await waitFor(() => expect(layered.render).toHaveBeenCalledOnce());
+    const firstInput = vi.mocked(layered.render).mock.calls[0][0];
+    expect(firstInput.anatomy.complement).toBeNull();
+
+    await act(async () => complement.resolve(loadedComplement));
+    await waitFor(() => expect(layered.render).toHaveBeenCalledTimes(2));
+    const secondInput = vi.mocked(layered.render).mock.calls[1][0];
+    expect(secondInput.anatomy.hip).toBe(firstInput.anatomy.hip);
+    expect(secondInput.anatomy.complement).toBe(loadedComplement);
+    expect(secondInput.anatomy).not.toBe(firstInput.anatomy);
+    expect(createLayered).toHaveBeenCalledOnce();
+    expect(detectCapability).toHaveBeenCalledOnce();
+
+    act(() => useSimulationStore.getState().setSelectedHipRotation(17));
+    await waitFor(() => expect(layered.render).toHaveBeenCalledTimes(3));
+    expect(vi.mocked(layered.render).mock.calls[2][0].anatomy).toBe(
+      secondInput.anatomy,
+    );
+    expect(acquireFullBodyLease).toHaveBeenCalledOnce();
+  });
+
+  it("does not auto-expose complement readiness in shots-only and captures the latest stable composite on the next shot", async () => {
+    useSimulationStore.setState({ acquisitionMode: "shots-only" });
+    const complement = deferred<LoadedFullBodyComplement>();
+    const loadedComplement = fullBodyComplementResource();
+    const layered = renderer<AnatomyProjectionInput>(
+      output("Latest composite shot", "latest-composite-shot"),
+    );
+    const factories: ProjectionRendererFactories = {
+      createLayered: vi.fn(() => layered),
+      createSilhouette: () => renderer(output("Silhouette", "mesh-silhouette")),
+      createSimplified: () =>
+        renderer(output("Unavailable", "simplified-procedural")),
+    };
+
+    renderProjection(
+      factories,
+      {
+        precision: "float32",
+        reason: null,
+        strategy: "layered-thickness",
+      },
+      readyLease,
+      () => ({ promise: complement.promise, release: vi.fn() }),
+    );
+    await findDetectorMessage("Ready for exposure");
+    expect(layered.render).not.toHaveBeenCalled();
+
+    await act(async () => complement.resolve(loadedComplement));
+    expect(layered.render).not.toHaveBeenCalled();
+    act(() => useSimulationStore.getState().requestShot());
+    await waitFor(() => expect(layered.render).toHaveBeenCalledOnce());
+
+    const shotInput = vi.mocked(layered.render).mock.calls[0][0];
+    expect(shotInput.anatomy.complement).toBe(loadedComplement);
+    expect(Object.keys(shotInput.anatomy).sort()).toEqual(["complement", "hip"]);
+  });
+
   it("applies every display action to the image and overlay without rendering physical geometry", async () => {
     const user = userEvent.setup();
     const layered = renderer<AnatomyProjectionInput>(
@@ -241,7 +352,10 @@ describe("ProjectionView renderer orchestration", () => {
     };
 
     render(
-      <AnatomyAssetProvider acquireLease={readyLease}>
+      <AnatomyAssetProvider
+        acquireFullBodyLease={readyFullBodyLease}
+        acquireLease={readyLease}
+      >
         <CArmControls />
         <ProjectionView
           detectCapability={() => ({
@@ -294,6 +408,7 @@ describe("ProjectionView renderer orchestration", () => {
 
     render(
       <AnatomyAssetProvider
+        acquireFullBodyLease={readyFullBodyLease}
         acquireLease={readyLease}
         acquireRegionalLease={() => ({
           promise: new Promise(() => undefined),
@@ -893,7 +1008,10 @@ describe("ProjectionView renderer orchestration", () => {
     "uses a non-WebGL compatibility projection for %s",
     async (reason, reasonLabel) => {
       render(
-        <AnatomyAssetProvider acquireLease={readyLease}>
+        <AnatomyAssetProvider
+          acquireFullBodyLease={readyFullBodyLease}
+          acquireLease={readyLease}
+        >
           <ProjectionView
             detectCapability={() => ({
               precision: null,
@@ -924,7 +1042,10 @@ describe("ProjectionView renderer orchestration", () => {
 
   it("updates the production compatibility image for visibility and hip rotation", async () => {
     render(
-      <AnatomyAssetProvider acquireLease={readyLease}>
+      <AnatomyAssetProvider
+        acquireFullBodyLease={readyFullBodyLease}
+        acquireLease={readyLease}
+      >
         <ProjectionView
           detectCapability={() => ({
             precision: null,
@@ -1005,7 +1126,10 @@ describe("ProjectionView renderer orchestration", () => {
     expect(factories.createSimplified).not.toHaveBeenCalled();
     expect(layered.render).toHaveBeenCalledWith(
       expect.objectContaining({
-        anatomy: expect.objectContaining({ scene: expect.anything() }),
+        anatomy: expect.objectContaining({
+          complement: expect.objectContaining({ scene: expect.anything() }),
+          hip: expect.objectContaining({ scene: expect.anything() }),
+        }),
         anatomyPose: expect.objectContaining({
           regionVisibility: REFERENCE_HIP_ANATOMY_POSE.regionVisibility,
         }),
@@ -1135,7 +1259,10 @@ describe("ProjectionView renderer orchestration", () => {
     ).toBeVisible();
 
     view.rerender(
-      <AnatomyAssetProvider acquireLease={readyLease}>
+      <AnatomyAssetProvider
+        acquireFullBodyLease={readyFullBodyLease}
+        acquireLease={readyLease}
+      >
         <ProjectionView
           detectCapability={() => ({
             precision: "float16",
@@ -1275,7 +1402,7 @@ describe("ProjectionView renderer orchestration", () => {
   });
 
   it("recreates after repeated context losses using the newest store pose", async () => {
-    const resource = anatomyResource();
+    const resource = hipAnatomyResource();
     const acquireLease = vi.fn((): AnatomyAssetLease => ({
       promise: Promise.resolve(resource),
       release: vi.fn(),
@@ -1357,7 +1484,7 @@ describe("ProjectionView renderer orchestration", () => {
 
   it("keeps a permanent layered failure on silhouette across resource reloads", async () => {
     const acquireLease = vi.fn((): AnatomyAssetLease => ({
-      promise: Promise.resolve(anatomyResource()),
+      promise: Promise.resolve(hipAnatomyResource()),
       release: vi.fn(),
     }));
     const layered: ProjectionRenderer<AnatomyProjectionInput> = {

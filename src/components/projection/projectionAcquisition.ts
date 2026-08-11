@@ -125,14 +125,19 @@ function cloneCArmGeometry(geometry: CArmGeometry): CArmGeometry {
 }
 
 function cloneHipAnatomyPose(pose: HipAnatomyPose): HipAnatomyPose {
+  const regionVisibility = Object.freeze({ ...pose.regionVisibility });
+  const upperLimbs = Object.freeze({
+    left: Object.freeze({ ...pose.upperLimbs.left }),
+    right: Object.freeze({ ...pose.upperLimbs.right }),
+  });
   return Object.freeze({
     leftHipRotationDegrees: pose.leftHipRotationDegrees,
     rightHipRotationDegrees: pose.rightHipRotationDegrees,
     rootPosition: cloneVec3(pose.rootPosition),
     rootRotationDegrees: cloneVec3(pose.rootRotationDegrees),
     selectedSide: pose.selectedSide,
-    regionVisibility: pose.regionVisibility,
-    upperLimbs: pose.upperLimbs,
+    regionVisibility,
+    upperLimbs,
   });
 }
 

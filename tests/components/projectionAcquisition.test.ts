@@ -1,6 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { Group, Vector3 } from "three";
-import type { LoadedHipAnatomy } from "../../src/anatomy/anatomyAssetLoader";
 import {
   REFERENCE_HIP_ANATOMY_POSE,
   type HipAnatomyPose,
@@ -18,8 +16,10 @@ import {
 import type { CArmGeometry } from "../../src/engine/geometry/geometryTypes";
 import type {
   AnatomyProjectionInput,
+  AnatomyProjectionResource,
   ProjectionFrameInput,
 } from "../../src/engine/projection/rendererTypes";
+import { anatomyResource } from "../engine/projectionRendererFixtures";
 
 describe("detectorDimensions", () => {
   it.each([
@@ -70,18 +70,16 @@ function createPose(): HipAnatomyPose {
     rightHipRotationDegrees: -7,
     rootPosition: [1, 2, 3],
     rootRotationDegrees: [4, 5, 6],
+    regionVisibility: { ...REFERENCE_HIP_ANATOMY_POSE.regionVisibility },
+    upperLimbs: {
+      left: { ...REFERENCE_HIP_ANATOMY_POSE.upperLimbs.left },
+      right: { ...REFERENCE_HIP_ANATOMY_POSE.upperLimbs.right },
+    },
   };
 }
 
-function createAnatomyResource(): LoadedHipAnatomy {
-  return {
-    groups: new Map(),
-    hipPivots: {
-      left: new Vector3(82, 0, 0),
-      right: new Vector3(-82, 0, 0),
-    },
-    scene: new Group(),
-  };
+function createAnatomyResource(): AnatomyProjectionResource {
+  return anatomyResource();
 }
 
 function mutateReadonlyTuple(
@@ -116,7 +114,7 @@ describe("captureProjectionSnapshot", () => {
     });
   });
 
-  it("clones every mutable geometry and pose field while retaining the base anatomy resource", () => {
+  it("deep-clones and freezes every mutable field while retaining composite resource identity", () => {
     const geometry = createGeometry();
     const pose = createPose();
     const anatomy = createAnatomyResource();
@@ -185,11 +183,35 @@ describe("captureProjectionSnapshot", () => {
     expect(snapshot.anatomyInput?.anatomyPose.rootRotationDegrees).not.toBe(
       pose.rootRotationDegrees,
     );
+    expect(snapshot.anatomyInput?.anatomyPose.regionVisibility).not.toBe(
+      pose.regionVisibility,
+    );
+    expect(snapshot.anatomyInput?.anatomyPose.upperLimbs).not.toBe(
+      pose.upperLimbs,
+    );
+    expect(snapshot.anatomyInput?.anatomyPose.upperLimbs.left).not.toBe(
+      pose.upperLimbs.left,
+    );
+    expect(snapshot.anatomyInput?.anatomyPose.upperLimbs.right).not.toBe(
+      pose.upperLimbs.right,
+    );
     expect(Object.isFrozen(snapshot)).toBe(true);
     expect(Object.isFrozen(snapshot.frameInput.geometry.detector.center)).toBe(
       true,
     );
     expect(Object.isFrozen(snapshot.anatomyInput?.anatomyPose)).toBe(true);
+    expect(
+      Object.isFrozen(snapshot.anatomyInput?.anatomyPose.regionVisibility),
+    ).toBe(true);
+    expect(Object.isFrozen(snapshot.anatomyInput?.anatomyPose.upperLimbs)).toBe(
+      true,
+    );
+    expect(
+      Object.isFrozen(snapshot.anatomyInput?.anatomyPose.upperLimbs.left),
+    ).toBe(true);
+    expect(
+      Object.isFrozen(snapshot.anatomyInput?.anatomyPose.upperLimbs.right),
+    ).toBe(true);
   });
 
   it("does not change when the source geometry and anatomy pose are mutated later", () => {
@@ -221,6 +243,17 @@ describe("captureProjectionSnapshot", () => {
     (
       pose as unknown as { leftHipRotationDegrees: number }
     ).leftHipRotationDegrees = 999;
+    (
+      pose.regionVisibility as unknown as Record<string, boolean>
+    )["left-arm"] = false;
+    (
+      pose.upperLimbs.left as unknown as {
+        shoulderAbductionDegrees: number;
+      }
+    ).shoulderAbductionDegrees = 999;
+    (
+      pose.upperLimbs.right as unknown as { elbowFlexionDegrees: number }
+    ).elbowFlexionDegrees = 999;
 
     expect(snapshot.frameInput.geometry.source).toEqual([0, -580, 10]);
     expect(snapshot.frameInput.geometry.detector.center).toEqual([0, 420, 10]);
@@ -229,8 +262,13 @@ describe("captureProjectionSnapshot", () => {
     ]);
     expect(snapshot.anatomyInput?.anatomyPose).toMatchObject({
       leftHipRotationDegrees: 11,
+      regionVisibility: { "left-arm": true },
       rootPosition: [1, 2, 3],
       rootRotationDegrees: [4, 5, 6],
+      upperLimbs: {
+        left: { shoulderAbductionDegrees: 0 },
+        right: { elbowFlexionDegrees: 0 },
+      },
     });
   });
 });

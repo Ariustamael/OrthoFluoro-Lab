@@ -1,9 +1,5 @@
-import type { Group, Vector3 } from "three";
-import type {
-  AnatomySide,
-  HipAnatomyGroup,
-  HipAnatomyPose,
-} from "../../anatomy/anatomyTypes";
+import type { HipAnatomyPose } from "../../anatomy/anatomyTypes";
+import type { FullBodyBaseResource } from "../../anatomy/fullBodyAnatomyScene";
 import type { CArmGeometry } from "../geometry/geometryTypes";
 
 export interface ProjectionFrameInput {
@@ -12,11 +8,7 @@ export interface ProjectionFrameInput {
   readonly height: number;
 }
 
-export interface AnatomyProjectionResource {
-  readonly scene: Group;
-  readonly groups: ReadonlyMap<HipAnatomyGroup, Group>;
-  readonly hipPivots: Readonly<Record<AnatomySide, Vector3>>;
-}
+export type AnatomyProjectionResource = FullBodyBaseResource;
 
 export interface AnatomyProjectionInput extends ProjectionFrameInput {
   readonly anatomy: AnatomyProjectionResource;

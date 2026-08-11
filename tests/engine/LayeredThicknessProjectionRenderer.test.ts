@@ -5,6 +5,7 @@ import {
   THICKNESS_ACCUMULATION_FRAGMENT_SHADER,
   THICKNESS_COMPOSITE_FRAGMENT_SHADER,
 } from "../../src/engine/projection/layeredThicknessShaders";
+import { ProjectionAnatomyScene } from "../../src/engine/projection/projectionRendererSupport";
 import {
   anatomyResource,
   fakeCanvas,
@@ -71,6 +72,8 @@ describe("LayeredThicknessProjectionRenderer", () => {
       "Projection thickness back exit",
       null,
     ]);
+    expect(backend.renders[0].visibleMeshes).toContain("head-neck-closed");
+    expect(backend.renders[0].visibleMeshes).toContain("right-hand-closed");
     expect(renderer.accumulationContract).toEqual({
       backSurfaceSign: 1,
       blending: "additive",
@@ -87,6 +90,56 @@ describe("LayeredThicknessProjectionRenderer", () => {
       height: 220,
       width: 220,
     });
+  });
+
+  it("excludes every mesh in a hidden complement region", async () => {
+    const backend = new RecordingWebGLRenderer(FLOAT32_EXTENSIONS);
+    const renderer = new LayeredThicknessProjectionRenderer({
+      canvasFactory: fakeCanvas,
+      rendererFactory: () => backend,
+    });
+    const input = projectionInput();
+
+    await renderer.render({
+      ...input,
+      anatomyPose: {
+        ...input.anatomyPose,
+        regionVisibility: {
+          ...input.anatomyPose.regionVisibility,
+          "left-arm": false,
+        },
+      },
+    });
+
+    expect(backend.renders[0].visibleMeshes).not.toContain(
+      "left-upper-arm-closed",
+    );
+    expect(backend.renders[0].visibleMeshes).not.toContain(
+      "left-forearm-closed",
+    );
+    expect(backend.renders[0].visibleMeshes).not.toContain("left-hand-closed");
+    expect(backend.renders[0].visibleMeshes).toContain("right-hand-closed");
+  });
+
+  it("rebuilds and disposes its shared anatomy scene once per composite identity change", async () => {
+    const backend = new RecordingWebGLRenderer(FLOAT32_EXTENSIONS);
+    const renderer = new LayeredThicknessProjectionRenderer({
+      canvasFactory: fakeCanvas,
+      rendererFactory: () => backend,
+    });
+    const first = anatomyResource({ complement: false });
+    const second = anatomyResource();
+    const disposeScene = vi.spyOn(ProjectionAnatomyScene.prototype, "dispose");
+
+    await renderer.render(projectionInput(first));
+    await renderer.render(projectionInput(first));
+    expect(disposeScene).not.toHaveBeenCalled();
+    await renderer.render(projectionInput(second));
+    await renderer.render(projectionInput(second));
+    expect(disposeScene).toHaveBeenCalledOnce();
+    renderer.dispose();
+    renderer.dispose();
+    expect(disposeScene).toHaveBeenCalledTimes(2);
   });
 
   it("uses float16 when float32 blending is unavailable", async () => {
@@ -144,7 +197,7 @@ describe("LayeredThicknessProjectionRenderer", () => {
   it("reuses the floating target and disposes only renderer-owned resources once", async () => {
     const backend = new RecordingWebGLRenderer(FLOAT32_EXTENSIONS);
     const resource = anatomyResource();
-    const providerMesh = resource.groups
+    const providerMesh = resource.hip.groups
       .get("pelvis")!
       .getObjectByProperty("isMesh", true) as Mesh;
     const geometryDispose = vi.spyOn(providerMesh.geometry, "dispose");
@@ -193,7 +246,7 @@ describe("LayeredThicknessProjectionRenderer", () => {
     await expect(renderer.render(projectionInput(resource))).rejects.toThrow(
       "GPU reset",
     );
-    const providerOpenMesh = resource.groups
+    const providerOpenMesh = resource.hip.groups
       .get("left-femur")!
       .getObjectByProperty("isMesh", true) as Mesh;
     expect(providerOpenMesh.visible).toBe(true);

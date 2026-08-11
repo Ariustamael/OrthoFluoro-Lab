@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
-import { Group, Vector3 } from "three";
+import { Vector3 } from "three";
 import type {
   AnatomyProjectionInput,
   AnatomyProjectionResource,
@@ -28,6 +28,7 @@ import {
 } from "../../src/engine/geometry/geometryTypes";
 import { magnification } from "../../src/engine/geometry/projectionMath";
 import { REFERENCE_HIP_ANATOMY_POSE } from "../../src/anatomy/anatomyTypes";
+import { anatomyResource } from "./projectionRendererFixtures";
 
 const EPSILON = 1e-5;
 
@@ -51,14 +52,7 @@ describe("anatomy projection contracts", () => {
       "render",
     );
 
-    const resource: AnatomyProjectionResource = {
-      scene: new Group(),
-      groups: new Map(),
-      hipPivots: {
-        left: new Vector3(85, 0, 0),
-        right: new Vector3(-85, 0, 0),
-      },
-    };
+    const resource: AnatomyProjectionResource = anatomyResource();
     const input: AnatomyProjectionInput = {
       anatomy: resource,
       anatomyPose: REFERENCE_HIP_ANATOMY_POSE,

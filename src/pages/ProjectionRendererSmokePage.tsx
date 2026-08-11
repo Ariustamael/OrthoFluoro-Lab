@@ -99,12 +99,15 @@ function cubeAnatomy(overlap: boolean): AnatomyProjectionResource {
     [-58, 0, -80],
   );
   return {
-    groups,
-    hipPivots: {
-      left: new Vector3(58, 0, 0),
-      right: new Vector3(-58, 0, 0),
+    complement: null,
+    hip: {
+      groups,
+      hipPivots: {
+        left: new Vector3(58, 0, 0),
+        right: new Vector3(-58, 0, 0),
+      },
+      scene,
     },
-    scene,
   };
 }
 
@@ -224,7 +227,7 @@ async function runSmokeTest(): Promise<SmokeResult> {
     silhouette.dispose();
     layered.dispose();
     [single, overlap].forEach((resource) => {
-      resource.scene.traverse((object) => {
+      resource.hip.scene.traverse((object) => {
         if (!(object instanceof Mesh)) return;
         object.geometry.dispose();
         const materials = Array.isArray(object.material)
