@@ -18,6 +18,26 @@
   interaction sizes, plus Continuous imaging and immutable Shots-only capture;
 - responsive application shell, local settings storage, PWA baseline, and
   explicit medical limitations.
+- a seven-region hybrid full-body skeleton that preserves the detailed pelvis
+  and lower limbs while adding overview head/neck, torso and arms;
+- shared theatre/X-ray region transforms, camera-only Fit anatomy, a compact
+  signed angle plaque, and a full-length schematic tabletop without a central
+  pedestal;
+- validated bilateral shoulder, elbow, wrist and hip pivot metadata, retained
+  in a neutral hierarchy for the next stage.
+
+## Modular full-body delivery stages
+
+Stage one implements and release-tests the hybrid full-body composition,
+seven-region visibility/isolation, offline complement and regional sidecar,
+projection parity, presentation-only Full regional mode, angle plaque, camera
+fit and table refinement. Publication remains blocked until the recorded user
+domain review is completed and approved.
+
+Stage two may activate rigid upper-limb articulation around the existing joint
+pivots after a separate plan and domain review. It must preserve the shared
+theatre/projection transforms and remains skeletal; deformable soft tissue,
+biomechanical validation and patient-specific positioning remain out of scope.
 
 ## Approved hip-first sequence
 

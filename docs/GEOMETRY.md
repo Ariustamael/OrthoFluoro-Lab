@@ -256,6 +256,35 @@ cartilage, ligament, muscle, fascia, artery, vein, nerve, bursa, and overlay
 categories. It is theatre-only: the invariant projection input is
 `CArmGeometry + base skeleton + HipAnatomyPose`.
 
+## Modular full-body hierarchy
+
+The projection and theatre compose one hybrid skeleton from two resources: the
+full-body complement owns head/neck, torso (including clavicles and scapulae),
+and bilateral upper arms, forearms and hands; the higher-detail base owns pelvis
+and both complete lower limbs. The seven independent visibility regions are
+`head-neck`, `torso`, `pelvis`, `left-arm`, `right-arm`, `left-leg` and
+`right-leg`. The regional sidecar maps dissected structures to the corresponding
+lower-torso/pelvis/leg region and suppresses T12 and L1-L5 clones, so no visible
+bone is deliberately supplied twice.
+
+The complement records bilateral shoulder, elbow and wrist pivots and the
+composite also uses the established hip pivots. Each record includes a
+right-handed local basis and explicit parent/child segments. Stage one keeps all
+upper-limb pivot rotations neutral: the pivots prepare rigid stage-two
+articulation but do not yet offer user manipulation or claim biomechanical
+validation. Theatre and X-ray clones receive the same local-to-world matrices;
+the regional supplement remains excluded from projection.
+
+`Fit anatomy` changes only the Three.js inspection camera to frame currently
+visible region bounds. It does not mutate the anatomy root, C-arm geometry,
+projection request or captured detector pixels. The top-left angle plaque reads
+the authoritative Orbit, Tilt and Swivel values and is likewise display-only.
+
+The schematic radiolucent tabletop is approximately `2100 x 550 x 50 mm` and
+retains the previous upper-surface height. The former central pedestal is
+omitted intentionally so it cannot obscure the beam/anatomy relationship; no
+claim of a mechanically complete operating table is implied.
+
 ## Detector-aligned mesh camera
 
 Mesh rendering derives a perspective camera from `CArmGeometry`, never from the

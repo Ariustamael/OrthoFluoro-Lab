@@ -17,15 +17,15 @@ export function TheatreAnglePlaque() {
   return (
     <dl aria-label="C-arm angles" className="theatre-angle-plaque">
       <div>
-        <dt>Orbit</dt>
+        <dt>Orbit</dt>{" "}
         <dd>{formatSignedDegrees(Math.round(orbitDegrees))}</dd>
       </div>
       <div>
-        <dt>Tilt</dt>
+        <dt>Tilt</dt>{" "}
         <dd>{formatSignedDegrees(Math.round(tiltDegrees))}</dd>
       </div>
       <div>
-        <dt>Swivel</dt>
+        <dt>Swivel</dt>{" "}
         <dd>{formatSignedDegrees(Math.round(swivelDegrees))}</dd>
       </div>
     </dl>

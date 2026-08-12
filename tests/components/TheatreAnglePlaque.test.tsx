@@ -30,9 +30,9 @@ describe("theatre angle plaque", () => {
 
     const plaque = screen.getByLabelText("C-arm angles");
     expect(plaque.tagName).toBe("DL");
-    expect(plaque).toHaveTextContent("Orbit+12°");
-    expect(plaque).toHaveTextContent("Tilt−5°");
-    expect(plaque).toHaveTextContent("Swivel+8°");
+    expect(plaque).toHaveTextContent("Orbit +12°");
+    expect(plaque).toHaveTextContent("Tilt −5°");
+    expect(plaque).toHaveTextContent("Swivel +8°");
   });
 
   it("updates from pose state without becoming a control, live region, or projection request", () => {
@@ -51,7 +51,7 @@ describe("theatre angle plaque", () => {
       }));
     });
 
-    expect(plaque).toHaveTextContent("Orbit−10°");
+    expect(plaque).toHaveTextContent("Orbit −10°");
     expect(requestShot).not.toHaveBeenCalled();
     expect(useSimulationStore.getState().shotRequestRevision).toBe(4);
   });

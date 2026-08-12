@@ -6,8 +6,10 @@ exposure simulator, or patient-specific planning tool.
 
 ## Anatomy model
 
-The base skeleton and optional Full regional presentation are licensed,
-transformed Open3DModel educational meshes. The regional option displays the
+The hybrid skeleton combines overview-detail head, neck, torso and arms with a
+higher-detail pelvis and lower limbs. Seven-region visibility is an educational
+inspection aid, not a segmentation or completeness claim. The optional Full
+regional presentation displays the
 pinned lower-limb source's dissected cartilage, ligaments, muscles, fascia,
 vessels, nerves, bursae, overlays, and contextual vertebrae with app-owned
 opaque colours. These surfaces can visually cover bones in the 3D theatre, but
@@ -21,10 +23,17 @@ Mirrored left-side structures are geometrically derived and are not independent
 anatomy. The fitted femoral-head pivots support coherent whole-leg teaching
 motion; they are not clinically measured joint centres.
 
+Shoulder, elbow, wrist and hip pivot definitions are included for deterministic
+scene hierarchy and future rigid articulation. Upper-limb articulation remains
+disabled in stage one, and neither the pivot locations nor local axes have yet
+received the required named domain approval. No skeletal skinning, deformable
+tissue, collision model or validated range of motion is provided.
+
 ## Synthetic detector image
 
-The primary detector image represents relative path length through closed base
-bone meshes. Full regional presentation never adds, removes, or reduces
+The primary detector image represents relative path length through closed bone
+meshes. It remains bones-only and non-diagnostic. Full regional presentation
+never adds, removes, or reduces
 attenuation: the optional regional structures are excluded from every X-ray
 renderer. The image is a synthetic relative mesh-thickness projection, not a
 clinically calibrated radiograph. Relative darkness is normalized for visual
@@ -41,6 +50,10 @@ anatomy load failure uses a labelled procedural fallback; neither fallback
 represents thickness. Increasing the detector backing resolution improves edge
 sampling only; it does not add anatomical detail, clinical image processing, or
 diagnostic fidelity.
+
+There is no skin/body envelope. Full regional is a mixed-detail dissected
+regional model concentrated in the lower torso, pelvis and lower limbs; it may
+mask bones in the 3D theatre but does not simulate intact flesh or attenuation.
 
 ## Intended use boundary
 

@@ -70,6 +70,38 @@ async function waitForProjectionChange(
   return projectionImageSignature(page);
 }
 
+async function waitForProjectionSettlementAfter(
+  page: Page,
+  action: () => Promise<void>,
+): Promise<string> {
+  const detector = page.getByTestId("projection-detector-display");
+  const settled = detector.evaluate(
+    (element) =>
+      new Promise<void>((resolve, reject) => {
+        let sawPending = element.getAttribute("aria-busy") === "true";
+        const timeout = window.setTimeout(() => {
+          observer.disconnect();
+          reject(new Error("Projection did not complete a pending cycle"));
+        }, 30_000);
+        const observer = new MutationObserver(() => {
+          const busy = element.getAttribute("aria-busy") === "true";
+          sawPending ||= busy;
+          if (!sawPending || busy) return;
+          window.clearTimeout(timeout);
+          observer.disconnect();
+          resolve();
+        });
+        observer.observe(element, {
+          attributeFilter: ["aria-busy"],
+          attributes: true,
+        });
+      }),
+  );
+  await action();
+  await settled;
+  return projectionImageSignature(page);
+}
+
 async function waitForUiScheduling(page: Page, frameCount = 4): Promise<void> {
   await page.evaluate(
     (frames) =>
@@ -106,6 +138,26 @@ async function expectInside(inner: Locator, outer: Locator): Promise<void> {
   );
 }
 
+async function pointRangePositive(slider: Locator): Promise<number> {
+  const box = await slider.boundingBox();
+  expect(box).not.toBeNull();
+  await slider.click({
+    position: { x: box!.width * 0.75, y: box!.height / 2 },
+  });
+  await expect.poll(() => slider.inputValue()).not.toBe("0");
+  return Number(await slider.inputValue());
+}
+
+const ISOLATED_REGIONS = [
+  ["head and neck", "Head and neck only"],
+  ["torso", "Torso only"],
+  ["pelvis", "Pelvis only"],
+  ["left arm", "Left arm only"],
+  ["right arm", "Right arm only"],
+  ["left leg", "Left leg only"],
+  ["right leg", "Right leg only"],
+] as const;
+
 test.beforeEach(async ({ page }) => {
   const errors: string[] = [];
   page.on("console", (message) => {
@@ -132,7 +184,7 @@ test("@desktop separates physical setup from X-ray display orientation", async (
   await orbit.press("Enter");
 
   const initial = await waitForProjectionChange(page, neutral);
-  await page.getByRole("radio", { name: "Left leg only" }).check();
+  await page.getByRole("button", { name: "Show only left leg" }).click();
   const leftLegBaseline = await waitForProjectionChange(page, initial);
 
   await page.getByRole("radio", { name: "Right approach" }).check();
@@ -226,6 +278,24 @@ test("@desktop rotates continuously in 10-degree steps", async ({ page }) => {
   await expect(rotationStatus).toHaveText("350°");
 });
 
+test("@desktop direct pointer interaction updates every signed angle plaque value", async ({
+  page,
+}) => {
+  const plaque = page.getByLabel("C-arm angles");
+  for (const [sliderName, plaqueName] of [
+    ["Orbit", "Orbit"],
+    ["Cranial/caudal tilt", "Tilt"],
+    ["Swivel", "Swivel"],
+  ] as const) {
+    const value = await pointRangePositive(
+      page.getByRole("slider", { name: sliderName, exact: true }),
+    );
+    await expect(plaque).toContainText(
+      `${plaqueName} +${Math.round(value)}°`,
+    );
+  }
+});
+
 test("@desktop keeps the complete rotated X-ray inside its black stage", async ({
   page,
 }) => {
@@ -245,6 +315,26 @@ test("@desktop keeps the complete rotated X-ray inside its black stage", async (
   for (let step = 0; step < 3; step += 1) await rotateRight.click();
   await expect(rotationStatus).toHaveText("40°");
   await expectInside(transformedImage, stage);
+});
+
+test("@desktop exposes the full-length support-free table in an oblique theatre view", async ({
+  page,
+}) => {
+  const theatre = page.getByRole("region", { name: "3D theatre" });
+  const geometryStatus = page.getByRole("status", {
+    name: "3D theatre geometry",
+  });
+  await expect(geometryStatus).toContainText("Tabletop 2100 × 550 × 50 mm");
+  await expect(geometryStatus).toContainText("Central pedestal absent");
+  const ap = sourceSignature((await theatre.screenshot()).toString("base64"));
+
+  const orbit = page.getByRole("spinbutton", { name: "Orbit angle" });
+  await orbit.fill("35");
+  await orbit.press("Enter");
+  await expect(page.getByLabel("C-arm angles")).toContainText("Orbit +35°");
+  const oblique = await theatre.screenshot();
+  expect(oblique.length).toBeGreaterThan(10_000);
+  expect(sourceSignature(oblique.toString("base64"))).not.toBe(ap);
 });
 
 test("@desktop retired public routes redirect to the root simulator", async ({
@@ -302,7 +392,10 @@ test("@desktop full regional presentation follows anatomy controls without chang
   const fullRegional = page.getByRole("radio", {
     name: "Show full regional anatomy in 3D",
   });
-  await expect(page.getByRole("radio", { name: "Both legs" })).toBeChecked();
+  const regionalStatus = page.getByRole("status", {
+    name: "3D presentation status",
+  });
+  await expect(regionalStatus).toContainText("All regions visible");
 
   await fullRegional.check();
   await expect(fullRegional).toBeChecked();
@@ -313,9 +406,6 @@ test("@desktop full regional presentation follows anatomy controls without chang
     page.getByText("Full regional anatomy unavailable", { exact: true }),
   ).toHaveCount(0);
   const regionalBaseline = await waitForTheatreChange(page, theatreBaseline);
-  const regionalStatus = page.getByRole("status", {
-    name: "3D presentation status",
-  });
   await expect(regionalStatus).toContainText("Full regional ready");
   await expect(regionalStatus).toContainText("Both legs");
   expect(await projectionImageSignature(page)).toBe(detectorBaseline);
@@ -325,9 +415,8 @@ test("@desktop full regional presentation follows anatomy controls without chang
     ),
   ).toBe(displayBaseline);
 
-  const leftOnly = page.getByRole("radio", { name: "Left leg only" });
-  await leftOnly.check();
-  await expect(leftOnly).toBeChecked();
+  const leftOnly = page.getByRole("button", { name: "Show only left leg" });
+  await leftOnly.click();
   await expect(regionalStatus).toContainText("Left leg only");
   const leftOnlySignature = await waitForTheatreChange(page, regionalBaseline);
   const leftOnlyProjection = await waitForProjectionChange(
@@ -352,14 +441,91 @@ test("@desktop full regional presentation follows anatomy controls without chang
     ),
   ).toBe(displayBaseline);
 
-  await page.getByRole("radio", { name: "Right leg only" }).check();
-  await expect(
-    page.getByRole("radio", { name: "Right leg only" }),
-  ).toBeChecked();
+  await page.getByRole("button", { name: "Show only right leg" }).click();
   await expect(regionalStatus).toContainText("Right leg only");
   await expect(regionalStatus).toContainText("Right leg rotation 0°");
   await waitForTheatreChange(page, rotatedSignature);
   await waitForProjectionChange(page, rotatedProjection);
+});
+
+test("@desktop isolates every body region and keeps camera fitting out of the X-ray", async ({
+  page,
+}) => {
+  test.setTimeout(360_000);
+  const angles = page.getByLabel("C-arm angles");
+  const presentation = page.getByRole("status", {
+    name: "3D presentation status",
+  });
+  await expect(angles).toContainText("Orbit 0°");
+  await expect(angles).toContainText("Tilt 0°");
+  await expect(angles).toContainText("Swivel 0°");
+
+  let projection = await projectionImageSignature(page);
+  await page.getByRole("button", { name: "Hide all" }).click();
+  await expect(presentation).toContainText("No anatomy visible");
+  await expect(page.getByRole("button", { name: "Fit anatomy" })).toBeDisabled();
+  const hiddenProjection = await waitForProjectionChange(page, projection);
+
+  await page.getByRole("button", { name: "Show all" }).click();
+  await expect(presentation).toContainText("All regions visible");
+  projection = await waitForProjectionChange(page, hiddenProjection);
+
+  for (const [index, [accessibleRegion, expectedStatus]] of ISOLATED_REGIONS.entries()) {
+    if (index > 0) {
+      const showAll = page.getByRole("button", { name: "Show all" });
+      projection =
+        ISOLATED_REGIONS[index - 1][0] === "pelvis"
+          ? await waitForProjectionSettlementAfter(page, () => showAll.click())
+          : await (async () => {
+              await showAll.click();
+              return waitForProjectionChange(page, projection);
+            })();
+      await expect(presentation).toContainText("All regions visible");
+    }
+    const isolate = page.getByRole("button", {
+      name: `Show only ${accessibleRegion}`,
+    });
+    projection =
+      accessibleRegion === "pelvis"
+        ? await waitForProjectionSettlementAfter(page, () => isolate.click())
+        : await (async () => {
+            await isolate.click();
+            return waitForProjectionChange(page, projection);
+          })();
+    await expect(presentation).toContainText(expectedStatus);
+    await expect(presentation).not.toContainText(
+      `${expectedStatus} · ${expectedStatus}`,
+    );
+
+    const theatreBeforeFit = await theatreSignature(page);
+    await page.getByRole("button", { name: "Fit anatomy" }).click();
+    await waitForTheatreChange(page, theatreBeforeFit);
+    expect(await projectionImageSignature(page)).toBe(projection);
+  }
+});
+
+test("@desktop applies region changes only to the next shot in Shots only", async ({
+  page,
+}) => {
+  test.setTimeout(300_000);
+  const shotsOnly = page.getByRole("radio", { name: "Shots only" });
+  const takeShot = page.getByRole("button", { name: "Take shot" });
+  await projectionImageSignature(page);
+  await shotsOnly.check();
+  await takeShot.click();
+  const initialShot = await projectionImageSignature(page);
+
+  await page.getByRole("button", { name: "Show only left leg" }).click();
+  await expect(
+    page.getByRole("status", { name: "3D presentation status" }),
+  ).toContainText("Left leg only");
+  await waitForUiScheduling(page);
+  expect(await projectionImageSignature(page)).toBe(initialShot);
+
+  await page.getByRole("button", { name: "Fit anatomy" }).click();
+  expect(await projectionImageSignature(page)).toBe(initialShot);
+  await takeShot.click();
+  await waitForProjectionChange(page, initialShot);
 });
 
 test("@desktop uses explicit settled and interactive detector resolutions", async ({
@@ -498,6 +664,13 @@ test("@desktop production root remains usable offline", async ({
   await expect(
     page.getByText("Anatomy unavailable", { exact: true }),
   ).toHaveCount(0);
+  await expect(
+    page.getByText("Full-body anatomy unavailable", { exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "Show only left arm" }).click();
+  await expect(
+    page.getByRole("status", { name: "3D presentation status" }),
+  ).toContainText("Left arm only");
   const theatreBaseline = await theatreSignature(page);
   const fullRegional = page.getByRole("radio", {
     name: "Show full regional anatomy in 3D",
@@ -512,6 +685,64 @@ test("@desktop production root remains usable offline", async ({
   ).toHaveCount(0);
   await waitForTheatreChange(page, theatreBaseline);
   await context.setOffline(false);
+});
+
+test("@desktop complement failure keeps the detailed base usable and retry recovers", async ({
+  browser,
+}) => {
+  test.setTimeout(180_000);
+  const context = await browser.newContext({
+    baseURL: "http://localhost:3100",
+    serviceWorkers: "block",
+    viewport: { height: 1000, width: 1440 },
+  });
+  const page = await context.newPage();
+  let failComplement = true;
+  await page.route(
+    "**/anatomy/open3dmodel-full-body-complement.glb",
+    async (route) => {
+      if (failComplement) {
+        await route.abort("failed");
+        return;
+      }
+      await route.continue();
+    },
+  );
+
+  await page.goto("/");
+  await expect(
+    page.getByText("Full-body anatomy unavailable", { exact: true }),
+  ).toBeVisible();
+  for (const label of [
+    "Show head and neck",
+    "Show torso",
+    "Show left arm",
+    "Show right arm",
+  ]) {
+    await expect(page.getByRole("button", { name: label })).toBeDisabled();
+  }
+  for (const label of ["Show pelvis", "Show left leg", "Show right leg"]) {
+    await expect(page.getByRole("button", { name: label })).toBeEnabled();
+  }
+
+  const completeBase = await projectionImageSignature(page);
+  await page.getByRole("button", { name: "Show only left leg" }).click();
+  await expect(
+    page.getByRole("status", { name: "3D presentation status" }),
+  ).toContainText("Left leg only");
+  await waitForProjectionChange(page, completeBase);
+
+  failComplement = false;
+  await page.getByRole("button", { name: "Retry full-body anatomy" }).click();
+  await expect(
+    page.getByText("Full-body anatomy unavailable", { exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Show left arm" })).toBeEnabled();
+  await page.getByRole("button", { name: "Show only left arm" }).click();
+  await expect(
+    page.getByRole("status", { name: "3D presentation status" }),
+  ).toContainText("Left arm only");
+  await context.close();
 });
 
 test("@mobile mounts the X-ray, theatre, and all controls without tabs", async ({
@@ -538,6 +769,16 @@ test("@mobile mounts the X-ray, theatre, and all controls without tabs", async (
   ).toBeVisible();
   await expect(page.getByRole("radio", { name: "Shots only" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Take shot" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Show all" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Hide all" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Fit anatomy" })).toBeVisible();
+  for (const [accessibleRegion] of ISOLATED_REGIONS) {
+    const only = page.getByRole("button", {
+      name: `Show only ${accessibleRegion}`,
+    });
+    await expect(only).toBeVisible();
+    await expect(only).toBeEnabled();
+  }
   await expect(page.getByRole("tab")).toHaveCount(0);
   await expect(page.getByRole("tablist")).toHaveCount(0);
 });

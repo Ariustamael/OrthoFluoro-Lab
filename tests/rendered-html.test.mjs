@@ -113,7 +113,7 @@ test("ships a same-origin offline shell from the deployed asset root", async () 
   ]);
 
   assert.match(serviceWorker, /orthofluoro-shell-v4/);
-  assert.match(serviceWorker, /orthofluoro-content-v3/);
+  assert.match(serviceWorker, /orthofluoro-content-v4/);
   assert.doesNotMatch(serviceWorker, /"\/lab"/);
   assert.match(serviceWorker, /request\.mode === "navigate"/);
   assert.match(serviceWorker, /asset-manifest\.json/);
@@ -137,13 +137,25 @@ test("ships a same-origin offline shell from the deployed asset root", async () 
   assert.ok(assetPaths.some((path) => /\/assets\/.*\.js$/.test(path)));
   assert.ok(assetPaths.some((path) => /\/assets\/.*\.css$/.test(path)));
   [
+    "/anatomy/open3dmodel-full-body-complement.glb",
     "/anatomy/open3dmodel-hip-lower-limbs-regional.glb",
     "/anatomy/open3dmodel-hip-lower-limbs.glb",
     "/anatomy/open3dmodel-overview-skeleton.glb",
+    "/anatomy/open3dmodel-regional-body-regions.json",
     "/draco/draco_decoder.js",
     "/draco/draco_decoder.wasm",
     "/draco/draco_wasm_wrapper.js",
   ].forEach((runtimePath) => assert.ok(assetPaths.includes(runtimePath)));
+  [
+    "/anatomy/open3dmodel-full-body-complement.glb",
+    "/anatomy/open3dmodel-regional-body-regions.json",
+  ].forEach((runtimePath) => {
+    assert.equal(
+      assetPaths.filter((path) => path === runtimePath).length,
+      1,
+      `${runtimePath} must be installed exactly once`,
+    );
+  });
   const regionalAnatomyPath = assetPaths.find(
     (path) => path === "/anatomy/open3dmodel-hip-lower-limbs-regional.glb",
   );

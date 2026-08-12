@@ -9,6 +9,8 @@
 | Open3DModel overview skeleton    | [AnatomyTOOL Open3DModel][open3dmodel]    | [CC BY-SA 4.0][cc-by-sa]                                            | Locally derived skeletal-only GLB                     |
 | Open3DModel hip and lower limbs  | [AnatomyTOOL Open3DModel][open3dmodel]    | [CC BY-SA 4.0][cc-by-sa]                                            | Locally derived bilateral skeletal GLB                |
 | Open3DModel regional lower limbs | [AnatomyTOOL Open3DModel][open3dmodel]    | [CC BY-SA 4.0][cc-by-sa]                                            | Locally derived display-only regional GLB             |
+| Open3DModel full-body complement | [AnatomyTOOL Open3DModel][open3dmodel]    | [CC BY-SA 4.0][cc-by-sa]                                            | Locally derived skeletal head/torso/arms GLB           |
+| Regional body-region sidecar     | Derived from the pinned regional model    | [CC BY-SA 4.0][cc-by-sa]                                            | Runtime ownership and duplicate-suppression metadata   |
 
 ## Open3DModel skeletal anatomy
 
@@ -78,6 +80,24 @@ skeletal-only file and are included once in the regional supplement.
 The derived files remain licensed under CC BY-SA 4.0 and must be redistributed
 with the same licence and attribution. They are educational anatomical models,
 not patient data, diagnostic devices, or validated 3D-printing assets.
+
+The full-body complement is committed as
+`public/anatomy/open3dmodel-full-body-complement.glb`, 1,911,188 bytes,
+SHA-256
+`E736A198C7C41B32445EF0D6868F5A42CFED2F28E0D98DFE32107F2303254223`.
+It contains 166 skeletal meshes retained from the pinned overview source after
+the overview pelvis/lower limbs were excluded in favour of the detailed base.
+The companion regional ownership map is
+`public/anatomy/open3dmodel-regional-body-regions.json`, 125,422 bytes,
+SHA-256
+`B55F721E8F166258F700960D905529813D879525FDD6699F5C5B948C8B521E3F`.
+It accounts for 817 regional runtime identities and marks six overlapping
+T12/L1-L5 bone clones for suppression. Both artifacts are deterministic
+derivatives covered by the same Open3DModel attribution and CC BY-SA 4.0 terms;
+their first-build, second-build and committed hashes are recorded in
+`public/anatomy/open3dmodel-provenance.json` and checked by the standalone
+validator. The generated asset manifest installs each same-origin artifact for
+offline use.
 
 The local Draco 1.5.7 decoder files under `public/draco/` are copied from the
 Three.js package used by this project but originate from the

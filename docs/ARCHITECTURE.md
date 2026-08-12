@@ -8,21 +8,23 @@ server renders a lightweight hydration shell; the browser then starts the
 router and mounts the one-page Lab experience.
 
 The lab has one serializable simulation state, one anatomy resource provider,
-and one authoritative C-arm geometry pipeline. The skeletal asset is the
-imaging source of truth; the regional supplement is a theatre-only presentation
-layer:
+and one authoritative C-arm geometry pipeline. A validated full-body
+complement supplies head/neck, torso and arms; the unchanged detailed base
+supplies pelvis and lower limbs. Their composite skeleton is the imaging source
+of truth, while the regional supplement is a theatre-only presentation layer:
 
 ```text
 simulationStore C-arm pose + mode + physical setup
         |-- preset -> buildCArmGeometry -> 3D rig + manipulators
         `-- preset -> buildCArmGeometry -> detector-aligned projection camera
 
-AnatomyAssetProvider base skeletal lease --+-> HipAnatomy theatre scene
-                                            `-> bones-only projection input
-AnatomyAssetProvider lazy regional lease -----> RegionalAnatomy theatre scene only
-simulationStore HipAnatomyPose --------------> both theatre layers + projection
+AnatomyAssetProvider detailed-base lease -----+
+AnatomyAssetProvider complement lease --------+-> FullBodyAnatomy theatre scene
+                                               `-> bones-only projection input
+AnatomyAssetProvider lazy regional lease --------> RegionalAnatomy theatre scene only
+simulationStore seven-region AnatomyPose --------> both theatre layers + projection
 simulationStore anatomy presentation mode ---> theatre composition only
-geometry + base skeleton + HipAnatomyPose ---> ProjectionView artifact
+geometry + composite skeleton + seven-region pose -> ProjectionView artifact
 simulationStore acquisition mode + shot revision -> live request or frozen snapshot
 simulationStore X-ray display orientation ------> DOM artifact + overlay transform
 ```
@@ -56,20 +58,21 @@ change projection geometry.
   produces authoritative world `CArmGeometry` with a canonical detector basis.
 - `src/engine/geometry/projectionMath.ts` owns ray-plane projection, detector
   bounds, and magnification.
-- `src/anatomy/AnatomyAssetProvider.tsx` acquires the base hip/lower-limb
-  skeletal lease on mount. It keeps the regional supplement idle until Full
-  regional is requested, then owns its independent cached, reference-counted
-  lease and recovery state. Both assets use the bundled same-origin Draco
-  decoder.
-- `src/anatomy/hipAnatomyScene.ts` creates semantic scene groups per viewport
-  while retaining shared provider geometry. It applies identical root,
-  visibility, and femoral-head-pivot transforms in the theatre and projection
-  paths.
-- `src/anatomy/regionalAnatomyAssetLoader.ts` validates and caches the
-  display-only `regional-midline`, `regional-left`, and `regional-right`
-  supplement. `regionalAnatomyScene.ts` clones those groups, applies the same
-  root and hip-pivot transforms as the base skeleton, and never exposes them as
-  projection input.
+- `src/anatomy/AnatomyAssetProvider.tsx` eagerly acquires the detailed
+  hip/lower-limb base and the independent full-body complement. Complement
+  failure leaves the detailed base usable and retryable. The regional
+  supplement remains lazy and independently recoverable. All GLBs use the
+  bundled same-origin Draco decoder.
+- `src/anatomy/fullBodyAnatomyScene.ts` composes seven semantic regions from
+  the complement and detailed base. Theatre and projection scenes share the
+  same region visibility, root matrix, hip transforms and inactive
+  shoulder/elbow/wrist pivot hierarchy while owning their own mutable groups
+  and materials.
+- `src/anatomy/regionalAnatomyAssetLoader.ts` validates both the display-only
+  regional GLB and its body-region sidecar. `regionalAnatomyScene.ts` assigns
+  structures to torso, pelvis, left leg or right leg, suppresses the six
+  vertebral bone duplicates also present in the complement, and never exposes
+  regional structures as projection input.
 - `src/engine/projection/LayeredThicknessProjectionRenderer.ts` owns its
   off-screen WebGL renderer, signed front/back accumulation targets, materials,
   and composite pass for relative mesh thickness.
@@ -134,10 +137,11 @@ beam resources by construction dimensions only. Pose and mode changes update
 the containing transform without rebuilding static buffer geometry. Resources
 are disposed when their shape key changes or the rig unmounts.
 
-The anatomy loaders cache the decoded base and regional resources separately
-and release each after its last lease. The base lease is eager because both
-viewports require it. The larger regional lease is lazy and is retained after
-its first successful selection for fast Bones only / Full regional switching.
+The anatomy loaders cache the decoded base, complement and regional resources
+separately and release each after its last lease. The base and complement leases
+are eager because both viewports require the hybrid skeleton. The larger
+regional lease is lazy and is retained after its first successful selection for
+fast Bones only / Full regional switching.
 Each viewport owns its scene wrappers and presentation materials; projection
 renderers own and dispose their GPU targets and canvases.
 
@@ -176,6 +180,7 @@ document without workspace tabs. The application error boundary prevents a
 failed feature from leaving a blank page.
 
 The PWA precaches the versioned application shell and every path in the
-generated asset manifest, including both anatomy assets and local Draco files.
+generated asset manifest, including the detailed base, full-body complement,
+regional GLB, regional body-region sidecar and local Draco files.
 Runtime caching is same-origin only; selecting Full regional offline does not
 contact the Open3DModel source or any third-party anatomy service.

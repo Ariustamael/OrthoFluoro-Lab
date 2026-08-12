@@ -17,7 +17,11 @@ import {
   useSimulationStore,
   type QualityPreset,
 } from "../../state/simulationStore";
-import { anatomyLayerComposition, TheatreScene } from "./TheatreScene";
+import {
+  anatomyLayerComposition,
+  OPERATING_TABLE_TOP_SIZE_MM,
+  TheatreScene,
+} from "./TheatreScene";
 import { TheatreAnglePlaque } from "./TheatreAnglePlaque";
 import { cArmCueHint, type CArmCueHint, type CArmCueId } from "./cArmCueHints";
 import {
@@ -128,7 +132,7 @@ function TheatreAnatomyPresentationStatus() {
         : anatomy.status === "error" || anatomy.regional.status === "error"
           ? "Full regional unavailable"
           : "Full regional loading";
-  const visibility =
+  const legVisibility =
     pose.regionVisibility["left-leg"] && pose.regionVisibility["right-leg"]
       ? "Both legs"
       : pose.regionVisibility["left-leg"]
@@ -136,6 +140,28 @@ function TheatreAnatomyPresentationStatus() {
         : pose.regionVisibility["right-leg"]
           ? "Right leg only"
           : "Legs hidden";
+  const regionLabels = [
+    ["head-neck", "Head and neck"],
+    ["torso", "Torso"],
+    ["pelvis", "Pelvis"],
+    ["left-arm", "Left arm"],
+    ["right-arm", "Right arm"],
+    ["left-leg", "Left leg"],
+    ["right-leg", "Right leg"],
+  ] as const;
+  const visibleRegions = regionLabels.filter(
+    ([region]) => pose.regionVisibility[region],
+  );
+  const visibility =
+    visibleRegions.length === regionLabels.length
+      ? "All regions visible"
+      : visibleRegions.length === 0
+        ? "No anatomy visible"
+        : visibleRegions.length === 1
+          ? `${visibleRegions[0][1]} only`
+          : null;
+  const distinctLegVisibility =
+    visibility === legVisibility ? null : legVisibility;
 
   return (
     <p
@@ -144,7 +170,9 @@ function TheatreAnatomyPresentationStatus() {
       className="visually-hidden"
       role="status"
     >
-      {presentation} · {visibility} · Left leg rotation{" "}
+      {presentation} · {visibility === null ? null : `${visibility} · `}
+      {distinctLegVisibility === null ? null : `${distinctLegVisibility} · `}
+      Left leg rotation{" "}
       {formatSignedDegrees(pose.leftHipRotationDegrees)} · Right leg rotation{" "}
       {formatSignedDegrees(pose.rightHipRotationDegrees)}
     </p>
@@ -217,6 +245,15 @@ function TheatreViewport() {
     <section aria-label="3D theatre" className="theatre-canvas">
       <AnatomyPoseStatus label="3D anatomy status" />
       <TheatreAnatomyPresentationStatus />
+      <p
+        aria-label="3D theatre geometry"
+        className="visually-hidden"
+        role="status"
+      >
+        Tabletop {OPERATING_TABLE_TOP_SIZE_MM[2]} ×{" "}
+        {OPERATING_TABLE_TOP_SIZE_MM[0]} × {OPERATING_TABLE_TOP_SIZE_MM[1]} mm
+        · Central pedestal absent
+      </p>
       <TheatreAnglePlaque />
       <CArmCueHintOverlay hint={cueHint} />
       {graphicsStatus === "checking" ? (
