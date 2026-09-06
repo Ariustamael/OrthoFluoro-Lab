@@ -1,5 +1,6 @@
 "use client";
 
+import type { KeyboardEvent } from "react";
 import type {
   PatientPositionAxis,
   PatientPositionPreset,
@@ -46,6 +47,7 @@ interface RootControlProps {
   max: number;
   min: number;
   onChange: (value: number) => void;
+  snap: number;
   step: number;
   unit: "mm" | "°";
   value: number;
@@ -56,6 +58,7 @@ function RootControl({
   max,
   min,
   onChange,
+  snap,
   step,
   unit,
   value,
@@ -65,6 +68,27 @@ function RootControl({
     if (Number.isFinite(nextValue)) {
       onChange(nextValue);
     }
+  };
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    const direction =
+      event.key === "ArrowUp" || event.key === "ArrowRight"
+        ? 1
+        : event.key === "ArrowDown" || event.key === "ArrowLeft"
+          ? -1
+          : 0;
+    if (direction === 0) return;
+    event.preventDefault();
+    const delta = direction * step * (event.altKey ? 0.1 : 1);
+    if (!event.shiftKey) {
+      commit(value + delta);
+      return;
+    }
+    const nextSnap =
+      direction > 0
+        ? Math.ceil(value / snap) * snap
+        : Math.floor(value / snap) * snap;
+    const alreadySnapped = Math.abs(nextSnap - value) < 1e-9;
+    commit(alreadySnapped ? nextSnap + direction * snap : nextSnap);
   };
 
   return (
@@ -92,6 +116,7 @@ function RootControl({
           max={max}
           min={min}
           onChange={(event) => commit(event.currentTarget.valueAsNumber)}
+          onKeyDown={handleKeyDown}
           step={step}
           type="number"
           value={value}
@@ -164,7 +189,8 @@ export function PatientPositionControls() {
               onChange={(value) =>
                 setPatientRootPosition(control.axis, value)
               }
-              step={10}
+              snap={10}
+              step={1}
               unit="mm"
               value={pose.rootPosition[control.index]}
             />
@@ -181,7 +207,8 @@ export function PatientPositionControls() {
               onChange={(value) =>
                 setPatientRootRotation(control.axis, value)
               }
-              step={5}
+              snap={5}
+              step={1}
               unit="°"
               value={pose.rootRotationDegrees[control.index]}
             />

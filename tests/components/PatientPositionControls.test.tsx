@@ -71,11 +71,28 @@ describe("PatientPositionControls", () => {
 
     expect(slider).toHaveAttribute("min", "-975");
     expect(slider).toHaveAttribute("max", "975");
+    expect(slider).toHaveAttribute("step", "1");
     fireEvent.change(exact, { target: { value: "240" } });
     fireEvent.blur(exact);
     expect(useSimulationStore.getState().hipAnatomyPose.rootPosition).toEqual([
       0, 0, 240,
     ]);
+  });
+
+  it("offers fine and coarse keyboard positioning", () => {
+    render(<PatientPositionControls />);
+    const exact = screen.getByRole("spinbutton", {
+      name: "Patient lateral position value",
+    });
+
+    fireEvent.keyDown(exact, { key: "ArrowUp" });
+    expect(useSimulationStore.getState().hipAnatomyPose.rootPosition[0]).toBe(1);
+    fireEvent.keyDown(exact, { altKey: true, key: "ArrowUp" });
+    expect(useSimulationStore.getState().hipAnatomyPose.rootPosition[0]).toBeCloseTo(
+      1.1,
+    );
+    fireEvent.keyDown(exact, { key: "ArrowUp", shiftKey: true });
+    expect(useSimulationStore.getState().hipAnatomyPose.rootPosition[0]).toBe(10);
   });
 
   it("activates direct patient movement explicitly", async () => {

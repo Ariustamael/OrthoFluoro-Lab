@@ -278,6 +278,65 @@ test("@desktop rotates continuously in 10-degree steps", async ({ page }) => {
   await expect(rotationStatus).toHaveText("350°");
 });
 
+test("@desktop centres the C-arm from head through both feet", async ({ page }) => {
+  const lateral = page.getByRole("spinbutton", {
+    name: "Lateral translation value",
+  });
+  const longitudinal = page.getByRole("spinbutton", {
+    name: "Longitudinal translation value",
+  });
+
+  await page
+    .getByRole("button", { name: "Centre C-arm on Head / neck" })
+    .click();
+  await expect(longitudinal).toHaveValue("713");
+
+  await page
+    .getByRole("button", { name: "Centre C-arm on Left foot" })
+    .click();
+  await expect(lateral).toHaveValue("99");
+  await expect(longitudinal).toHaveValue("-812");
+
+  await page
+    .getByRole("button", { name: "Centre C-arm on Right foot" })
+    .click();
+  await expect(lateral).toHaveValue("-99");
+  await expect(longitudinal).toHaveValue("-812");
+});
+
+test("@desktop positions and resets the complete patient independently", async ({
+  page,
+}) => {
+  const patient = page.getByRole("group", { name: "Patient position" });
+  const patientLongitudinal = patient.getByRole("spinbutton", {
+    name: "Patient longitudinal position value",
+  });
+  const patientRoll = patient.getByRole("spinbutton", {
+    name: "Patient roll value",
+  });
+  const orbit = page.getByRole("spinbutton", { name: "Orbit angle" });
+
+  const neutral = await projectionImageSignature(page);
+  await patientLongitudinal.fill("120");
+  await waitForProjectionChange(page, neutral);
+
+  await patient.getByRole("button", { name: "Prone neutral" }).click();
+  await expect(patientLongitudinal).toHaveValue("0");
+  await expect(patientRoll).toHaveValue("180");
+
+  await orbit.fill("22");
+  const direct = patient.getByRole("button", {
+    name: "Move patient directly",
+  });
+  await direct.click();
+  await expect(direct).toHaveAttribute("aria-pressed", "true");
+
+  await patient.getByRole("button", { name: "Reset patient position" }).click();
+  await expect(patientLongitudinal).toHaveValue("0");
+  await expect(patientRoll).toHaveValue("0");
+  await expect(orbit).toHaveValue("22");
+});
+
 test("@desktop direct pointer interaction updates every signed angle plaque value", async ({
   page,
 }) => {
@@ -671,6 +730,10 @@ test("@desktop production root remains usable offline", async ({
   await expect(
     page.getByRole("status", { name: "3D presentation status" }),
   ).toContainText("Left arm only");
+  await page.getByRole("button", { name: "Show only left leg" }).click();
+  await expect(
+    page.getByRole("status", { name: "3D presentation status" }),
+  ).toContainText("Left leg only");
   const theatreBaseline = await theatreSignature(page);
   const fullRegional = page.getByRole("radio", {
     name: "Show full regional anatomy in 3D",

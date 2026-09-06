@@ -25,6 +25,13 @@
   pedestal;
 - validated bilateral shoulder, elbow, wrist and hip pivot metadata, retained
   in a neutral hierarchy for the next stage.
+- full-patient C-arm travel with stable head/neck, chest, pelvis, bilateral hip,
+  knee, and foot centring targets;
+- independent six-degree patient-root positioning with Supine, Prone, Left
+  lateral, and Right lateral presets, exact controls, and a compact direct
+  manipulator linked to both theatre and projection;
+- patient-only reset and acquisition regression coverage preserving C-arm,
+  display, Continuous, and Shots-only behavior.
 
 ## Modular full-body delivery stages
 
@@ -38,6 +45,11 @@ Stage two may activate rigid upper-limb articulation around the existing joint
 pivots after a separate plan and domain review. It must preserve the shared
 theatre/projection transforms and remains skeletal; deformable soft tissue,
 biomechanical validation and patient-specific positioning remain out of scope.
+
+The completed positioning increment deliberately stops at rigid whole-patient
+movement. Shoulder, elbow, wrist, hip-flexion, and knee-flexion controls remain
+gated by named anatomical review of their pivot metadata and representative
+poses. No articulation is silently inferred from the available meshes.
 
 ## Approved hip-first sequence
 

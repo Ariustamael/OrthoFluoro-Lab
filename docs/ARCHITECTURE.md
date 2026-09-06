@@ -23,6 +23,7 @@ AnatomyAssetProvider complement lease --------+-> FullBodyAnatomy theatre scene
                                                `-> bones-only projection input
 AnatomyAssetProvider lazy regional lease --------> RegionalAnatomy theatre scene only
 simulationStore seven-region AnatomyPose --------> both theatre layers + projection
+simulationStore patient-root pose ----------------> every anatomy region + projection
 simulationStore anatomy presentation mode ---> theatre composition only
 geometry + composite skeleton + seven-region pose -> ProjectionView artifact
 simulationStore acquisition mode + shot revision -> live request or frozen snapshot
@@ -68,6 +69,9 @@ change projection geometry.
   same region visibility, root matrix, hip transforms and inactive
   shoulder/elbow/wrist pivot hierarchy while owning their own mutable groups
   and materials.
+- `src/anatomy/anatomyWorkspace.ts` owns the stable full-patient workspace,
+  patient-root bounds, and named anatomy targets. It is independent of current
+  visibility and optional asset load state.
 - `src/anatomy/regionalAnatomyAssetLoader.ts` validates both the display-only
   regional GLB and its body-region sidecar. `regionalAnatomyScene.ts` assigns
   structures to torso, pelvis, left leg or right leg, suppresses the six
@@ -90,6 +94,11 @@ change projection geometry.
   authoritative final transform. `CArmManipulators.tsx` derives its outer cue
   anchors from the same physical setup and computes camera-relative drag signs
   before writing pose changes back to the store.
+- `src/components/scene/PatientRootManipulator.tsx` renders a compact controlled
+  six-degree pivot only in `move-patient` mode. Drag matrices are decomposed
+  back into the serializable patient pose; it does not move the anatomy group
+  imperatively. Inspection orbit is suspended only during an active patient or
+  C-arm drag.
 - `src/components/scene/TheatreCanvas.tsx` owns the fixed cue-help DOM overlay.
   It maps semantic cue IDs from the Three.js scene and keeps the hint outside
   the canvas rather than attaching a large label to the model.
@@ -169,6 +178,13 @@ and renderer identity. Later manipulation cannot mutate that in-flight request
 or the completed artifact. Display rotation and flips remain DOM-only and may
 be applied to a frozen shot without another exposure. A replacement shot keeps
 the prior image visible until the new current-token result succeeds.
+
+Patient-root translation and rotation are part of the base-skeleton pose, so
+they follow the same acquisition contract: Continuous refreshes from the newest
+root matrix, while Shots only retains its immutable exposure until `Take shot`.
+Patient presets, numeric controls, direct manipulation, and C-arm anatomy
+targets all converge on the same store state. Inspection camera movement and
+`Fit anatomy` remain outside projection input.
 
 ## Resilience, mobile, and PWA
 

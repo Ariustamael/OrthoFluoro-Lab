@@ -899,6 +899,7 @@ button:hover {
 .patient-position-controls__fields {
   display: grid;
   gap: var(--space-2);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .patient-position-control {
@@ -946,6 +947,23 @@ button:hover {
   color: var(--text-muted);
   font-size: 0.72rem;
   inline-size: 1.25rem;
+}
+
+.c-arm-controls__anatomy-targets {
+  display: grid;
+  gap: 0.35rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-block-start: var(--space-2);
+}
+
+.c-arm-controls__anatomy-targets button {
+  background: rgb(3 10 18 / 48%);
+  border: 1px solid var(--border);
+  border-radius: 0.35rem;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  min-block-size: var(--target-min);
+  padding: 0.35rem var(--space-1);
 }
 
 .anatomy-controls__option-group legend,
@@ -1456,6 +1474,10 @@ button:hover {
   }
 
   .anatomy-controls__region-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .patient-position-controls__fields {
     grid-template-columns: 1fr;
   }
 

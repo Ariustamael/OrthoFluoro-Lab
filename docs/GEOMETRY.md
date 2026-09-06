@@ -120,9 +120,16 @@ translation moves it. The non-isocentric preset uses `P = (-120, 0, 0)`, so
 the same six pose values rotate the rig about that offset mechanical pivot and
 the reference centre can move. Switching presets does not rewrite the pose.
 
-Translations are clamped to `[-500, 500]` on every axis, swivel and
-cranial/caudal tilt to `[-45°, 45°]`, and orbit to `[-180°, 180°]`. Non-finite
-pose values are rejected.
+Lateral and vertical translations are clamped to `[-500, 500] mm`.
+Longitudinal translation is clamped to `[-975, 975] mm`, covering the stable
+canonical anatomy bounds from beyond the feet to beyond the skull. Swivel and
+cranial/caudal tilt are clamped to `[-45°, 45°]`, and orbit to
+`[-180°, 180°]`. Non-finite pose values are rejected.
+
+Nine stable target points centre the C-arm on the head/neck, chest, pelvis,
+bilateral hips, knees, and feet. A target is first transformed through the
+patient-root matrix and then copied to the C-arm translation. Target coordinates
+do not depend on region visibility or optional asset availability.
 
 ## Physical rig setup
 
@@ -227,6 +234,30 @@ Derived left-side bones are reflected across `X = 0` and have their winding
 reversed again. The independent asset validator checks finite indexed geometry,
 closed projection meshes, outward-consistent normals, expected bounds, and
 left/right mirroring.
+
+The complete patient root is a serializable rigid transform above every
+skeletal region and theatre-only regional structure. Its transform order is:
+
+```text
+asset canonical transform
+-> patient root translation and XYZ rotation
+-> parent joint transforms
+-> child joint transforms
+-> world matrix
+```
+
+Root translation bounds are `X: [-500, 500]`, `Y: [-250, 500]`, and
+`Z: [-975, 975] mm`; pitch, yaw, and roll are each bounded to
+`[-180°, 180°]`. Stored rotation tuple order is `[pitch, yaw, roll]` and the
+Euler order is `XYZ`. Presets are Supine `[0,0,0]`, Prone `[0,0,180]`, Left
+lateral `[0,0,90]`, and Right lateral `[0,0,-90]`. These are schematic root
+poses, not clinically validated positioning guidance. No collision model is
+provided for the table, detector, source, arc, or patient.
+
+The direct patient pivot is a controlled view of this root matrix. It never
+mutates scene objects as a second source of truth. Pointer drags update the
+serializable pose, numeric and keyboard controls provide the same six degrees
+of freedom, and Escape restores the pose captured at drag start.
 
 The right femoral-head centre is fitted from proximal-medial femur samples; the
 left centre is its mirrored counterpart. Their bilateral midpoint is subtracted
