@@ -37,7 +37,7 @@ import {
   type XrayDisplayOrientation,
 } from "../components/projection/xrayDisplayOrientation";
 
-export type InteractionMode = "inspect" | "move-carm";
+export type InteractionMode = "inspect" | "move-carm" | "move-patient";
 export type QualityPreset = "low" | "medium" | "high";
 
 export interface SimulationState {

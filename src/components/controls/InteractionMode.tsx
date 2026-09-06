@@ -11,6 +11,7 @@ const MODES: readonly {
 }[] = [
   { value: "inspect", label: "Inspect" },
   { value: "move-carm", label: "Move C-arm" },
+  { value: "move-patient", label: "Move patient" },
 ];
 
 export function InteractionMode() {

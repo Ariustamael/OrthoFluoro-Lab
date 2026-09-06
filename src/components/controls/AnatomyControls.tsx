@@ -9,6 +9,7 @@ import type {
   AnatomySide,
 } from "../../anatomy/anatomyTypes";
 import { useSimulationStore } from "../../state/simulationStore";
+import { PatientPositionControls } from "./PatientPositionControls";
 
 const REGION_OPTIONS: readonly {
   region: AnatomyRegion;
@@ -140,6 +141,8 @@ export function AnatomyControls() {
       <p className="anatomy-controls__instruction">
         Rotate the selected complete leg at the hip.
       </p>
+
+      <PatientPositionControls />
 
       <fieldset className="anatomy-controls__option-group anatomy-controls__option-group--presentation">
         <legend>3D presentation</legend>
