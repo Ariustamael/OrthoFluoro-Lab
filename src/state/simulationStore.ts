@@ -22,7 +22,11 @@ import {
   anatomyTargetWorldPoint,
   type CArmAnatomyTargetId,
 } from "../anatomy/anatomyWorkspace";
-import { clampCArmPose } from "../engine/geometry/cArmTransforms";
+import {
+  cArmPoseForWorldIsocentre,
+  clampCArmPose,
+} from "../engine/geometry/cArmTransforms";
+import { C_ARM_RIG_PRESETS } from "../engine/geometry/cArmRigPresets";
 import {
   REFERENCE_C_ARM_PHYSICAL_SETUP,
   REFERENCE_C_ARM_POSE,
@@ -166,15 +170,17 @@ export const useSimulationStore = create<SimulationState>((set) => ({
   },
   centreCArmOnAnatomyTarget: (targetId) => {
     set((state) => {
-      const [translationX, translationY, translationZ] =
-        anatomyTargetWorldPoint(targetId, state.hipAnatomyPose);
+      const target = anatomyTargetWorldPoint(
+        targetId,
+        state.hipAnatomyPose,
+      );
       return {
-        cArmPose: clampCArmPose({
-          ...state.cArmPose,
-          translationX,
-          translationY,
-          translationZ,
-        }),
+        cArmPose: cArmPoseForWorldIsocentre(
+          state.cArmPose,
+          target,
+          C_ARM_RIG_PRESETS[state.cArmMode],
+          state.cArmPhysicalSetup,
+        ),
       };
     });
   },

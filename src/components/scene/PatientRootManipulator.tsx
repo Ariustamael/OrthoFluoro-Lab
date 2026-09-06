@@ -113,6 +113,7 @@ export function PatientRootManipulator({
   useEffect(() => {
     if (interactionMode !== "move-patient") {
       dragStartRef.current = null;
+      onDragStateChange(false);
       return;
     }
     const cancelDrag = (event: KeyboardEvent) => {

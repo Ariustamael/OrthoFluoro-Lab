@@ -1,4 +1,4 @@
-import { MathUtils, Matrix4, Quaternion, Vector3 } from "three";
+import { MathUtils, Matrix3, Matrix4, Quaternion, Vector3 } from "three";
 import { C_ARM_WORKSPACE_BOUNDS } from "../../anatomy/anatomyWorkspace";
 import { deriveCArmRigGeometry } from "./cArmRigGeometry";
 import { C_ARM_RIG_PRESETS } from "./cArmRigPresets";
@@ -229,6 +229,68 @@ export function buildCArmGeometry(
     },
     sourceDetectorDistance: preset.sourceDetectorDistance,
   };
+}
+
+export function cArmPoseForWorldIsocentre(
+  inputPose: CArmPose,
+  target: Vec3,
+  preset: CArmRigPreset = C_ARM_RIG_PRESETS.isocentric,
+  setup: CArmPhysicalSetup = REFERENCE_C_ARM_PHYSICAL_SETUP,
+): CArmPose {
+  const pose = clampCArmPose(inputPose);
+  if (!target.every(Number.isFinite)) {
+    throw new RangeError("C-arm isocentre target must be finite");
+  }
+  const zeroTranslation = {
+    ...pose,
+    translationX: 0,
+    translationY: 0,
+    translationZ: 0,
+  };
+  const base = new Vector3(
+    ...buildCArmGeometry(zeroTranslation, preset, setup).isocentre,
+  );
+  const translatedIsocentre = (field: keyof CArmPose) =>
+    new Vector3(
+      ...buildCArmGeometry(
+        { ...zeroTranslation, [field]: 1 },
+        preset,
+        setup,
+      ).isocentre,
+    ).sub(base);
+  const dx = translatedIsocentre("translationX");
+  const dy = translatedIsocentre("translationY");
+  const dz = translatedIsocentre("translationZ");
+  const translationBasis = new Matrix3().set(
+    dx.x,
+    dy.x,
+    dz.x,
+    dx.y,
+    dy.y,
+    dz.y,
+    dx.z,
+    dy.z,
+    dz.z,
+  );
+  if (Math.abs(translationBasis.determinant()) < 1e-9) {
+    throw new RangeError("C-arm setup has a degenerate translation basis");
+  }
+  const translation = new Vector3(...target)
+    .sub(base)
+    .applyMatrix3(translationBasis.invert());
+  const solved = clampCArmPose({
+    ...pose,
+    translationX: translation.x,
+    translationY: translation.y,
+    translationZ: translation.z,
+  });
+  const achieved = new Vector3(
+    ...buildCArmGeometry(solved, preset, setup).isocentre,
+  );
+  if (achieved.distanceTo(new Vector3(...target)) > 1e-6) {
+    throw new RangeError("C-arm target is outside the configured workspace");
+  }
+  return solved;
 }
 
 export function detectorCenterRay(geometry: CArmGeometry): {

@@ -70,4 +70,22 @@ describe("PatientRootManipulator", () => {
       rootRotationDegrees: [5, 10, 15],
     });
   });
+
+  it("releases scene navigation when patient mode changes mid-drag", async () => {
+    const user = userEvent.setup();
+    const onDragStateChange = vi.fn();
+    useSimulationStore.getState().setInteractionMode("move-patient");
+    const { rerender } = render(
+      <PatientRootManipulator onDragStateChange={onDragStateChange} />,
+    );
+    await user.click(
+      screen.getByRole("button", { name: "Patient root manipulator" }),
+    );
+    expect(onDragStateChange).toHaveBeenLastCalledWith(true);
+
+    useSimulationStore.getState().setInteractionMode("inspect");
+    rerender(<PatientRootManipulator onDragStateChange={onDragStateChange} />);
+
+    expect(onDragStateChange).toHaveBeenLastCalledWith(false);
+  });
 });

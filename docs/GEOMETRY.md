@@ -120,16 +120,19 @@ translation moves it. The non-isocentric preset uses `P = (-120, 0, 0)`, so
 the same six pose values rotate the rig about that offset mechanical pivot and
 the reference centre can move. Switching presets does not rewrite the pose.
 
-Lateral and vertical translations are clamped to `[-500, 500] mm`.
-Longitudinal translation is clamped to `[-975, 975] mm`, covering the stable
-canonical anatomy bounds from beyond the feet to beyond the skull. Swivel and
-cranial/caudal tilt are clamped to `[-45°, 45°]`, and orbit to
-`[-180°, 180°]`. Non-finite pose values are rejected.
+Lateral translation is clamped to `[-1600, 1600] mm`, vertical translation to
+`[-1350, 1600] mm`, and longitudinal translation to `[-2100, 2100] mm`. These
+bounds cover patient-root travel, the furthest named target under arbitrary
+root rotation, and non-isocentric pivot excursion. Swivel and cranial/caudal
+tilt are clamped to `[-45°, 45°]`, and orbit to `[-180°, 180°]`. Non-finite pose
+values are rejected.
 
 Nine stable target points centre the C-arm on the head/neck, chest, pelvis,
 bilateral hips, knees, and feet. A target is first transformed through the
-patient-root matrix and then copied to the C-arm translation. Target coordinates
-do not depend on region visibility or optional asset availability.
+patient-root matrix. The target solver samples the final translation basis for
+the active rig mode and physical setup, then solves for the pose translation
+whose final world isocentre equals that point. Target coordinates do not depend
+on region visibility or optional asset availability.
 
 ## Physical rig setup
 

@@ -10,6 +10,7 @@ import { C_ARM_RIG_PRESETS } from "../../src/engine/geometry/cArmRigPresets";
 import { deriveCArmRigGeometry } from "../../src/engine/geometry/cArmRigGeometry";
 import {
   buildCArmGeometry,
+  cArmPoseForWorldIsocentre,
   clampCArmPose,
   detectorCenterRay,
 } from "../../src/engine/geometry/cArmTransforms";
@@ -60,22 +61,56 @@ describe("six-DoF C-arm pose", () => {
   it("clamps all six controls to the named bounds", () => {
     expect(
       clampCArmPose({
-        translationX: 501,
-        translationY: -501,
-        translationZ: 1200,
+        translationX: 2_001,
+        translationY: -2_001,
+        translationZ: 2_201,
         swivelDegrees: 46,
         cranialCaudalDegrees: -46,
         orbitDegrees: 181,
       }),
     ).toEqual({
-      translationX: 500,
-      translationY: -500,
-      translationZ: 975,
+      translationX: 1_600,
+      translationY: -1_350,
+      translationZ: 2_100,
       swivelDegrees: 45,
       cranialCaudalDegrees: -45,
       orbitDegrees: 180,
     });
   });
+
+  it.each([
+    ["isocentric", "left", "detector-over"],
+    ["isocentric", "left", "source-over"],
+    ["isocentric", "right", "detector-over"],
+    ["isocentric", "right", "source-over"],
+    ["non-isocentric", "left", "detector-over"],
+    ["non-isocentric", "left", "source-over"],
+    ["non-isocentric", "right", "detector-over"],
+    ["non-isocentric", "right", "source-over"],
+  ] as const)(
+    "solves the final %s/%s/%s world isocentre without changing angles",
+    (mode, approachSide, tubeOrientation) => {
+      const input = {
+        ...REFERENCE_C_ARM_POSE,
+        orbitDegrees: 37,
+        cranialCaudalDegrees: -19,
+        swivelDegrees: 23,
+      };
+      const target = [812, -725, 1_675] as const;
+      const preset = C_ARM_RIG_PRESETS[mode];
+      const setup = { approachSide, tubeOrientation } as const;
+
+      const solved = cArmPoseForWorldIsocentre(input, target, preset, setup);
+      const geometry = buildCArmGeometry(solved, preset, setup);
+
+      expectVectorClose(geometry.isocentre, new Vector3(...target));
+      expect(solved).toMatchObject({
+        orbitDegrees: 37,
+        cranialCaudalDegrees: -19,
+        swivelDegrees: 23,
+      });
+    },
+  );
 
   it.each(
     (Object.keys(REFERENCE_C_ARM_POSE) as (keyof CArmPose)[]).flatMap((field) =>

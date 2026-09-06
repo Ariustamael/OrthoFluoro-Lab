@@ -38,6 +38,15 @@ describe("PatientPositionControls", () => {
     });
   });
 
+  it("keeps exact patient inputs at the shared touch-target size", () => {
+    render(<PatientPositionControls />);
+    expect(
+      screen.getByRole("spinbutton", {
+        name: "Patient longitudinal position value",
+      }),
+    ).toHaveClass("patient-position-control__exact-input");
+  });
+
   it("applies each explicit patient orientation preset", async () => {
     const user = userEvent.setup();
     render(<PatientPositionControls />);

@@ -923,6 +923,7 @@ button:hover {
 .patient-position-control > input[type="range"] {
   grid-column: 1 / -1;
   inline-size: 100%;
+  min-block-size: var(--target-min);
 }
 
 .patient-position-control__exact {
@@ -939,7 +940,7 @@ button:hover {
   border-radius: 0.3rem;
   color: var(--text);
   inline-size: 5rem;
-  min-block-size: 2rem;
+  min-block-size: var(--target-min);
   padding-inline: 0.45rem;
 }
 

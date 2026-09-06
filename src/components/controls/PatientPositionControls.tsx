@@ -112,6 +112,7 @@ function RootControl({
       <div className="patient-position-control__exact">
         <input
           aria-label={`${label} value`}
+          className="patient-position-control__exact-input"
           id={`${id}-value`}
           max={max}
           min={min}

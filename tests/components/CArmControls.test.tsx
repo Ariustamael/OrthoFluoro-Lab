@@ -21,6 +21,9 @@ import {
 } from "../../src/anatomy/anatomyTransforms";
 import { REFERENCE_XRAY_DISPLAY_ORIENTATION } from "../../src/components/projection/xrayDisplayOrientation";
 import { useSimulationStore } from "../../src/state/simulationStore";
+import { anatomyTargetWorldPoint } from "../../src/anatomy/anatomyWorkspace";
+import { buildCArmGeometry } from "../../src/engine/geometry/cArmTransforms";
+import { C_ARM_RIG_PRESETS } from "../../src/engine/geometry/cArmRigPresets";
 
 vi.mock("../../src/anatomy/AnatomyAssetProvider", () => ({
   useAnatomyAsset: () => ({
@@ -353,12 +356,12 @@ describe("simulation store", () => {
 
   it("clamps every C-arm update through the geometry bounds", () => {
     useSimulationStore.getState().setCArmParameter("orbitDegrees", 220);
-    useSimulationStore.getState().setCArmParameter("translationX", -900);
+    useSimulationStore.getState().setCArmParameter("translationX", -2_000);
     useSimulationStore.getState().setCArmParameter("swivelDegrees", 80);
 
     expect(useSimulationStore.getState().cArmPose).toMatchObject({
       orbitDegrees: 180,
-      translationX: -500,
+      translationX: -1_600,
       swivelDegrees: 45,
     });
   });
@@ -372,13 +375,13 @@ describe("simulation store", () => {
       name: "Longitudinal translation value",
     });
 
-    expect(slider).toHaveAttribute("min", "-975");
-    expect(slider).toHaveAttribute("max", "975");
-    fireEvent.change(exact, { target: { value: "1200" } });
+    expect(slider).toHaveAttribute("min", "-2100");
+    expect(slider).toHaveAttribute("max", "2100");
+    fireEvent.change(exact, { target: { value: "2200" } });
     fireEvent.blur(exact);
 
-    expect(exact).toHaveValue(975);
-    expect(useSimulationStore.getState().cArmPose.translationZ).toBe(975);
+    expect(exact).toHaveValue(2100);
+    expect(useSimulationStore.getState().cArmPose.translationZ).toBe(2100);
   });
 
   it("nudges normally and snaps in the direction of travel", () => {
@@ -442,12 +445,17 @@ describe("CArmControls", () => {
       },
       hipAnatomyPose: {
         ...state.hipAnatomyPose,
-        rootPosition: [10, 20, 30],
-        rootRotationDegrees: [0, 0, 90],
+        rootPosition: [500, 400, 900],
+        rootRotationDegrees: [35, -20, 90],
         regionVisibility: {
           ...state.hipAnatomyPose.regionVisibility,
           "left-leg": false,
         },
+      },
+      cArmMode: "non-isocentric",
+      cArmPhysicalSetup: {
+        approachSide: "right",
+        tubeOrientation: "source-over",
       },
     }));
     render(<CArmControls />);
@@ -459,15 +467,22 @@ describe("CArmControls", () => {
       screen.getByRole("button", { name: "Centre C-arm on Left knee" }),
     );
 
-    const centred = useSimulationStore.getState().cArmPose;
+    const state = useSimulationStore.getState();
+    const centred = state.cArmPose;
     expect(centred).toMatchObject({
       orbitDegrees: 17,
       cranialCaudalDegrees: -8,
       swivelDegrees: 6,
     });
-    expect(centred.translationX).toBeCloseTo(10, 8);
-    expect(centred.translationY).toBeCloseTo(104, 8);
-    expect(centred.translationZ).toBeCloseTo(-395, 8);
+    const expected = anatomyTargetWorldPoint("left-knee", state.hipAnatomyPose);
+    const geometry = buildCArmGeometry(
+      centred,
+      C_ARM_RIG_PRESETS[state.cArmMode],
+      state.cArmPhysicalSetup,
+    );
+    geometry.isocentre.forEach((value, index) => {
+      expect(value).toBeCloseTo(expected[index] ?? 0, 8);
+    });
   });
 
   it("synchronizes the Orbit slider and exact numeric input", () => {

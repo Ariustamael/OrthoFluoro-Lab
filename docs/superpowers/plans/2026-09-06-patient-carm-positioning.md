@@ -358,3 +358,13 @@ This plan completes Package B only. It does not activate shoulder, elbow, wrist,
 hip-flexion, or knee-flexion articulation and does not add new soft-tissue
 assets. Those remain Packages C and D under the anatomical-review and source-
 audit gates in the approved handoff specification.
+
+## Post-review adjustment
+
+Independent completion review found that copying a target point directly into
+the translation tuple was exact only for the reference isocentric/left setup.
+The final implementation therefore solves against the final world isocentre for
+every combination of rig mode, approach side, and tube orientation. C-arm
+translation bounds were widened to cover patient-root travel, rotated named
+targets, and non-isocentric pivot excursion: X `[-1600,1600]`, Y
+`[-1350,1600]`, and Z `[-2100,2100]` millimetres.

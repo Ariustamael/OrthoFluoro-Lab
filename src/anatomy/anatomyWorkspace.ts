@@ -10,9 +10,11 @@ export const REFERENCE_ANATOMY_BOUNDS_MM = Object.freeze({
 });
 
 export const C_ARM_WORKSPACE_BOUNDS = Object.freeze({
-  translationX: Object.freeze({ min: -500, max: 500 }),
-  translationY: Object.freeze({ min: -500, max: 500 }),
-  translationZ: Object.freeze({ min: -975, max: 975 }),
+  // Includes patient-root travel, the furthest named target under arbitrary
+  // root rotation, and the non-isocentric pivot excursion.
+  translationX: Object.freeze({ min: -1_600, max: 1_600 }),
+  translationY: Object.freeze({ min: -1_350, max: 1_600 }),
+  translationZ: Object.freeze({ min: -2_100, max: 2_100 }),
 });
 
 export const PATIENT_ROOT_POSITION_BOUNDS = Object.freeze({
