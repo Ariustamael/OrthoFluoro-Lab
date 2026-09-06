@@ -10,12 +10,16 @@ import {
   type RegionalAnatomyAssetStatus,
 } from "../../anatomy/AnatomyAssetProvider";
 import type { AnatomyPresentationMode } from "../../anatomy/anatomyTypes";
-import { useSimulationStore } from "../../state/simulationStore";
+import {
+  useSimulationStore,
+  type InteractionMode,
+} from "../../state/simulationStore";
 import { CArmRig } from "./CArmRig";
 import type { CArmCueId } from "./cArmCueHints";
 import { FullBodyAnatomy } from "./FullBodyAnatomy";
 import { RegionalAnatomy } from "./RegionalAnatomy";
 import { AnatomyCameraFit } from "./anatomyCameraFit";
+import { PatientRootManipulator } from "./PatientRootManipulator";
 
 export const THEATRE_BACKGROUND_COLOR = "#07131f";
 export const DEFAULT_THEATRE_TARGET = [0, -200, 0] satisfies [
@@ -30,10 +34,11 @@ export const OPERATING_TABLE_TOP_SIZE_MM = [550, 50, 2100] as const;
 export const OPERATING_TABLE_TOP_POSITION_MM = [0, -85, 0] as const;
 
 export function orbitControlsEnabled(
-  interactionMode: "inspect" | "move-carm",
-  manipulatorActive: boolean,
+  interactionMode: InteractionMode,
+  cArmManipulatorActive: boolean,
+  patientManipulatorActive = false,
 ): boolean {
-  return !manipulatorActive;
+  return !cArmManipulatorActive && !patientManipulatorActive;
 }
 
 function OperatingTable() {
@@ -162,7 +167,9 @@ export function TheatreScene({
   onManipulatorHintChange = ignoreManipulatorHint,
 }: TheatreSceneProps) {
   const interactionMode = useSimulationStore((state) => state.interactionMode);
-  const [manipulatorActive, setManipulatorActive] = useState(false);
+  const [cArmManipulatorActive, setCArmManipulatorActive] = useState(false);
+  const [patientManipulatorActive, setPatientManipulatorActive] =
+    useState(false);
   const anatomyRootRef = useRef<Group>(null);
   const orbitControlsRef = useRef<ComponentRef<typeof OrbitControls>>(null);
 
@@ -184,8 +191,11 @@ export function TheatreScene({
         <HipAnatomyLayer />
       </group>
       <CArmRig
-        onManipulatorDragStateChange={setManipulatorActive}
+        onManipulatorDragStateChange={setCArmManipulatorActive}
         onManipulatorHintChange={onManipulatorHintChange}
+      />
+      <PatientRootManipulator
+        onDragStateChange={setPatientManipulatorActive}
       />
       <AnatomyCameraFit
         anatomyRootRef={anatomyRootRef}
@@ -193,7 +203,11 @@ export function TheatreScene({
         controlsRef={orbitControlsRef}
       />
       <OrbitControls
-        enabled={orbitControlsEnabled(interactionMode, manipulatorActive)}
+        enabled={orbitControlsEnabled(
+          interactionMode,
+          cArmManipulatorActive,
+          patientManipulatorActive,
+        )}
         enableDamping
         maxDistance={3600}
         minDistance={650}

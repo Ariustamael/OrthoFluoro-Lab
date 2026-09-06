@@ -1209,6 +1209,8 @@ describe("six-DoF C-arm manipulator math", () => {
     expect(orbitControlsEnabled("inspect", false)).toBe(true);
     expect(orbitControlsEnabled("move-carm", false)).toBe(true);
     expect(orbitControlsEnabled("move-carm", true)).toBe(false);
+    expect(orbitControlsEnabled("move-patient", false, false)).toBe(true);
+    expect(orbitControlsEnabled("move-patient", false, true)).toBe(false);
   });
 });
 
