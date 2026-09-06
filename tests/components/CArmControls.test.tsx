@@ -302,6 +302,24 @@ describe("simulation store", () => {
     });
   });
 
+  it("uses the complete anatomy length for longitudinal travel", () => {
+    render(<CArmControls />);
+    const slider = screen.getByRole("slider", {
+      name: "Longitudinal translation",
+    });
+    const exact = screen.getByRole("spinbutton", {
+      name: "Longitudinal translation value",
+    });
+
+    expect(slider).toHaveAttribute("min", "-975");
+    expect(slider).toHaveAttribute("max", "975");
+    fireEvent.change(exact, { target: { value: "1200" } });
+    fireEvent.blur(exact);
+
+    expect(exact).toHaveValue(975);
+    expect(useSimulationStore.getState().cArmPose.translationZ).toBe(975);
+  });
+
   it("nudges normally and snaps in the direction of travel", () => {
     useSimulationStore.getState().setCArmParameter("orbitDegrees", 10);
     useSimulationStore.getState().nudgeCArmParameter("orbitDegrees", 1, 5);
@@ -352,6 +370,45 @@ describe("simulation store", () => {
 });
 
 describe("CArmControls", () => {
+  it("centres the C-arm on stable full-body targets", async () => {
+    const user = userEvent.setup();
+    useSimulationStore.setState((state) => ({
+      cArmPose: {
+        ...state.cArmPose,
+        orbitDegrees: 17,
+        cranialCaudalDegrees: -8,
+        swivelDegrees: 6,
+      },
+      hipAnatomyPose: {
+        ...state.hipAnatomyPose,
+        rootPosition: [10, 20, 30],
+        rootRotationDegrees: [0, 0, 90],
+        regionVisibility: {
+          ...state.hipAnatomyPose.regionVisibility,
+          "left-leg": false,
+        },
+      },
+    }));
+    render(<CArmControls />);
+
+    expect(
+      screen.getByRole("button", { name: "Centre C-arm on Head / neck" }),
+    ).toBeVisible();
+    await user.click(
+      screen.getByRole("button", { name: "Centre C-arm on Left knee" }),
+    );
+
+    const centred = useSimulationStore.getState().cArmPose;
+    expect(centred).toMatchObject({
+      orbitDegrees: 17,
+      cranialCaudalDegrees: -8,
+      swivelDegrees: 6,
+    });
+    expect(centred.translationX).toBeCloseTo(10, 8);
+    expect(centred.translationY).toBeCloseTo(104, 8);
+    expect(centred.translationZ).toBeCloseTo(-395, 8);
+  });
+
   it("synchronizes the Orbit slider and exact numeric input", () => {
     render(<CArmControls />);
     const slider = screen.getByRole("slider", { name: "Orbit" });

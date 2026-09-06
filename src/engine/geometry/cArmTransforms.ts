@@ -1,4 +1,5 @@
 import { MathUtils, Matrix4, Quaternion, Vector3 } from "three";
+import { C_ARM_WORKSPACE_BOUNDS } from "../../anatomy/anatomyWorkspace";
 import { deriveCArmRigGeometry } from "./cArmRigGeometry";
 import { C_ARM_RIG_PRESETS } from "./cArmRigPresets";
 import {
@@ -69,9 +70,7 @@ function setupMatrix(
 }
 
 export const C_ARM_POSE_BOUNDS = Object.freeze({
-  translationX: Object.freeze({ min: -500, max: 500 }),
-  translationY: Object.freeze({ min: -500, max: 500 }),
-  translationZ: Object.freeze({ min: -500, max: 500 }),
+  ...C_ARM_WORKSPACE_BOUNDS,
   swivelDegrees: Object.freeze({ min: -45, max: 45 }),
   cranialCaudalDegrees: Object.freeze({ min: -45, max: 45 }),
   orbitDegrees: Object.freeze({ min: -180, max: 180 }),

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type KeyboardEvent } from "react";
+import { C_ARM_ANATOMY_TARGETS } from "../../anatomy/anatomyWorkspace";
 import { C_ARM_RIG_PRESETS } from "../../engine/geometry/cArmRigPresets";
 import { C_ARM_POSE_BOUNDS } from "../../engine/geometry/cArmTransforms";
 import type { CArmPose } from "../../engine/geometry/geometryTypes";
@@ -185,6 +186,9 @@ export function CArmMotionControls() {
   const nudgeCArmParameter = useSimulationStore(
     (state) => state.nudgeCArmParameter,
   );
+  const centreCArmOnAnatomyTarget = useSimulationStore(
+    (state) => state.centreCArmOnAnatomyTarget,
+  );
   const setCArmMode = useSimulationStore((state) => state.setCArmMode);
   const setShowBeam = useSimulationStore((state) => state.setShowBeam);
   const preset = C_ARM_RIG_PRESETS[cArmMode];
@@ -310,6 +314,24 @@ export function CArmMotionControls() {
                 );
               })}
             </div>
+            {legend === "Position" ? (
+              <div
+                aria-label="Centre C-arm on anatomy"
+                className="c-arm-controls__anatomy-targets"
+                role="group"
+              >
+                {C_ARM_ANATOMY_TARGETS.map((target) => (
+                  <button
+                    aria-label={`Centre C-arm on ${target.label}`}
+                    key={target.id}
+                    onClick={() => centreCArmOnAnatomyTarget(target.id)}
+                    type="button"
+                  >
+                    {target.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </fieldset>
         ))}
       </div>

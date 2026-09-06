@@ -62,7 +62,7 @@ describe("six-DoF C-arm pose", () => {
       clampCArmPose({
         translationX: 501,
         translationY: -501,
-        translationZ: 900,
+        translationZ: 1200,
         swivelDegrees: 46,
         cranialCaudalDegrees: -46,
         orbitDegrees: 181,
@@ -70,7 +70,7 @@ describe("six-DoF C-arm pose", () => {
     ).toEqual({
       translationX: 500,
       translationY: -500,
-      translationZ: 500,
+      translationZ: 975,
       swivelDegrees: 45,
       cranialCaudalDegrees: -45,
       orbitDegrees: 180,

@@ -12,6 +12,10 @@ import {
   type AnatomySide,
   type HipAnatomyPose,
 } from "../anatomy/anatomyTypes";
+import {
+  anatomyTargetWorldPoint,
+  type CArmAnatomyTargetId,
+} from "../anatomy/anatomyWorkspace";
 import { clampCArmPose } from "../engine/geometry/cArmTransforms";
 import {
   REFERENCE_C_ARM_PHYSICAL_SETUP,
@@ -53,6 +57,7 @@ export interface SimulationState {
     delta: number,
     snap?: number,
   ) => void;
+  centreCArmOnAnatomyTarget: (targetId: CArmAnatomyTargetId) => void;
   setCArmMode: (mode: CArmKinematicMode) => void;
   setApproachSide: (approachSide: CArmApproachSide) => void;
   setTubeOrientation: (tubeOrientation: CArmTubeOrientation) => void;
@@ -141,6 +146,20 @@ export const useSimulationStore = create<SimulationState>((set) => ({
         cArmPose: clampCArmPose({
           ...state.cArmPose,
           [key]: snapInDirection(state.cArmPose[key], delta, snap),
+        }),
+      };
+    });
+  },
+  centreCArmOnAnatomyTarget: (targetId) => {
+    set((state) => {
+      const [translationX, translationY, translationZ] =
+        anatomyTargetWorldPoint(targetId, state.hipAnatomyPose);
+      return {
+        cArmPose: clampCArmPose({
+          ...state.cArmPose,
+          translationX,
+          translationY,
+          translationZ,
         }),
       };
     });
