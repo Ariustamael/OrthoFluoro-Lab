@@ -1,5 +1,13 @@
 export type AnatomySide = "left" | "right";
 
+export type PatientPositionAxis = "x" | "y" | "z";
+export type PatientRotationAxis = "pitch" | "yaw" | "roll";
+export type PatientPositionPreset =
+  | "supine"
+  | "prone"
+  | "left-lateral"
+  | "right-lateral";
+
 export const ANATOMY_REGIONS = Object.freeze([
   "head-neck",
   "torso",

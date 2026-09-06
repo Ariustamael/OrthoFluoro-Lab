@@ -290,6 +290,67 @@ describe("simulation store", () => {
     expect(state.quality).toBe("high");
   });
 
+  it("updates patient root axes immutably and clamps them", () => {
+    const original = useSimulationStore.getState().hipAnatomyPose;
+
+    useSimulationStore.getState().setPatientRootPosition("z", 1200);
+    useSimulationStore.getState().setPatientRootRotation("roll", 220);
+
+    const positioned = useSimulationStore.getState().hipAnatomyPose;
+    expect(positioned.rootPosition).toEqual([0, 0, 975]);
+    expect(positioned.rootRotationDegrees).toEqual([0, 0, 180]);
+    expect(positioned).not.toBe(original);
+    expect(positioned.rootPosition).not.toBe(original.rootPosition);
+    expect(positioned.rootRotationDegrees).not.toBe(
+      original.rootRotationDegrees,
+    );
+  });
+
+  it("applies patient presets without changing c-arm or anatomy selection", () => {
+    const store = useSimulationStore.getState();
+    store.setCArmParameter("orbitDegrees", 23);
+    store.isolateAnatomyRegion("left-leg");
+    store.setSelectedHipRotation(18);
+
+    store.applyPatientPositionPreset("left-lateral");
+
+    expect(useSimulationStore.getState().hipAnatomyPose).toMatchObject({
+      rootPosition: [0, 0, 0],
+      rootRotationDegrees: [0, 0, 90],
+      leftHipRotationDegrees: 18,
+      regionVisibility: {
+        ...createAnatomyRegionVisibility(false),
+        "left-leg": true,
+      },
+    });
+    expect(useSimulationStore.getState().cArmPose.orbitDegrees).toBe(23);
+  });
+
+  it("resets only patient position while preserving joint and application state", () => {
+    const store = useSimulationStore.getState();
+    store.setCArmParameter("orbitDegrees", 23);
+    store.setAcquisitionMode("shots-only");
+    store.isolateAnatomyRegion("right-leg");
+    store.setSelectedHipRotation(-18);
+    store.setPatientRootTransform([40, 30, -200], [10, 20, 30]);
+
+    store.resetPatientPosition();
+
+    expect(useSimulationStore.getState().hipAnatomyPose).toMatchObject({
+      rootPosition: [0, 0, 0],
+      rootRotationDegrees: [0, 0, 0],
+      rightHipRotationDegrees: -18,
+      regionVisibility: {
+        ...createAnatomyRegionVisibility(false),
+        "right-leg": true,
+      },
+    });
+    expect(useSimulationStore.getState()).toMatchObject({
+      acquisitionMode: "shots-only",
+      cArmPose: { orbitDegrees: 23 },
+    });
+  });
+
   it("clamps every C-arm update through the geometry bounds", () => {
     useSimulationStore.getState().setCArmParameter("orbitDegrees", 220);
     useSimulationStore.getState().setCArmParameter("translationX", -900);

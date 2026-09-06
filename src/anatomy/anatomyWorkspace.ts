@@ -15,6 +15,18 @@ export const C_ARM_WORKSPACE_BOUNDS = Object.freeze({
   translationZ: Object.freeze({ min: -975, max: 975 }),
 });
 
+export const PATIENT_ROOT_POSITION_BOUNDS = Object.freeze({
+  x: Object.freeze({ min: -500, max: 500 }),
+  y: Object.freeze({ min: -250, max: 500 }),
+  z: Object.freeze({ min: -975, max: 975 }),
+});
+
+export const PATIENT_ROOT_ROTATION_BOUNDS = Object.freeze({
+  pitch: Object.freeze({ min: -180, max: 180 }),
+  yaw: Object.freeze({ min: -180, max: 180 }),
+  roll: Object.freeze({ min: -180, max: 180 }),
+});
+
 export const C_ARM_ANATOMY_TARGETS = Object.freeze([
   Object.freeze({
     id: "head-neck",

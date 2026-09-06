@@ -6,7 +6,81 @@ import {
   type AnatomySide,
   type HipAnatomyGroup,
   type HipAnatomyPose,
+  type PatientPositionAxis,
+  type PatientPositionPreset,
+  type PatientRotationAxis,
 } from "./anatomyTypes";
+import {
+  PATIENT_ROOT_POSITION_BOUNDS,
+  PATIENT_ROOT_ROTATION_BOUNDS,
+} from "./anatomyWorkspace";
+
+const POSITION_AXIS_INDEX: Readonly<Record<PatientPositionAxis, number>> =
+  Object.freeze({ x: 0, y: 1, z: 2 });
+const ROTATION_AXIS_INDEX: Readonly<Record<PatientRotationAxis, number>> =
+  Object.freeze({ pitch: 0, yaw: 1, roll: 2 });
+
+const PATIENT_PRESET_ROTATIONS: Readonly<
+  Record<PatientPositionPreset, readonly [number, number, number]>
+> = Object.freeze({
+  supine: Object.freeze([0, 0, 0] as const),
+  prone: Object.freeze([0, 0, 180] as const),
+  "left-lateral": Object.freeze([0, 0, 90] as const),
+  "right-lateral": Object.freeze([0, 0, -90] as const),
+});
+
+function clampFinitePatientValue(
+  value: number,
+  min: number,
+  max: number,
+  label: string,
+): number {
+  if (!Number.isFinite(value)) {
+    throw new RangeError(`${label} must be finite`);
+  }
+  return Math.min(max, Math.max(min, value));
+}
+
+export function clampPatientRootPosition(
+  current: readonly [number, number, number],
+  axis: PatientPositionAxis,
+  value: number,
+): readonly [number, number, number] {
+  const next = [...current] as [number, number, number];
+  const bounds = PATIENT_ROOT_POSITION_BOUNDS[axis];
+  next[POSITION_AXIS_INDEX[axis]] = clampFinitePatientValue(
+    value,
+    bounds.min,
+    bounds.max,
+    `Patient position ${axis}`,
+  );
+  return next;
+}
+
+export function clampPatientRootRotation(
+  current: readonly [number, number, number],
+  axis: PatientRotationAxis,
+  value: number,
+): readonly [number, number, number] {
+  const next = [...current] as [number, number, number];
+  const bounds = PATIENT_ROOT_ROTATION_BOUNDS[axis];
+  next[ROTATION_AXIS_INDEX[axis]] = clampFinitePatientValue(
+    value,
+    bounds.min,
+    bounds.max,
+    `Patient rotation ${axis}`,
+  );
+  return next;
+}
+
+export function patientRootForPreset(
+  preset: PatientPositionPreset,
+): Pick<HipAnatomyPose, "rootPosition" | "rootRotationDegrees"> {
+  return {
+    rootPosition: [0, 0, 0],
+    rootRotationDegrees: [...PATIENT_PRESET_ROTATIONS[preset]],
+  };
+}
 
 export function createAnatomyRegionVisibility(
   value: boolean,

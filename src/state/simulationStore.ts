@@ -1,8 +1,11 @@
 import { create } from "zustand";
 import {
   clampHipRotation,
+  clampPatientRootPosition,
+  clampPatientRootRotation,
   createAnatomyRegionVisibility,
   effectiveSelectedSide,
+  patientRootForPreset,
 } from "../anatomy/anatomyTransforms";
 import {
   REFERENCE_HIP_ANATOMY_POSE,
@@ -11,6 +14,9 @@ import {
   type AnatomyRegion,
   type AnatomySide,
   type HipAnatomyPose,
+  type PatientPositionAxis,
+  type PatientPositionPreset,
+  type PatientRotationAxis,
 } from "../anatomy/anatomyTypes";
 import {
   anatomyTargetWorldPoint,
@@ -71,6 +77,14 @@ export interface SimulationState {
   isolateAnatomyRegion: (region: AnatomyRegion) => void;
   setSelectedAnatomySide: (side: AnatomySide) => void;
   setSelectedHipRotation: (degrees: number) => void;
+  setPatientRootPosition: (axis: PatientPositionAxis, value: number) => void;
+  setPatientRootRotation: (axis: PatientRotationAxis, value: number) => void;
+  setPatientRootTransform: (
+    position: readonly [number, number, number],
+    rotation: readonly [number, number, number],
+  ) => void;
+  applyPatientPositionPreset: (preset: PatientPositionPreset) => void;
+  resetPatientPosition: () => void;
   resetAnatomy: () => void;
   setAnatomyPresentationMode: (mode: AnatomyPresentationMode) => void;
   setAcquisitionMode: (mode: AcquisitionMode) => void;
@@ -260,6 +274,76 @@ export const useSimulationStore = create<SimulationState>((set) => ({
         },
       };
     });
+  },
+  setPatientRootPosition: (axis, value) => {
+    set((state) => ({
+      hipAnatomyPose: {
+        ...state.hipAnatomyPose,
+        rootPosition: clampPatientRootPosition(
+          state.hipAnatomyPose.rootPosition,
+          axis,
+          value,
+        ),
+      },
+    }));
+  },
+  setPatientRootRotation: (axis, value) => {
+    set((state) => ({
+      hipAnatomyPose: {
+        ...state.hipAnatomyPose,
+        rootRotationDegrees: clampPatientRootRotation(
+          state.hipAnatomyPose.rootRotationDegrees,
+          axis,
+          value,
+        ),
+      },
+    }));
+  },
+  setPatientRootTransform: (position, rotation) => {
+    set((state) => {
+      let rootPosition = state.hipAnatomyPose.rootPosition;
+      let rootRotationDegrees = state.hipAnatomyPose.rootRotationDegrees;
+      (["x", "y", "z"] as const).forEach((axis, index) => {
+        rootPosition = clampPatientRootPosition(
+          rootPosition,
+          axis,
+          position[index],
+        );
+      });
+      (["pitch", "yaw", "roll"] as const).forEach((axis, index) => {
+        rootRotationDegrees = clampPatientRootRotation(
+          rootRotationDegrees,
+          axis,
+          rotation[index],
+        );
+      });
+      return {
+        hipAnatomyPose: {
+          ...state.hipAnatomyPose,
+          rootPosition,
+          rootRotationDegrees,
+        },
+      };
+    });
+  },
+  applyPatientPositionPreset: (preset) => {
+    set((state) => ({
+      hipAnatomyPose: {
+        ...state.hipAnatomyPose,
+        ...patientRootForPreset(preset),
+      },
+    }));
+  },
+  resetPatientPosition: () => {
+    set((state) => ({
+      hipAnatomyPose: {
+        ...state.hipAnatomyPose,
+        rootPosition: [...REFERENCE_HIP_ANATOMY_POSE.rootPosition],
+        rootRotationDegrees: [
+          ...REFERENCE_HIP_ANATOMY_POSE.rootRotationDegrees,
+        ],
+      },
+    }));
   },
   resetAnatomy: () => {
     set({
